@@ -5,7 +5,7 @@ export default function Home() {
 
   return (
     <main>
-      <h1>hello ani</h1>
+      <h1>we are charlie kirk</h1>
     </main>
   );
 }
