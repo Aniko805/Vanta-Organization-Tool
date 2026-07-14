@@ -5,7 +5,7 @@ export default function Home() {
 
   return (
     <main>
-      <h1>we are charlie kirk</h1>
+      <h1>welcome to vanta nga</h1>
     </main>
   );
 }
