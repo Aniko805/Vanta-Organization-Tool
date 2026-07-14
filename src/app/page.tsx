@@ -5,7 +5,7 @@ export default function Home() {
 
   return (
     <main>
-      <h1>welcome to vanta nga</h1>
+      <h1>Aniruddh</h1>
     </main>
   );
 }
