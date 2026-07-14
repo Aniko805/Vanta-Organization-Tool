@@ -1,9 +1,11 @@
+import { supabase } from "@/lib/supabase";
+
 export default function Home() {
+  console.log(supabase);
+
   return (
-    <main className="flex min-h-screen items-center justify-center">
-      <h1 className="text-5xl font-bold">
-        Welcome to Vanta
-      </h1>
+    <main>
+      <h1>hello ani</h1>
     </main>
   );
 }
