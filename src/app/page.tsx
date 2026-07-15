@@ -28,8 +28,22 @@ export default function Home() {
           <span className="text-lg font-semibold tracking-tight uppercase">Vanta</span>
         </div>
         <div className="flex items-center space-x-6 text-sm text-zinc-400">
-          <a href="#docs" className="hover:text-white transition-colors">Documentation</a>
-          <a href="#github" className="hover:text-white transition-colors">Repository</a>
+          <a 
+            href="https://github.com/Aniko805/Vanta-Organization-Tool/blob/main/README.md" 
+            target="_blank" 
+            rel="noopener noreferrer" 
+            className="hover:text-white transition-colors"
+          >
+            Documentation
+          </a>
+          <a 
+            href="https://github.com/Aniko805/Vanta-Organization-Tool" 
+            target="_blank" 
+            rel="noopener noreferrer" 
+            className="hover:text-white transition-colors"
+          >
+            Repository
+          </a>
           <a href="#origin" className="hover:text-white transition-colors">Origin</a>
           <span className="h-4 w-px bg-zinc-800" />
           <div className="flex items-center space-x-2">
@@ -62,12 +76,20 @@ export default function Home() {
 
         {/* Interactive CTA Buttons */}
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4 w-full max-w-xs sm:max-w-none">
+          {/* Sign In Button */}
           <button className="w-full sm:w-auto px-8 py-3 bg-white text-black font-medium text-sm rounded-md hover:bg-zinc-200 transition-all duration-200 shadow-lg shadow-white/5 active:scale-95">
             Sign In
           </button>
-          <button className="w-full sm:w-auto px-8 py-3 bg-zinc-950 border border-zinc-800 text-zinc-300 font-medium text-sm rounded-md hover:bg-zinc-900 hover:border-zinc-700 transition-all duration-200 active:scale-95">
-            Visit Our Github
-          </button>
+          
+          {/* Functional GitHub Link Button */}
+          <a 
+            href="https://github.com/Aniko805/Vanta-Organization-Tool" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="w-full sm:w-auto px-8 py-3 bg-zinc-950 border border-zinc-800 text-zinc-300 font-medium text-sm rounded-md hover:bg-zinc-900 hover:border-zinc-700 transition-all duration-200 active:scale-95 inline-flex items-center justify-center"
+          >
+            Visit Our GitHub
+          </a>
         </div>
       </main>
 
