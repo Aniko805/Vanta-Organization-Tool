@@ -84,6 +84,15 @@ export default function Home() {
           >
             Sign In
           </Link>
+
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 w-full max-w-xs sm:max-w-none">
+          {/* Dashboard mock button */}
+          <Link 
+            href="/dashboard"
+            className="w-full sm:w-auto px-8 py-3 bg-white text-black font-medium text-sm rounded-md hover:bg-zinc-200 transition-all duration-200 shadow-lg shadow-white/5 active:scale-95 text-center flex items-center justify-center"
+          >
+            Dashboard
+          </Link>
           
           {/* Functional GitHub Link Button */}
           <a 
