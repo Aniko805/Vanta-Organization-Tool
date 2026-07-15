@@ -75,7 +75,7 @@ export default function Home() {
           Welcome to <span className="text-zinc-200 font-medium">Vanta</span>. A clean, Open Source, hyper-responsive environment engineered to track missions, tech stacks, and shared progress.
         </p>
 
-        {/* Interactive CTA Buttons */}
+        {/* Interactive CTA Buttons (Unified into single container) */}
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4 w-full max-w-xs sm:max-w-none">
           {/* Sign In Button Linked to /login */}
           <Link 
@@ -85,11 +85,10 @@ export default function Home() {
             Sign In
           </Link>
 
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 w-full max-w-xs sm:max-w-none">
-          {/* Dashboard mock button */}
+          {/* Dashboard Mock Button */}
           <Link 
             href="/dashboard"
-            className="w-full sm:w-auto px-8 py-3 bg-white text-black font-medium text-sm rounded-md hover:bg-zinc-200 transition-all duration-200 shadow-lg shadow-white/5 active:scale-95 text-center flex items-center justify-center"
+            className="w-full sm:w-auto px-8 py-3 bg-zinc-900 border border-zinc-800 text-white font-medium text-sm rounded-md hover:bg-zinc-800 transition-all duration-200 active:scale-95 text-center flex items-center justify-center"
           >
             Dashboard
           </Link>
