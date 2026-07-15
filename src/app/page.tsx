@@ -47,7 +47,7 @@ export default function Home() {
         {/* Dynamic Badge */}
         <div className="inline-flex items-center space-x-2 bg-zinc-900/80 border border-zinc-800 px-3 py-1 rounded-full text-xs text-zinc-400 mb-6 hover:border-zinc-700 transition-all duration-300">
           <span className="w-1.5 h-1.5 bg-purple-500 rounded-full" />
-          <span>Vanta System Active</span>
+          <span>Vanta</span>
         </div>
 
         {/* Headings */}
@@ -56,16 +56,16 @@ export default function Home() {
         </h1>
         
         <p className="text-zinc-500 text-lg md:text-xl max-w-xl mb-10 tracking-tight font-light">
-          Welcome to <span className="text-zinc-200 font-medium">Vanta</span>. A clean, hyper-responsive environment engineered to track missions, tech stacks, and shared progress.
+          Welcome to <span className="text-zinc-200 font-medium">Vanta</span>. A clean, Open Source, hyper-responsive environment engineered to track missions, tech stacks, and shared progress.
         </p>
 
         {/* Interactive CTA Buttons */}
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4 w-full max-w-xs sm:max-w-none">
           <button className="w-full sm:w-auto px-8 py-3 bg-white text-black font-medium text-sm rounded-md hover:bg-zinc-200 transition-all duration-200 shadow-lg shadow-white/5 active:scale-95">
-            Launch Platform
+            Sign In
           </button>
           <button className="w-full sm:w-auto px-8 py-3 bg-zinc-950 border border-zinc-800 text-zinc-300 font-medium text-sm rounded-md hover:bg-zinc-900 hover:border-zinc-700 transition-all duration-200 active:scale-95">
-            View Live Spec
+            Visit Our Github
           </button>
         </div>
       </main>
