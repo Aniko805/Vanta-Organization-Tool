@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link"; // Imported for routing
 import { supabase } from "@/lib/supabase";
 
 export default function Home() {
@@ -76,10 +77,13 @@ export default function Home() {
 
         {/* Interactive CTA Buttons */}
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4 w-full max-w-xs sm:max-w-none">
-          {/* Sign In Button */}
-          <button className="w-full sm:w-auto px-8 py-3 bg-white text-black font-medium text-sm rounded-md hover:bg-zinc-200 transition-all duration-200 shadow-lg shadow-white/5 active:scale-95">
+          {/* Sign In Button Linked to /login */}
+          <Link 
+            href="/login"
+            className="w-full sm:w-auto px-8 py-3 bg-white text-black font-medium text-sm rounded-md hover:bg-zinc-200 transition-all duration-200 shadow-lg shadow-white/5 active:scale-95 text-center flex items-center justify-center"
+          >
             Sign In
-          </button>
+          </Link>
           
           {/* Functional GitHub Link Button */}
           <a 
