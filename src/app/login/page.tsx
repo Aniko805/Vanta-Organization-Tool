@@ -10,10 +10,20 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<"signin" | "signup">("signin");
+  const [error, setError] = useState("");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    
+    //make a sign in error condition if user enters "error@gmail.com" as email to simulate a failed login
+    if (email.toLowerCase() === "error@gmail.com") {
+      setTimeout(() => {
+        setLoading(false);
+        setError("Invalid email or password");
+      }, 1200);
+      return;
+    }
 
     // Mocking an ultra-fast Supabase response
     setTimeout(() => {
@@ -42,7 +52,7 @@ export default function LoginPage() {
             <span className="text-sm font-semibold tracking-widest uppercase text-zinc-400 group-hover:text-white transition-colors">Vanta</span>
           </Link>
           <h2 className="text-2xl font-bold tracking-tight mt-4 bg-gradient-to-b from-white to-zinc-400 bg-clip-text text-transparent">
-            {activeTab === "signin" ? "Welcome back" : "Create your key"}
+            {activeTab === "signin" ? "Welcome back" : "Start your journey"}
           </h2>
         </div>
 
@@ -107,6 +117,12 @@ export default function LoginPage() {
         {/* Minimal Footer */}
         <p className="text-center text-[10px] text-zinc-600 font-mono mt-8">
           Secured by Supabase Cryptography Systems
+          {error ? (
+            <>
+              <span className="block text-rose-500 mt-2">{error}</span>
+              <span className="block text-zinc-500 mt-1">Login error: incorrect email or password</span>
+            </>
+          ) : null}
         </p>
       </div>
     </div>
