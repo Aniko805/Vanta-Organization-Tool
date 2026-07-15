@@ -28,8 +28,9 @@ export default function Home() {
           <span className="text-lg font-semibold tracking-tight uppercase">Vanta</span>
         </div>
         <div className="flex items-center space-x-6 text-sm text-zinc-400">
-          <a href="#docs" className="hover:text-white transition-colors">Docs</a>
+          <a href="#docs" className="hover:text-white transition-colors">Documentation</a>
           <a href="#github" className="hover:text-white transition-colors">Repository</a>
+          <a href="#origin" className="hover:text-white transition-colors">Origin</a>
           <span className="h-4 w-px bg-zinc-800" />
           <div className="flex items-center space-x-2">
             <span className={`w-2 h-2 rounded-full ${dbConnected ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`} />
