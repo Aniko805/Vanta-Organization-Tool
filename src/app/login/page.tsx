@@ -17,6 +17,8 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
+
     setLoading(true);
     setError(null);
 
@@ -26,12 +28,22 @@ export default function LoginPage() {
           ? await supabase.auth.signInWithPassword({ email, password })
           : await supabase.auth.signUp({ email, password });
 
+      console.log("RESULT:", result);
       if (result.error) {
-        setError(result.error.message);
+        const message = result.error.message.toLowerCase().includes("rate limit")
+          ? "Too many signup attempts. Please wait a minute and try again."
+          : result.error.message;
+
+        setError(message);
         return;
       }
 
       if (result.data.user) {
+        if (activeTab === "signup") {
+          setError("Account created! Please check your email to verify your account.");
+          return;
+        }
+
         router.push("/dashboard");
       }
     } catch (err) {
