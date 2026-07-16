@@ -13,6 +13,8 @@ export default function LoginPage() {
   const [activeTab, setActiveTab] = useState<"signin" | "signup">("signin");
   const [error, setError] = useState<string | null>(null);
 
+  console.log(process.env.NEXT_PUBLIC_SUPABASE_URL);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
