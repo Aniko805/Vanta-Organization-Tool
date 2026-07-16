@@ -1,5 +1,6 @@
 "use client";
 
+import { supabase } from "@/lib/supabase";
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -10,32 +11,36 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<"signin" | "signup">("signin");
-  const [error, setError] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    
-    //make a sign in error condition if user enters "error@gmail.com" as email to simulate a failed login
-    if (email.toLowerCase() === "error@gmail.com") {
-      setTimeout(() => {
-        setLoading(false);
-        setError("Invalid email or password");
-      }, 1200);
-      return;
-    }
+    setError(null);
 
-    // Mocking an ultra-fast Supabase response
-    setTimeout(() => {
+    try {
+      const result =
+        activeTab === "signin"
+          ? await supabase.auth.signInWithPassword({ email, password })
+          : await supabase.auth.signUp({ email, password });
+
+      if (result.error) {
+        setError(result.error.message);
+        return;
+      }
+
+      if (result.data.user) {
+        router.push("/dashboard");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong");
+    } finally {
       setLoading(false);
-      // Automatically navigate to the dashboard upon "successful" login
-      router.push("/dashboard");
-    }, 1200);
+    }
   };
 
   return (
     <div className="relative min-h-screen bg-black text-white font-sans overflow-hidden flex items-center justify-center px-4 select-none">
-      
       {/* Background Architectural Grid Lines */}
       <div className="absolute inset-0 bg-[linear-gradient(to_right,#1f1f2e_1px,transparent_1px),linear-gradient(to_bottom,#1f1f2e_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_50%,#000_70%,transparent_100%)] opacity-20 pointer-events-none" />
 
@@ -44,7 +49,6 @@ export default function LoginPage() {
 
       {/* Glass Card Wrapper */}
       <div className="relative z-10 w-full max-w-md bg-zinc-950/40 border border-zinc-800/80 rounded-2xl p-8 backdrop-blur-xl shadow-2xl">
-        
         {/* Brand Header */}
         <div className="flex flex-col items-center mb-8">
           <Link href="/" className="flex items-center space-x-2 group">
@@ -120,7 +124,6 @@ export default function LoginPage() {
           {error ? (
             <>
               <span className="block text-rose-500 mt-2">{error}</span>
-              <span className="block text-zinc-500 mt-1">Login error: incorrect email or password</span>
             </>
           ) : null}
         </p>

@@ -1,0 +1,29 @@
+
+> vanta-organization-tool@0.1.0 build
+> next build
+
+▲ Next.js 16.2.10 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 9.3s
+  Running TypeScript ...
+  Finished TypeScript in 8.3s ...
+  Collecting page data using 7 workers ...
+  Generating static pages using 7 workers (0/6) ...
+Error occurred prerendering page "/". Read more: https://nextjs.org/docs/messages/prerender-error
+Error: Invalid supabaseUrl: Must be a valid HTTP or HTTPS URL.
+    at <unknown> (C:\Users\douwe\Documents\GitHub\vanta-organization-tool\.next\server\chunks\ssr\src_lib_supabase_ts_07f43g9._.js:24:50964)
+    at new cQ (C:\Users\douwe\Documents\GitHub\vanta-organization-tool\.next\server\chunks\ssr\src_lib_supabase_ts_07f43g9._.js:24:51146)
+    at module evaluation (C:\Users\douwe\Documents\GitHub\vanta-organization-tool\.next\server\chunks\ssr\src_lib_supabase_ts_07f43g9._.js:24:56456)
+    at instantiateModule (C:\Users\douwe\Documents\GitHub\vanta-organization-tool\.next\server\chunks\ssr\[turbopack]_runtime.js:853:9)
+    at getOrInstantiateModuleFromParent (C:\Users\douwe\Documents\GitHub\vanta-organization-tool\.next\server\chunks\ssr\[turbopack]_runtime.js:877:12)
+    at Context.esmImport [as i] (C:\Users\douwe\Documents\GitHub\vanta-organization-tool\.next\server\chunks\ssr\[turbopack]_runtime.js:281:20)
+    at module evaluation (C:\Users\douwe\Documents\GitHub\vanta-organization-tool\.next\server\chunks\ssr\src_app_page_tsx_1chiuah._.js:1:87)
+    at instantiateModule (C:\Users\douwe\Documents\GitHub\vanta-organization-tool\.next\server\chunks\ssr\[turbopack]_runtime.js:853:9)
+    at getOrInstantiateModuleFromParent (C:\Users\douwe\Documents\GitHub\vanta-organization-tool\.next\server\chunks\ssr\[turbopack]_runtime.js:877:12)
+    at Context.commonJsRequire [as r] (C:\Users\douwe\Documents\GitHub\vanta-organization-tool\.next\server\chunks\ssr\[turbopack]_runtime.js:302:12) {
+  digest: '3709755335'
+}
+Export encountered an error on /page: /, exiting the build.
+⨯ Next.js build worker exited with code: 1 and signal: null
