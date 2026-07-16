@@ -28,6 +28,7 @@ export default function LoginPage() {
           ? await supabase.auth.signInWithPassword({ email, password })
           : await supabase.auth.signUp({ email, password });
 
+      console.log("RESULT:", result);
       if (result.error) {
         const message = result.error.message.toLowerCase().includes("rate limit")
           ? "Too many signup attempts. Please wait a minute and try again."
@@ -38,6 +39,11 @@ export default function LoginPage() {
       }
 
       if (result.data.user) {
+        if (activeTab === "signup") {
+          setError("Account created! Please check your email to verify your account.");
+          return;
+        }
+
         router.push("/dashboard");
       }
     } catch (err) {
