@@ -28,19 +28,19 @@ export default function LoginPage() {
         activeTab === "signin"
           ? await supabase.auth.signInWithPassword({ email, password })
           : await supabase.auth.signUp({ email, password });
-      if (activeTab === "signup") {
-        if (!result.data.user) {
-          throw new Error("Failed to create user.");
-        }
-        const { error: profileError } = await supabase
-          .from("profiles")
-          .insert({id: result.data.user.id,});
+      // if (activeTab === "signup") {
+      //   if (!result.data.user) {
+      //     throw new Error("Failed to create user.");
+      //   }
+      //   const { error: profileError } = await supabase
+      //     .from("profiles")
+      //     .insert({id: result.data.user.id,});
 
-        if (profileError) {
-          setError(profileError.message);
-          return;
-        }
-      }
+      //   if (profileError) {
+      //     setError(profileError.message);
+      //     return;
+      //   }
+      // }
       console.log("RESULT:", result);
       if (result.error) {
         const message = result.error.message.toLowerCase().includes("rate limit")
