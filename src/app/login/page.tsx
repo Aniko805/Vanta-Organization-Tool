@@ -51,16 +51,17 @@ export default function LoginPage() {
         return;
       }
 
+      // For signups, route to next-steps-after-signup so users see verification/next steps
+      if (activeTab === "signup") {
+        router.push("/next-steps-after-signup");
+        return;
+      }
+
       if (result.data.user) {
         // Check if user has completed their profile
         const profileCompleted = await hasCompletedProfile(result.data.user.id);
 
         if (profileCompleted) {
-          if (activeTab === "signup") {
-            setError("Account created! Please check your email to verify your account.");
-            return;
-          }
-
           router.push("/dashboard");
         } else {
           router.push("/setup-profile");
