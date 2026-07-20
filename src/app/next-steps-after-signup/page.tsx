@@ -1,24 +1,44 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
 export default function NextStepsAfterSignup() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [resendLoading, setResendLoading] = useState(false);
   const [resendMessage, setResendMessage] = useState<string | null>(null);
 
   useEffect(() => {
+    let isMounted = true;
+
     const fetchUser = async () => {
       try {
-        const { data } = await supabase.auth.getUser();
-        if (data?.user?.email) setEmail(data.user.email);
+        const {
+          data: { user },
+          error,
+        } = await supabase.auth.getUser();
+
+        if (!isMounted) return;
+
+        if (error || !user) {
+          router.replace("/login");
+          return;
+        }
+
+        if (user.email) setEmail(user.email);
       } catch {
         // ignore
       }
     };
+
     fetchUser();
-  }, []);
+
+    return () => {
+      isMounted = false;
+    };
+  }, [router]);
 
   const handleReturnToLogin = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
