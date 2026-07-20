@@ -1,15 +1,47 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { getUserDisplayName } from "@/lib/auth";
+import { supabase } from "@/lib/supabase";
 
 export default function DashboardPage() {
+  const router = useRouter();
   const [isSyncing, setIsSyncing] = useState(false);
+  const [displayName, setDisplayName] = useState("User");
   const [logs, setLogs] = useState<string[]>([
     "System standby.",
     "Connected to Supabase Cloud Engine.",
     "Session authenticated successfully."
   ]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadUser = async () => {
+      const {
+        data: { user },
+        error,
+      } = await supabase.auth.getUser();
+
+      if (!isMounted) return;
+
+      if (error || !user) {
+        router.replace("/login");
+        return;
+      }
+
+      const name = await getUserDisplayName(user);
+      setDisplayName(name);
+    };
+
+    loadUser();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [router]);
 
   const triggerSync = () => {
     setIsSyncing(true);
@@ -57,7 +89,7 @@ export default function DashboardPage() {
           <div className="flex items-center space-x-3">
             <div className="w-8 h-8 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-xs font-mono font-bold">V</div>
             <div>
-              <p className="text-xs font-semibold text-zinc-300">Vanta User</p>
+              <p className="text-xs font-semibold text-zinc-300">{displayName}</p>
               <p className="text-[10px] font-mono text-zinc-600">Active Session</p>
             </div>
           </div>

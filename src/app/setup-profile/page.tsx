@@ -23,7 +23,7 @@ export default function SetupProfilePage() {
       } = await supabase.auth.getUser();
 
       if (error || !user) {
-        router.push("/login");
+        router.replace("/login");
         return;
       }
 
