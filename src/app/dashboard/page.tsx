@@ -65,9 +65,13 @@ export default function DashboardPage() {
       <aside className="w-64 border-r border-zinc-900 bg-zinc-950/20 backdrop-blur-md flex flex-col justify-between p-6">
         <div>
           {/* Logo */}
-          <div className="flex items-center space-x-3 mb-10">
-            <div className="w-5 h-5 bg-white rotate-45 transform origin-center" />
+          <div className="mb-10">
             <span className="text-sm font-semibold tracking-widest uppercase">Vanta</span>
+            <img
+              src="/logo_transparent.png"
+              alt="Vanta logo"
+              className="mt-3 h-12 w-auto object-contain"
+            />
           </div>
 
           {/* Navigation Links */}
