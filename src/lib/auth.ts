@@ -1,5 +1,13 @@
 import { supabase } from "./supabase";
 
+export type UserProfileUpdates = {
+  first_name?: string;
+  last_name?: string;
+  username?: string;
+  avatar_url?: string | null;
+  bio?: string | null;
+};
+
 export async function getUserProfile(userId: string) {
   const { data, error } = await supabase
     .from("profiles")
@@ -16,7 +24,7 @@ export async function getUserProfile(userId: string) {
 
 export async function updateUserProfile(
   userId: string,
-  updates: { first_name?: string; last_name?: string }
+  updates: UserProfileUpdates
 ) {
   const { data, error } = await supabase
     .from("profiles")
@@ -26,6 +34,10 @@ export async function updateUserProfile(
     .single();
 
   if (error) {
+    if (error.code === "23505") {
+      throw new Error("That username is already in use.");
+    }
+
     throw new Error(`Failed to update profile: ${error.message}`);
   }
 
@@ -34,7 +46,7 @@ export async function updateUserProfile(
 
 export async function hasCompletedProfile(userId: string) {
   const profile = await getUserProfile(userId);
-  return profile && profile.first_name && profile.last_name;
+  return Boolean(profile?.username?.trim());
 }
 
 export async function getUserDisplayName(user: { id: string; email?: string | null } | null | undefined) {
@@ -45,6 +57,7 @@ export async function getUserDisplayName(user: { id: string; email?: string | nu
   const profile = await getUserProfile(user.id);
   const firstName = profile?.first_name?.trim();
   const lastName = profile?.last_name?.trim();
+  const username = profile?.username?.trim();
 
   if (firstName && lastName) {
     return `${firstName} ${lastName}`;
@@ -56,6 +69,10 @@ export async function getUserDisplayName(user: { id: string; email?: string | nu
 
   if (lastName) {
     return lastName;
+  }
+
+  if (username) {
+    return username;
   }
 
   return user.email?.split("@")[0] ?? "User";

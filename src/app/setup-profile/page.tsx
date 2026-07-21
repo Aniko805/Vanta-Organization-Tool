@@ -8,8 +8,7 @@ import Link from "next/link";
 
 export default function SetupProfilePage() {
   const router = useRouter();
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
+  const [username, setUsername] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
@@ -35,9 +34,11 @@ export default function SetupProfilePage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!firstName.trim() || !lastName.trim()) {
-      setError("Please enter both first and last name");
+
+    const normalizedUsername = username.trim();
+
+    if (!normalizedUsername) {
+      setError("Please enter a username");
       return;
     }
 
@@ -51,8 +52,7 @@ export default function SetupProfilePage() {
 
     try {
       await updateUserProfile(userId, {
-        first_name: firstName,
-        last_name: lastName,
+        username: normalizedUsername,
       });
 
       router.push("/dashboard");
@@ -82,35 +82,21 @@ export default function SetupProfilePage() {
           <h2 className="text-2xl font-bold tracking-tight mt-4 bg-gradient-to-b from-white to-zinc-400 bg-clip-text text-transparent">
             Complete your profile
           </h2>
-          <p className="text-xs text-zinc-400 mt-2">Set your name to get started</p>
+          <p className="text-xs text-zinc-400 mt-2">Choose a unique username to get started</p>
         </div>
 
         {/* Input Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-[10px] font-mono text-zinc-500 uppercase tracking-widest mb-1.5">
-              First Name
+              Username
             </label>
             <input
               type="text"
               required
-              value={firstName}
-              onChange={(e) => setFirstName(e.target.value)}
-              placeholder="John"
-              className="w-full bg-zinc-900/50 border border-zinc-800 rounded-md px-4 py-2.5 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-zinc-600 transition-colors"
-            />
-          </div>
-
-          <div>
-            <label className="block text-[10px] font-mono text-zinc-500 uppercase tracking-widest mb-1.5">
-              Last Name
-            </label>
-            <input
-              type="text"
-              required
-              value={lastName}
-              onChange={(e) => setLastName(e.target.value)}
-              placeholder="Doe"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="stevenzhang"
               className="w-full bg-zinc-900/50 border border-zinc-800 rounded-md px-4 py-2.5 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-zinc-600 transition-colors"
             />
           </div>

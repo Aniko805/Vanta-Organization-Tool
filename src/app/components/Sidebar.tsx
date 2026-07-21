@@ -3,13 +3,14 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { getUserDisplayName } from "@/lib/auth";
+import { getUserDisplayName, getUserProfile } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
 
 export default function Sidebar() {
   const router = useRouter();
   const pathname = usePathname();
   const [displayName, setDisplayName] = useState("User");
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -27,8 +28,15 @@ export default function Sidebar() {
         return;
       }
 
-      const name = await getUserDisplayName(user);
+      const [name, profile] = await Promise.all([
+        getUserDisplayName(user),
+        getUserProfile(user.id),
+      ]);
+
+      if (!isMounted) return;
+
       setDisplayName(name);
+      setAvatarUrl(profile?.avatar_url?.trim() || null);
     };
 
     loadUser();
@@ -82,7 +90,17 @@ export default function Sidebar() {
       {/* User Card at Bottom */}
       <div className="border-t border-zinc-900 pt-4 flex items-center justify-between">
         <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-xs font-mono font-bold">V</div>
+          {avatarUrl ? (
+            <img
+              src={avatarUrl}
+              alt={`${displayName} avatar`}
+              className="h-8 w-8 rounded-full border border-zinc-700 object-cover"
+            />
+          ) : (
+            <div className="w-8 h-8 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-xs font-mono font-bold">
+              {displayName.charAt(0).toUpperCase() || "V"}
+            </div>
+          )}
           <div>
             <p className="text-xs font-semibold text-zinc-300">{displayName}</p>
             <p className="text-[10px] font-mono text-zinc-600">Active Session</p>
