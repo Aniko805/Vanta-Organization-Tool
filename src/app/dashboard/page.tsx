@@ -1,57 +1,24 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { getUserDisplayName } from "@/lib/auth";
-import { supabase } from "@/lib/supabase";
+import { useState } from "react";
+import Sidebar from "@/app/components/Sidebar";
 
 export default function DashboardPage() {
-  const router = useRouter();
   const [isSyncing, setIsSyncing] = useState(false);
-  const [displayName, setDisplayName] = useState("User");
   const [logs, setLogs] = useState<string[]>([
     "System standby.",
     "Connected to Supabase Cloud Engine.",
     "Session authenticated successfully."
   ]);
 
-  useEffect(() => {
-    let isMounted = true;
-
-    const loadUser = async () => {
-      const {
-        data: { user },
-        error,
-      } = await supabase.auth.getUser();
-
-      if (!isMounted) return;
-
-      if (error || !user) {
-        router.replace("/login");
-        return;
-      }
-
-      const name = await getUserDisplayName(user);
-      setDisplayName(name);
-    };
-
-    loadUser();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [router]);
-
   const triggerSync = () => {
     setIsSyncing(true);
     setLogs((prev) => [...prev, "Initiating database handshake..."]);
-
     setTimeout(() => {
       setLogs((prev) => [
         ...prev,
         "Fetch verified (200 OK)",
-        "Local schema in sync with 'main' branch.",
+        "Local schema in sync with main branch.",
         "System up to date."
       ]);
       setIsSyncing(false);
@@ -60,71 +27,18 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-black text-white font-sans overflow-x-hidden flex select-none">
-      
-      {/* Fixed Minimal Sidebar */}
-      <aside className="w-64 border-r border-zinc-900 bg-zinc-950/20 backdrop-blur-md flex flex-col justify-between p-6">
-        <div>
-          {/* Logo */}
-          <div className="mb-10">
-            <span className="text-sm font-semibold tracking-widest uppercase">Vanta</span>
-            <img
-              src="/logo_transparent.png"
-              alt="Vanta logo"
-              className="mt-3 h-12 w-auto object-contain"
-            />
-          </div>
-
-          {/* Navigation Links */}
-          <nav className="space-y-1">
-            <a href="#overview" className="flex items-center space-x-3 px-3 py-2 rounded-md bg-zinc-900/60 text-white text-xs font-mono">
-              <span>Overview</span>
-            </a>
-            <a href="#missions" className="flex items-center space-x-3 px-3 py-2 rounded-md text-zinc-500 hover:text-zinc-300 text-xs font-mono transition-colors">
-              <span>Missions</span>
-            </a>
-            <a href="#settings" className="flex items-center space-x-3 px-3 py-2 rounded-md text-zinc-500 hover:text-zinc-300 text-xs font-mono transition-colors">
-              <span>Settings</span>
-            </a>
-          </nav>
-        </div>
-
-        {/* User Card at Bottom */}
-        <div className="border-t border-zinc-900 pt-4 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-xs font-mono font-bold">V</div>
-            <div>
-              <p className="text-xs font-semibold text-zinc-300">{displayName}</p>
-              <p className="text-[10px] font-mono text-zinc-600">Active Session</p>
-            </div>
-          </div>
-          <Link href="/" className="text-zinc-600 hover:text-white transition-colors text-xs font-mono">Exit</Link>
-        </div>
-      </aside>
-
-      {/* Main Panel Viewport */}
+      <Sidebar />
       <main className="flex-1 p-10 max-w-7xl mx-auto space-y-8">
-        
-        {/* Header Block */}
         <header className="flex justify-between items-end border-b border-zinc-900 pb-6">
           <div>
             <p className="text-xs font-mono text-zinc-500 uppercase tracking-widest mb-1">Workspace</p>
             <h1 className="text-3xl font-extrabold tracking-tight">System Control</h1>
           </div>
-          
-          {/* Synchronize Button */}
-          <button 
-            onClick={triggerSync}
-            disabled={isSyncing}
-            className="px-4 py-2 bg-white text-black text-xs font-semibold rounded hover:bg-zinc-200 transition-colors active:scale-95 disabled:opacity-50"
-          >
+          <button onClick={triggerSync} disabled={isSyncing} className="px-4 py-2 bg-white text-black text-xs font-semibold rounded hover:bg-zinc-200 transition-colors active:scale-95 disabled:opacity-50">
             {isSyncing ? "Syncing Workspace..." : "Sync Database"}
           </button>
         </header>
-
-        {/* Grid Layout Section */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          
-          {/* Card 1: Console / Terminal log simulator */}
           <div className="lg:col-span-2 p-6 bg-zinc-950 border border-zinc-900 rounded-xl flex flex-col justify-between">
             <div>
               <div className="flex items-center justify-between mb-4">
@@ -141,8 +55,6 @@ export default function DashboardPage() {
             </div>
             <p className="text-[10px] font-mono text-zinc-600 mt-4">Press Sync Database to run diagnostics.</p>
           </div>
-
-          {/* Card 2: Mission Spec Box */}
           <div className="p-6 bg-zinc-950 border border-zinc-900 rounded-xl flex flex-col justify-between">
             <div>
               <h3 className="text-xs font-mono font-semibold text-zinc-300 uppercase tracking-wider mb-4">Active Mission</h3>
@@ -158,10 +70,7 @@ export default function DashboardPage() {
             </div>
             <p className="text-[10px] font-mono text-zinc-600">Assigned: Team Vanta</p>
           </div>
-
         </div>
-
-        {/* Bottom Bento Box metrics */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="p-5 bg-zinc-950 border border-zinc-900 rounded-xl">
             <p className="text-[10px] font-mono text-zinc-500 uppercase tracking-widest mb-1">Database Queries</p>
@@ -176,7 +85,6 @@ export default function DashboardPage() {
             <p className="text-2xl font-bold font-mono text-purple-400">98.4%</p>
           </div>
         </div>
-
       </main>
     </div>
   );
