@@ -50,6 +50,8 @@ export default function Sidebar() {
     { label: "Overview", href: "/dashboard" },
     { label: "Personal Tasks", href: "/personal-tasks" },
     { label: "Team", href: "/team" },
+    { label: "Team Tasks", href: "/team-tasks" },
+    { label: "Parts", href: "/parts" },
     { label: "Settings", href: "/settings" },
   ];
 
@@ -106,7 +108,21 @@ export default function Sidebar() {
             <p className="text-[10px] font-mono text-zinc-600">Active Session</p>
           </div>
         </div>
-        <Link href="/" className="text-zinc-600 hover:text-white transition-colors text-xs font-mono">Exit</Link>
+        <div className="flex flex-col items-end gap-2">
+          <button
+            type="button"
+            onClick={async () => {
+              await supabase.auth.signOut();
+              router.replace("/login");
+            }}
+            className="text-zinc-600 hover:text-white transition-colors text-xs font-mono"
+          >
+            Log out
+          </button>
+          <Link href="/" className="text-zinc-600 hover:text-white transition-colors text-xs font-mono">
+            Exit
+          </Link>
+        </div>
       </div>
     </aside>
   );
