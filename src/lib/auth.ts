@@ -46,7 +46,7 @@ export async function updateUserProfile(
 
 export async function hasCompletedProfile(userId: string) {
   const profile = await getUserProfile(userId);
-  return Boolean(profile?.username?.trim());
+  return Boolean(profile?.first_name?.trim() && profile?.last_name?.trim());
 }
 
 export async function getUserDisplayName(user: { id: string; email?: string | null } | null | undefined) {

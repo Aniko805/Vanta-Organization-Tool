@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -20,6 +21,13 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (loading) return;
+
+    const normalizedUsername = username.trim();
+
+    if (activeTab === "signup" && !normalizedUsername) {
+      setError("Please choose a username.");
+      return;
+    }
 
     if (activeTab === "signup" && password !== confirmPassword) {
       setError("Passwords do not match.");
@@ -33,7 +41,15 @@ export default function LoginPage() {
       const result =
         activeTab === "signin"
           ? await supabase.auth.signInWithPassword({ email, password })
-          : await supabase.auth.signUp({ email, password });
+          : await supabase.auth.signUp({
+              email,
+              password,
+              options: {
+                data: {
+                  username: normalizedUsername,
+                },
+              },
+            });
       // if (activeTab === "signup") {
       //   if (!result.data.user) {
       //     throw new Error("Failed to create user.");
@@ -119,6 +135,20 @@ export default function LoginPage() {
 
         {/* Input Form */}
         <form onSubmit={handleSubmit} className="space-y-4">
+          {activeTab === "signup" && (
+            <div>
+              <label className="block text-[10px] font-mono text-zinc-500 uppercase tracking-widest mb-1.5">Username</label>
+              <input
+                type="text"
+                required
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="stevenzhang"
+                className="w-full bg-zinc-900/50 border border-zinc-800 rounded-md px-4 py-2.5 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-zinc-600 transition-colors"
+              />
+            </div>
+          )}
+
           <div>
             <label className="block text-[10px] font-mono text-zinc-500 uppercase tracking-widest mb-1.5">Email Address</label>
             <input
