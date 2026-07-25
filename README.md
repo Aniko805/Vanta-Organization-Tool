@@ -1,78 +1,69 @@
-# Vanta-Organization-Tool
+# Vanta Organization Tool
 
+Open-source organization software for **FRC / FTC** teams: parts inventory, team membership & roles, and Kanban-style team + personal tasks.
 
+Hosted for free-tier **Vercel** + **Supabase**. Product constitution lives in [`specs/`](./specs/).
 
-This is a \[Next.js](https://nextjs.org) project bootstrapped with \[`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+## Stack
 
+- Next.js 16 (App Router) · React 19 · TypeScript · Tailwind CSS v4
+- Supabase Auth + Postgres (RLS)
 
+## Setup
 
-\## Getting Started
-
-
-
-First, run the development server:
-
-
+1. Clone and install:
 
 ```bash
-
-npm run dev
-
-\# or
-
-yarn dev
-
-\# or
-
-pnpm dev
-
-\# or
-
-bun dev
-
+npm install
 ```
 
+2. Create a `.env.local` (never commit secrets):
 
+```bash
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+```
 
-Open \[http://localhost:3000](http://localhost:3000) with your browser to see the result.
+3. Apply the database schema in the Supabase SQL Editor:
 
+- Run [`supabase/migrations/001_vanta_schema.sql`](./supabase/migrations/001_vanta_schema.sql)
 
+4. Start the app:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npm run dev
+```
 
+Open [http://localhost:3000](http://localhost:3000).
 
+## App routes
 
-This project uses \[`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load \[Geist](https://vercel.com/font), a new font family for Vercel.
+| Route | Purpose |
+|-------|---------|
+| `/` | Public homepage |
+| `/login` | Sign in / sign up |
+| `/setup-profile` | Name onboarding |
+| `/dashboard` | Live workspace overview |
+| `/team` | Create / join teams, members, invites |
+| `/team-tasks` | Team Kanban board |
+| `/personal-tasks` | Personal + assigned tasks |
+| `/parts` | Team parts inventory |
+| `/settings` | Profile settings |
 
+## Spec Driven Development
 
+Agents and contributors should read:
 
-\## Learn More
+- [`specs/mission.md`](./specs/mission.md)
+- [`specs/tech-stack.md`](./specs/tech-stack.md)
+- [`specs/roadmap.md`](./specs/roadmap.md)
+- [`specs/SDD-PROMPT.md`](./specs/SDD-PROMPT.md)
 
+## Scripts
 
-
-To learn more about Next.js, take a look at the following resources:
-
-
-
-\- \[Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-
-\- \[Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-
-
-You can check out \[the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-
-
-\## Deploy on Vercel
-
-
-
-The easiest way to deploy your Next.js app is to use the \[Vercel Platform](https://vercel.com/new?utm\_medium=default-template\&filter=next.js\&utm\_source=create-next-app\&utm\_campaign=create-next-app-readme) from the creators of Next.js.
-
-
-
-Check out our \[Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
-
-
-
+```bash
+npm run dev
+npm run build
+npm run start
+npm run lint
+```
