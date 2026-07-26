@@ -73,14 +73,20 @@ export async function leaveTeam(teamId: string, userId: string): Promise<void> {
 export async function listTeamMembers(teamId: string): Promise<TeamMember[]> {
   const { data, error } = await supabase
     .from("team_members")
-    .select("*, profiles(*), team_roles(*)")
+    .select(`
+      *,
+      profiles(*),
+      member_roles(
+        team_roles(*)
+      )
+    `)
     .eq("team_id", teamId)
     .order("joined_at", { ascending: true });
 
-  if (error) {
-    console.log(error);
-    throw error;
-  }
+  console.log({ data, error });
+
+  if (error) throw new Error(error.message);
+
   return (data ?? []) as TeamMember[];
 }
 
