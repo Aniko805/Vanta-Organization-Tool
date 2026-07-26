@@ -81,7 +81,6 @@ export async function listTeamMembers(teamId: string): Promise<TeamMember[]> {
       )
     `)
     .eq("team_id", teamId)
-    .order("joined_at", { ascending: true });
 
   console.log({ data, error });
 
