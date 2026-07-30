@@ -31,7 +31,7 @@ export async function createPart(input: {
   notes?: string;
   status?: PartStatus;
   createdBy: string;
-  quantity: number;
+  quantity?: number;
 }): Promise<Part> {
   const { data, error } = await supabase
     .from("parts")
@@ -42,7 +42,7 @@ export async function createPart(input: {
       notes: input.notes?.trim() || null,
       status: input.status ?? "inventory",
       created_by: input.createdBy,
-      quantity: input.quantity,
+      quantity: input.quantity ?? 1
     })
     .select("*")
     .single();
