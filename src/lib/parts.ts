@@ -31,6 +31,7 @@ export async function createPart(input: {
   notes?: string;
   status?: PartStatus;
   createdBy: string;
+  quantity: number;
 }): Promise<Part> {
   const { data, error } = await supabase
     .from("parts")
@@ -41,7 +42,25 @@ export async function createPart(input: {
       notes: input.notes?.trim() || null,
       status: input.status ?? "inventory",
       created_by: input.createdBy,
+      quantity: input.quantity,
     })
+    .select("*")
+    .single();
+
+  if (error) throw new Error(error.message);
+  return data as Part;
+}
+
+export async function updatePartQuantity(
+  partId: string,
+  quantity: number,
+): Promise<Part> {
+  const safeQuantity = Math.max(0, quantity);
+
+  const { data, error } = await supabase
+    .from("parts")
+    .update({ quantity: safeQuantity, updated_at: new Date().toISOString() })
+    .eq("id", partId)
     .select("*")
     .single();
 
@@ -66,7 +85,7 @@ export async function updatePartStatus(
 
 export async function updatePart(
   partId: string,
-  updates: Partial<{ name: string; sku: string | null; notes: string | null; status: PartStatus }>
+  updates: Partial<{ name: string; sku: string | null; notes: string | null; status: PartStatus; quantity: number }>
 ): Promise<Part> {
   const { data, error } = await supabase
     .from("parts")
@@ -87,10 +106,18 @@ export async function deletePart(partId: string): Promise<void> {
 export async function countPartsByStatus(teamId: string) {
   const parts = await listParts(teamId);
   return {
-    total: parts.length,
-    inventory: parts.filter((p) => p.status === "inventory").length,
-    to_be_used: parts.filter((p) => p.status === "to_be_used").length,
-    used: parts.filter((p) => p.status === "used").length,
-    removed: parts.filter((p) => p.status === "removed").length,
+    total: parts.reduce((sum, p) => sum + (p.quantity ?? 1), 0),
+    inventory: parts
+      .filter((p) => p.status === "inventory")
+      .reduce((sum, p) => sum + (p.quantity ?? 1), 0),
+    to_be_used: parts
+      .filter((p) => p.status === "to_be_used")
+      .reduce((sum, p) => sum + (p.quantity ?? 1), 0),
+    used: parts
+      .filter((p) => p.status === "used")
+      .reduce((sum, p) => sum + (p.quantity ?? 1), 0),
+    removed: parts
+      .filter((p) => p.status === "removed")
+      .reduce((sum, p) => sum + (p.quantity ?? 1), 0),
   };
 }

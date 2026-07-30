@@ -50,6 +50,7 @@ export type Part = {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  quantity?: number;
 };
 
 export type Task = {
