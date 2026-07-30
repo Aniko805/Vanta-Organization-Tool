@@ -14,6 +14,7 @@ import {
   createPart,
   deletePart,
   listParts,
+  updatePartQuantity, // <-- 1. ADDED IMPORT
   updatePartStatus,
 } from "@/lib/parts";
 import { supabase } from "@/lib/supabase";
@@ -43,6 +44,7 @@ export default function PartsPage() {
   const [name, setName] = useState("");
   const [sku, setSku] = useState("");
   const [notes, setNotes] = useState("");
+  const [quantity, setQuantity] = useState<number>(1); // State for new part quantity
 
   const selectedTeam = teams.find((t) => t.id === teamId) ?? null;
   const myMembership = members.find((m) => m.user_id === userId) ?? null;
@@ -56,6 +58,20 @@ export default function PartsPage() {
     setParts(p);
     setMembers(m);
   }, []);
+
+  // 2. ADDED QUANTITY HANDLER FUNCTION
+  const handleQuantityChange = async (partId: string, newQty: number) => {
+    try {
+      // Optimistically update UI so it feels snappy
+      setParts((prev) =>
+        prev.map((p) => (p.id === partId ? { ...p, quantity: Math.max(0, newQty) } : p))
+      );
+      await updatePartQuantity(partId, newQty);
+      if (teamId) await refresh(teamId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update quantity");
+    }
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -100,10 +116,12 @@ export default function PartsPage() {
         sku,
         notes,
         createdBy: userId,
+        quantity,
       });
       setName("");
       setSku("");
       setNotes("");
+      setQuantity(1);
       await refresh(teamId);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Create failed");
@@ -143,7 +161,7 @@ export default function PartsPage() {
           {canManage ? (
             <Panel className="space-y-3">
               <Label>Add part</Label>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                 <FieldInput
                   placeholder="Part name"
                   value={name}
@@ -158,6 +176,13 @@ export default function PartsPage() {
                   placeholder="Notes"
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
+                />
+                <FieldInput
+                  type="number"
+                  min="1"
+                  placeholder="Quantity"
+                  value={quantity}
+                  onChange={(e) => setQuantity(parseInt(e.target.value, 10) || 1)}
                 />
               </div>
               <PrimaryButton disabled={busy || !name.trim()} onClick={handleCreate}>
@@ -201,7 +226,43 @@ export default function PartsPage() {
                       {part.notes ? ` · ${part.notes}` : ""}
                     </p>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-3">
+                    {/* 3. YOUR QUANTITY CONTROLS PLACED HERE */}
+                    {canManage ? (
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => handleQuantityChange(part.id, (part.quantity ?? 1) - 1)}
+                          className="px-2 py-1 bg-zinc-900 border border-zinc-800 rounded hover:bg-zinc-800 text-sm font-bold text-zinc-300"
+                        >
+                          -
+                        </button>
+
+                        <input
+                          type="number"
+                          min="0"
+                          value={part.quantity ?? 1}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value, 10);
+                            handleQuantityChange(part.id, isNaN(val) ? 0 : val);
+                          }}
+                          className="w-14 text-center bg-black border border-zinc-800 rounded py-1 text-sm text-white font-mono"
+                        />
+
+                        <button
+                          type="button"
+                          onClick={() => handleQuantityChange(part.id, (part.quantity ?? 1) + 1)}
+                          className="px-2 py-1 bg-zinc-900 border border-zinc-800 rounded hover:bg-zinc-800 text-sm font-bold text-zinc-300"
+                        >
+                          +
+                        </button>
+                      </div>
+                    ) : (
+                      <span className="text-sm font-mono text-zinc-400">
+                        Qty: {part.quantity ?? 1}
+                      </span>
+                    )}
+
                     {canManage ? (
                       <FieldInput
                         as="select"
@@ -232,6 +293,7 @@ export default function PartsPage() {
                         {part.status}
                       </span>
                     )}
+
                     {canManage ? (
                       <SecondaryButton
                         onClick={async () => {
