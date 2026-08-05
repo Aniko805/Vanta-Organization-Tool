@@ -76,13 +76,9 @@ export async function listTeamMembers(teamId: string): Promise<TeamMember[]> {
     .select(`
       *,
       profiles(*),
-      member_roles(
-        team_roles(*)
-      )
+      role:team_roles(*)
     `)
     .eq("team_id", teamId)
-
-  console.log({ data, error });
 
   if (error) throw new Error(error.message);
 
