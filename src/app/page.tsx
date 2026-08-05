@@ -1,21 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link"; // Imported for routing
-import { supabase } from "@/lib/supabase";
 
 export default function Home() {
-  const [dbConnected, setDbConnected] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    // Soft test to see if our Supabase environment variables are initialized
-    if (supabase) {
-      setDbConnected(true);
-    } else {
-      setDbConnected(false);
-    }
-  }, []);
-
   return (
     <div className="relative min-h-screen bg-black text-white font-sans overflow-hidden select-none">
       
@@ -48,8 +35,8 @@ export default function Home() {
           <a href="#origin" className="hover:text-white transition-colors">Origin</a>
           <span className="h-4 w-px bg-zinc-800" />
           <div className="flex items-center space-x-2">
-            <span className={`w-2 h-2 rounded-full ${dbConnected ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`} />
-            <span className="text-xs font-mono">{dbConnected ? "DB Active" : "DB Missing"}</span>
+          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+          <span className="text-xs font-mono">Open Source</span>  
           </div>
         </div>
       </nav>
