@@ -297,6 +297,7 @@ export default function PartsPage() {
                     {canManage ? (
                       <SecondaryButton
                         onClick={async () => {
+                          if (!window.confirm(`Are you sure you want to delete "${part.name}"? This cannot be undone.`)) return;
                           try {
                             await deletePart(part.id);
                             if (teamId) await refresh(teamId);

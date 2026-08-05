@@ -1,7 +1,5 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
 import AppShell, {
   EmptyState,
   ErrorText,
@@ -30,6 +28,8 @@ import {
   type TeamMember,
   type TeamRole,
 } from "@/lib/types";
+import Link from "next/link";
+import { useCallback, useEffect, useState } from "react";
 
 export default function TeamPage() {
   const [userId, setUserId] = useState<string | null>(null);
@@ -345,6 +345,7 @@ export default function TeamPage() {
                         {isAdmin && member.user_id !== selected.owner_id ? (
                           <SecondaryButton
                             onClick={async () => {
+                              if (!window.confirm("Are you sure you want to remove this member from the team?")) return;
                               try {
                                 await removeMember(member.id);
                                 await refreshSelected(selected.id);

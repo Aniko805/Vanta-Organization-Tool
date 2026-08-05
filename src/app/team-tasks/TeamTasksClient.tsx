@@ -498,7 +498,13 @@ function TaskCard({
       </div>
 
       {canManage ? (
-        <SecondaryButton type="button" onClick={onDelete} className="w-full">
+        <SecondaryButton
+           type="button"
+           onClick={() => {
+             if (window.confirm(`Are you sure you want to delete "${task.name}"?`)) onDelete();
+           }}
+           className="w-full"
+         >
           Delete
         </SecondaryButton>
       ) : null}

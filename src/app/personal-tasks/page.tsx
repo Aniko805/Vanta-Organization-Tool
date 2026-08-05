@@ -1,6 +1,5 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
 import AppShell, {
   EmptyState,
   ErrorText,
@@ -23,6 +22,7 @@ import {
   type TaskStatus,
   type TaskWithRelations,
 } from "@/lib/types";
+import { useCallback, useEffect, useState } from "react";
 
 export default function PersonalTasksPage() {
   const [userId, setUserId] = useState<string | null>(null);
@@ -173,6 +173,7 @@ export default function PersonalTasksPage() {
                   }
                 }}
                 onDelete={async () => {
+                  if (!window.confirm(`Are you sure you want to delete "${task.name}"?`)) return;
                   try {
                     await deleteTask(task.id);
                     if (userId) await refresh(userId);
