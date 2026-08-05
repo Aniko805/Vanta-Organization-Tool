@@ -76,7 +76,9 @@ export async function listTeamMembers(teamId: string): Promise<TeamMember[]> {
     .select(`
       *,
       profiles(*),
-      role:team_roles(*)
+      member_roles(
+        team_roles(*)
+      )
     `)
     .eq("team_id", teamId)
 
