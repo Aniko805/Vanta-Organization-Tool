@@ -1,4 +1,4 @@
-# Vanta Organization Tool
+# Vulcan Organization Tool
 
 Open-source organization software for **FRC / FTC** teams: parts inventory, team membership & roles, and Kanban-style team + personal tasks.
 
@@ -26,7 +26,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 
 3. Apply the database schema in the Supabase SQL Editor:
 
-- Run [`supabase/migrations/001_vanta_schema.sql`](./supabase/migrations/001_vanta_schema.sql)
+- Run [`supabase/migrations/001_vulcan_schema.sql`](./supabase/migrations/001_vulcan_schema.sql)
 
 4. Start the app:
 

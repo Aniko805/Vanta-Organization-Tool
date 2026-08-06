@@ -1,8 +1,8 @@
-# Plan — Vanta v1 core
+# Plan — Vulcan v1 core
 
 ### 1. Schema + libs
 
-- [x] Write `supabase/migrations/001_vanta_schema.sql`
+- [x] Write `supabase/migrations/001_vulcan_schema.sql`
 - [x] Add `src/lib/types.ts`, `teams.ts`, `tasks.ts`, `parts.ts`
 
 ### 2. Team + tasks + parts UI

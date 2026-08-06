@@ -1,4 +1,4 @@
--- Vanta Organization Tool — Phase 1 schema + RLS
+-- Vulcan Organization Tool — Phase 1 schema + RLS
 -- Run in Supabase SQL Editor (or via CLI). Safe to re-run with IF NOT EXISTS patterns where noted.
 
 create extension if not exists pgcrypto;

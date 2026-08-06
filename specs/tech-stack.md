@@ -65,7 +65,7 @@ src/
     tasks.ts
     parts.ts
 public/
-supabase/migrations/         # Apply 001_vanta_schema.sql in Supabase
+supabase/migrations/         # Apply 001_vulcan_schema.sql in Supabase
 specs/                       # SDD constitution + feature specs
 ```
 
@@ -80,7 +80,7 @@ specs/                       # SDD constitution + feature specs
 - Existing tool pages are largely client components (`"use client"`).
 - Keep that pattern unless a phase explicitly introduces server components / Server Actions and documents why in the feature spec.
 
-## Design system (Vanta aesthetic)
+## Design system (Vulcan aesthetic)
 
 Vercel-inspired **premium developer dark mode**: high-contrast minimalism, geometric structure, dense data layouts.
 

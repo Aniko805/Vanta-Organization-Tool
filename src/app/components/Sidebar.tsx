@@ -58,10 +58,10 @@ export default function Sidebar() {
       <div>
         {/* Logo */}
         <div className="mb-10">
-          <span className="text-sm font-semibold tracking-widest uppercase">Vanta</span>
+          <span className="text-sm font-semibold tracking-widest uppercase">Vulcan</span>
           <img
             src="/logo_transparent.png"
-            alt="Vanta logo"
+            alt="Vulcan logo"
             className="mt-3 h-14 w-auto object-contain"
           />
         </div>

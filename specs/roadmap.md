@@ -1,12 +1,12 @@
 # Roadmap
 
-Ordered delivery phases for Vanta. Each phase should be small enough for one focused agent session (or a short series of task groups). Check boxes when the phase’s validation gate passes.
+Ordered delivery phases for Vulcan. Each phase should be small enough for one focused agent session (or a short series of task groups). Check boxes when the phase’s validation gate passes.
 
 **How to use:** Agents take the **first incomplete** phase, create a dated feature spec under `specs/YYYY-MM-DD-<slug>/` from `_feature-template/`, then implement. See `SDD-PROMPT.md`.
 
 **Current nav (auth-gated):** Overview `/dashboard` · Personal Tasks `/personal-tasks` · Team `/team` · Team Tasks `/team-tasks` · Parts `/parts` · Settings `/settings`.
 
-**Latest feature pack:** `specs/2026-07-21-vanta-v1-core/`
+**Latest feature pack:** `specs/2026-07-21-vulcan-v1-core/`
 
 ---
 
@@ -32,7 +32,7 @@ Ordered delivery phases for Vanta. Each phase should be small enough for one foc
 - **Goal:** Persist teams, membership, roles, tasks, subtasks, and parts in Supabase with Row Level Security aligned to team membership.
 - **Depends on:** Phase 0
 - **Deliverables:**
-  - [x] SQL migrations for profiles, teams, members, roles, inventory/parts, tasks, subtasks — `supabase/migrations/001_vanta_schema.sql`
+  - [x] SQL migrations for profiles, teams, members, roles, inventory/parts, tasks, subtasks — `supabase/migrations/001_vulcan_schema.sql`
   - [x] RLS policies + invite RPCs
   - [x] Typed helpers under `src/lib/` (`types`, `teams`, `tasks`, `parts`)
   - [x] Documented in feature spec + README
@@ -124,7 +124,7 @@ Ordered delivery phases for Vanta. Each phase should be small enough for one foc
 - **Deliverables:**
   - [x] Homepage FRC/FTC copy
   - [x] README: env, migration, routes, specs links
-- **Validation gate:** New contributor can run from README and understand Vanta from the homepage.
+- **Validation gate:** New contributor can run from README and understand Vulcan from the homepage.
 
 ---
 
@@ -140,4 +140,4 @@ Ordered delivery phases for Vanta. Each phase should be small enough for one foc
 
 ## Changelog discipline
 
-When a phase completes, mark its status `[x]`, tick deliverable boxes, and note the feature directory (e.g. `specs/2026-07-21-vanta-v1-core/`).
+When a phase completes, mark its status `[x]`, tick deliverable boxes, and note the feature directory (e.g. `specs/2026-07-21-vulcan-v1-core/`).

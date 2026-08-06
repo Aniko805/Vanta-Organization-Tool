@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Vanta — FRC/FTC Organization Tool",
+  title: "Vulcan — FRC/FTC Organization Tool",
   description:
     "Organize parts, teams, and Kanban-style tasks for FIRST Robotics and Tech Challenge teams.",
 };

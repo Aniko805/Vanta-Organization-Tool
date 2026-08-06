@@ -1,9 +1,9 @@
-# Requirements — Vanta v1 core (Phases 1–6 + 8)
+# Requirements — Vulcan v1 core (Phases 1–6 + 8)
 
 ## Phase
 
 - Roadmap phases: 1–6, 8 (CV Phase 7 and mobile Phase 9 deferred)
-- Feature directory: `specs/2026-07-21-vanta-v1-core/`
+- Feature directory: `specs/2026-07-21-vulcan-v1-core/`
 
 ## Context
 
@@ -36,7 +36,7 @@ Auth shell existed; teams, tasks, parts, and live dashboard were stubs. This del
 
 ## Data shapes / contracts
 
-See `supabase/migrations/001_vanta_schema.sql` and `specs/tech-stack.md`.
+See `supabase/migrations/001_vulcan_schema.sql` and `specs/tech-stack.md`.
 
 ### MUST
 
@@ -46,5 +46,5 @@ See `supabase/migrations/001_vanta_schema.sql` and `specs/tech-stack.md`.
 
 ### SHOULD
 
-- Preserve Vanta dark aesthetic
+- Preserve Vulcan dark aesthetic
 - Keep secrets out of the repo

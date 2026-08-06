@@ -13,11 +13,11 @@ export default function Home() {
       <nav className="relative z-10 flex items-center justify-between px-8 py-6 border-b border-zinc-900 backdrop-blur-md bg-black/50">
         <div className="flex items-center space-x-3">
           <div className="w-6 h-6 bg-white rotate-45 transform origin-center transition-transform hover:rotate-90 duration-500" />
-          <span className="text-lg font-semibold tracking-tight uppercase">Vanta</span>
+          <span className="text-lg font-semibold tracking-tight uppercase">Vulcan</span>
         </div>
         <div className="flex items-center space-x-6 text-sm text-zinc-400">
           <a 
-            href="https://github.com/Aniko805/Vanta-Organization-Tool/blob/main/specs/mission.md" 
+            href="https://github.com/Aniko805/Vulcan-Organization-Tool/blob/main/specs/mission.md" 
             target="_blank" 
             rel="noopener noreferrer" 
             className="hover:text-white transition-colors"
@@ -25,7 +25,7 @@ export default function Home() {
             Documentation
           </a>
           <a 
-            href="https://github.com/Aniko805/Vanta-Organization-Tool" 
+            href="https://github.com/Aniko805/Vulcan-Organization-Tool" 
             target="_blank" 
             rel="noopener noreferrer" 
             className="hover:text-white transition-colors"
@@ -52,7 +52,7 @@ export default function Home() {
         </div>
 
         <h1 className="text-5xl md:text-7xl font-extrabold tracking-tighter bg-gradient-to-b from-white to-zinc-400 bg-clip-text text-transparent mb-6 max-w-3xl leading-none">
-          Vanta
+          Vulcan
         </h1>
         
         <p className="text-zinc-500 text-lg md:text-xl max-w-xl mb-10 tracking-tight font-light">
@@ -79,7 +79,7 @@ export default function Home() {
           
           {/* Functional GitHub Link Button */}
           <a 
-            href="https://github.com/Aniko805/Vanta-Organization-Tool" 
+            href="https://github.com/Aniko805/Vulcan-Organization-Tool" 
             target="_blank" 
             rel="noopener noreferrer"
             className="w-full sm:w-auto px-8 py-3 bg-zinc-950 border border-zinc-800 text-zinc-300 font-medium text-sm rounded-md hover:bg-zinc-900 hover:border-zinc-700 transition-all duration-200 active:scale-95 inline-flex items-center justify-center"

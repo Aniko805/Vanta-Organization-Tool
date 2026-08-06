@@ -85,7 +85,7 @@ export default function SetupProfilePage() {
         <div className="flex flex-col items-center mb-8">
           <Link href="/" className="flex items-center space-x-2 group">
             <div className="w-5 h-5 bg-white rotate-45 transform origin-center transition-transform group-hover:rotate-90 duration-500" />
-            <span className="text-sm font-semibold tracking-widest uppercase text-zinc-400 group-hover:text-white transition-colors">Vanta</span>
+            <span className="text-sm font-semibold tracking-widest uppercase text-zinc-400 group-hover:text-white transition-colors">Vulcan</span>
           </Link>
           <h2 className="text-2xl font-bold tracking-tight mt-4 bg-gradient-to-b from-white to-zinc-400 bg-clip-text text-transparent">
             Complete your profile
