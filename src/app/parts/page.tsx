@@ -13,7 +13,7 @@ import {
   createPart,
   deletePart,
   listParts,
-  updatePartQuantity, // <-- 1. ADDED IMPORT
+  updatePartQuantity,
   updatePartStatus,
 } from "@/lib/parts";
 import { supabase } from "@/lib/supabase";
@@ -44,7 +44,7 @@ export default function PartsPage() {
   const [name, setName] = useState("");
   const [sku, setSku] = useState("");
   const [notes, setNotes] = useState("");
-  const [quantity, setQuantity] = useState<number>(1); // State for new part quantity
+  const [quantity, setQuantity] = useState<number>(1);
 
   const selectedTeam = teams.find((t) => t.id === teamId) ?? null;
   const myMembership = members.find((m) => m.user_id === userId) ?? null;
@@ -59,10 +59,8 @@ export default function PartsPage() {
     setMembers(m);
   }, []);
 
-  // 2. ADDED QUANTITY HANDLER FUNCTION
   const handleQuantityChange = async (partId: string, newQty: number) => {
     try {
-      // Optimistically update UI so it feels snappy
       setParts((prev) =>
         prev.map((p) => (p.id === partId ? { ...p, quantity: Math.max(0, newQty) } : p))
       );
@@ -73,7 +71,7 @@ export default function PartsPage() {
     }
   };
 
-  // commit typed quantity only when field lose focus (avoid write per keystroke!)
+  // commit typed quantity only when field lose focus (avoid write per keystroke!) - Anson
   const commitQuantity = async (partId: string, raw: string) => {
     const parsed = Math.max(0, parseInt(raw, 10) || 0);
     try {
@@ -238,7 +236,7 @@ export default function PartsPage() {
                     </p>
                   </div>
                   <div className="flex items-center gap-3">
-                    {/* 3. YOUR QUANTITY CONTROLS PLACED HERE */}
+                    {
                     {canManage ? (
                       <div className="flex items-center gap-1">
                         <button
