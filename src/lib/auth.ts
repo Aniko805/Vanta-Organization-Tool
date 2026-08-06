@@ -49,31 +49,32 @@ export async function hasCompletedProfile(userId: string) {
   return Boolean(profile?.first_name?.trim() && profile?.last_name?.trim());
 }
 
-export async function getUserDisplayName(user: { id: string; email?: string | null } | null | undefined) {
-  if (!user?.id) {
-    return user?.email?.split("@")[0] ?? "User";
-  }
+// unused code
+// export async function getUserDisplayName(user: { id: string; email?: string | null } | null | undefined) {
+//   if (!user?.id) {
+//     return user?.email?.split("@")[0] ?? "User";
+//   }
 
-  const profile = await getUserProfile(user.id);
-  const firstName = profile?.first_name?.trim();
-  const lastName = profile?.last_name?.trim();
-  const username = profile?.username?.trim();
+//   const profile = await getUserProfile(user.id);
+//   const firstName = profile?.first_name?.trim();
+//   const lastName = profile?.last_name?.trim();
+//   const username = profile?.username?.trim();
 
-  if (firstName && lastName) {
-    return `${firstName} ${lastName}`;
-  }
+//   if (firstName && lastName) {
+//     return `${firstName} ${lastName}`;
+//   }
 
-  if (firstName) {
-    return firstName;
-  }
+//   if (firstName) {
+//     return firstName;
+//   }
 
-  if (lastName) {
-    return lastName;
-  }
+//   if (lastName) {
+//     return lastName;
+//   }
 
-  if (username) {
-    return username;
-  }
+//   if (username) {
+//     return username;
+//   }
 
-  return user.email?.split("@")[0] ?? "User";
-}
+//   return user.email?.split("@")[0] ?? "User";
+// }

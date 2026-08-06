@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { getUserDisplayName, getUserProfile } from "@/lib/auth";
+import { getUserProfile } from "@/lib/auth";
+import { displayNameFromProfile } from "@/lib/types";
 import { supabase } from "@/lib/supabase";
 
 export default function Sidebar() {
@@ -28,14 +29,11 @@ export default function Sidebar() {
         return;
       }
 
-      const [name, profile] = await Promise.all([
-        getUserDisplayName(user),
-        getUserProfile(user.id),
-      ]);
+      const profile = await getUserProfile(user.id);
 
       if (!isMounted) return;
 
-      setDisplayName(name);
+      setDisplayName(displayNameFromProfile(profile));
       setAvatarUrl(profile?.avatar_url?.trim() || null);
     };
 
