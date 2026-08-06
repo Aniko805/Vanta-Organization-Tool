@@ -240,19 +240,10 @@ export default function PartsPage() {
                       <div className="flex items-center gap-1">
                         <button
                           type="button"
-                          onChange={(e) => {
-                            const val = parseInt(e.target.value, 10);                            const next = isNaN(val) ? 0 : val;
-                            // local for now, persist on blur
-                            setParts((prev) =>
-                              prev.map((p) =>
-                                p.id === part.id ? { ...p, quantity: Math.max(0, next) } : p
-                              )
-                            );
-                          }}
-                          onBlur={(e) => commitQuantity(part.id, e.target.value)}
+                          onClick={() => handleQuantityChange(part.id, (part.quantity ?? 1) - 1)}
                           className="px-2 py-1 bg-zinc-900 border border-zinc-800 rounded hover:bg-zinc-800 text-sm font-bold text-zinc-300"
                         >
-                          -
+                          −
                         </button>
 
                         <input
@@ -261,8 +252,15 @@ export default function PartsPage() {
                           value={part.quantity ?? 1}
                           onChange={(e) => {
                             const val = parseInt(e.target.value, 10);
-                            handleQuantityChange(part.id, isNaN(val) ? 0 : val);
+                            const next = isNaN(val) ? 0 : val;
+                            // reflect locally, persist on blur
+                            setParts((prev) =>
+                              prev.map((p) =>
+                                p.id === part.id ? { ...p, quantity: Math.max(0, next) } : p
+                              )
+                            );
                           }}
+                          onBlur={(e) => commitQuantity(part.id, e.target.value)}
                           className="w-14 text-center bg-black border border-zinc-800 rounded py-1 text-sm text-white font-mono"
                         />
 
