@@ -123,7 +123,7 @@ export default function AppShell({
   actions?: React.ReactNode;
 }) {
   return (
-    <div className="min-h-screen bg-black text-white font-sans overflow-x-hidden flex select-none">
+    <div className="min-h-screen bg-black text-white font-sans overflow-x-hidden flex">
       <Sidebar />
       <main className="flex-1 p-10 max-w-7xl mx-auto space-y-8 w-full">
         <header className="flex flex-wrap justify-between items-end gap-4 border-b border-zinc-900 pb-6">
