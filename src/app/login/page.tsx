@@ -1,10 +1,10 @@
 "use client";
 
-import { supabase } from "@/lib/supabase";
 import { hasCompletedProfile } from "@/lib/auth";
-import { useState } from "react";
+import { supabase } from "@/lib/supabase";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -15,8 +15,6 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<"signin" | "signup">("signin");
   const [error, setError] = useState<string | null>(null);
-
-  console.log(process.env.NEXT_PUBLIC_SUPABASE_URL);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,20 +48,6 @@ export default function LoginPage() {
                 },
               },
             });
-      // if (activeTab === "signup") {
-      //   if (!result.data.user) {
-      //     throw new Error("Failed to create user.");
-      //   }
-      //   const { error: profileError } = await supabase
-      //     .from("profiles")
-      //     .insert({id: result.data.user.id,});
-
-      //   if (profileError) {
-      //     setError(profileError.message);
-      //     return;
-      //   }
-      // }
-      console.log("RESULT:", result);
       if (result.error) {
         const message = result.error.message.toLowerCase().includes("rate limit")
           ? "Too many signup attempts. Please wait a minute and try again."
