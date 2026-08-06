@@ -236,7 +236,6 @@ export default function PartsPage() {
                     </p>
                   </div>
                   <div className="flex items-center gap-3">
-                    {
                     {canManage ? (
                       <div className="flex items-center gap-1">
                         <button
