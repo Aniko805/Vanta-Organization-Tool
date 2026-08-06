@@ -29,6 +29,7 @@ export default function PersonalTasksPage() {
   const [tasks, setTasks] = useState<TaskWithRelations[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [importance, setImportance] = useState<Importance>("medium");
@@ -37,6 +38,7 @@ export default function PersonalTasksPage() {
   const refresh = useCallback(async (uid: string) => {
     const data = await listPersonalAndAssignedTasks(uid);
     setTasks(data);
+    setLoading(false);
   }, []);
 
   useEffect(() => {
@@ -128,7 +130,11 @@ export default function PersonalTasksPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <section className="space-y-3">
           <Label>Assigned from teams</Label>
-          {assigned.length === 0 ? (
+          {loading ? (
+            <Panel>
+              <EmptyState>Loading…</EmptyState>
+            </Panel>
+          ) : assigned.length === 0 ? (
             <Panel>
               <EmptyState>No team tasks assigned to you yet.</EmptyState>
             </Panel>
@@ -153,7 +159,11 @@ export default function PersonalTasksPage() {
 
         <section className="space-y-3">
           <Label>Your personal tasks</Label>
-          {personal.length === 0 ? (
+          {loading ? (
+            <Panel>
+              <EmptyState>Loading…</EmptyState>
+            </Panel>
+          ) : personal.length === 0 ? (
             <Panel>
               <EmptyState>No personal tasks yet.</EmptyState>
             </Panel>

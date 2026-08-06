@@ -40,6 +40,7 @@ export default function PartsPage() {
   const [filter, setFilter] = useState<PartStatus | "all">("all");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const [name, setName] = useState("");
   const [sku, setSku] = useState("");
@@ -57,6 +58,7 @@ export default function PartsPage() {
     const [p, m] = await Promise.all([listParts(tid), listTeamMembers(tid)]);
     setParts(p);
     setMembers(m);
+    setLoading(false);
   }, []);
 
   const handleQuantityChange = async (partId: string, newQty: number) => {
@@ -221,7 +223,11 @@ export default function PartsPage() {
           </div>
 
           <div className="space-y-2">
-            {visible.length === 0 ? (
+            {loading ? (
+              <Panel>
+                <EmptyState>Loading parts…</EmptyState>
+              </Panel>
+            ) : visible.length === 0 ? (
               <Panel>
                 <EmptyState>No parts in this filter.</EmptyState>
               </Panel>
