@@ -275,7 +275,13 @@ export default function TeamPage() {
                   </code>
                   <SecondaryButton
                     type="button"
-                    onClick={() => navigator.clipboard.writeText(selected.invite_code)}
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(selected.invite_code);
+                      } catch {
+                        setError("Failed to copy, please copy manually.");
+                      }
+                    }}
                   >
                     Copy
                   </SecondaryButton>
