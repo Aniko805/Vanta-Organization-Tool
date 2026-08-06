@@ -1,6 +1,5 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
 import AppShell, {
   EmptyState,
   ErrorText,
@@ -30,6 +29,7 @@ import {
   type Team,
   type TeamMember,
 } from "@/lib/types";
+import { useCallback, useEffect, useState } from "react";
 
 export default function PartsPage() {
   const [userId, setUserId] = useState<string | null>(null);
@@ -73,6 +73,17 @@ export default function PartsPage() {
     }
   };
 
+  // commit typed quantity only when field lose focus (avoid write per keystroke!)
+  const commitQuantity = async (partId: string, raw: string) => {
+    const parsed = Math.max(0, parseInt(raw, 10) || 0);
+    try {
+      await updatePartQuantity(partId, parsed);
+      if (teamId) await refresh(teamId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update quantity");
+    }
+  };
+  
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -232,7 +243,16 @@ export default function PartsPage() {
                       <div className="flex items-center gap-1">
                         <button
                           type="button"
-                          onClick={() => handleQuantityChange(part.id, (part.quantity ?? 1) - 1)}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value, 10);                            const next = isNaN(val) ? 0 : val;
+                            // local for now, persist on blur
+                            setParts((prev) =>
+                              prev.map((p) =>
+                                p.id === part.id ? { ...p, quantity: Math.max(0, next) } : p
+                              )
+                            );
+                          }}
+                          onBlur={(e) => commitQuantity(part.id, e.target.value)}
                           className="px-2 py-1 bg-zinc-900 border border-zinc-800 rounded hover:bg-zinc-800 text-sm font-bold text-zinc-300"
                         >
                           -
