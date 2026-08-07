@@ -65,7 +65,7 @@ export default function PartsPage() {
    } finally {
      setLoading(false);
    }
-+ }, []); // Keep empty deps as before
+ }, []);
 
   // commit typed quantity only when field lose focus (avoid write per keystroke!) - Anson
   const commitQuantity = async (partId: string, raw: string) => {
