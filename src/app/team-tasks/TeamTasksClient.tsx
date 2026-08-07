@@ -50,6 +50,7 @@ export default function TeamTasksClient() {
   const [parts, setParts] = useState<Part[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [showForm, setShowForm] = useState(false);
 
   const [name, setName] = useState("");
@@ -71,50 +72,29 @@ export default function TeamTasksClient() {
       : false;
 
   const refresh = useCallback(async (tid: string) => {
-    const [t, m, r, p] = await Promise.all([
-      listTeamTasks(tid),
-      listTeamMembers(tid),
-      listTeamRoles(tid),
-      listAssignableParts(tid),
-    ]);
-    setTasks(t);
-    setMembers(m);
-    setRoles(r);
-    setParts(p);
+    setLoading(true);
+    setError(null);
+    try {
+      const [t, m, r, p] = await Promise.all([
+        listTeamTasks(tid),
+        listTeamMembers(tid),
+        listTeamRoles(tid),
+        listAssignableParts(tid),
+      ]);
+      setTasks(t);
+      setMembers(m);
+      setRoles(r);
+      setParts(p);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load tasks");
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
-    let mounted = true;
-    (async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!mounted || !user) return;
-      setUserId(user.id);
-      try {
-        const myTeams = await listMyTeams();
-        if (!mounted) return;
-        setTeams(myTeams);
-        const fromQuery = searchParams.get("team");
-        const initial =
-          (fromQuery && myTeams.find((t) => t.id === fromQuery)?.id) ||
-          myTeams[0]?.id ||
-          null;
-        setTeamId(initial);
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Failed to load");
-      }
-    })();
-    return () => {
-      mounted = false;
-    };
-  }, [searchParams]);
-
-  useEffect(() => {
     if (!teamId) return;
-    refresh(teamId).catch((e) =>
-      setError(e instanceof Error ? e.message : "Failed to load tasks")
-    );
+    refresh(teamId);
   }, [teamId, refresh]);
 
   const columns = useMemo(() => {
@@ -197,7 +177,11 @@ export default function TeamTasksClient() {
       }
     >
       <ErrorText>{error}</ErrorText>
-
+      {loading ? (
+        <div className="min-h-screen bg-black text-zinc-500 font-mono text-xs flex items-center justify-center">
+          Loading team tasks…
+        </div>
+      ) : null}
       {!teamId ? (
         <Panel>
           <EmptyState>Create or join a team first, then return here.</EmptyState>

@@ -102,9 +102,10 @@ export default function PartsPage() {
 
   useEffect(() => {
     if (!teamId) return;
-    refresh(teamId).catch((e) =>
-      setError(e instanceof Error ? e.message : "Failed to load parts")
-    );
+    const loadData = async () => {
+      await refresh(teamId);
+    };
+    loadData();
   }, [teamId, refresh]);
 
   const visible =
