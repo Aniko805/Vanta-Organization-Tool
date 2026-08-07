@@ -55,23 +55,17 @@ export default function PartsPage() {
       : false;
 
   const refresh = useCallback(async (tid: string) => {
-    const [p, m] = await Promise.all([listParts(tid), listTeamMembers(tid)]);
-    setParts(p);
-    setMembers(m);
-    setLoading(false);
-  }, []);
-
-  const handleQuantityChange = async (partId: string, newQty: number) => {
-    try {
-      setParts((prev) =>
-        prev.map((p) => (p.id === partId ? { ...p, quantity: Math.max(0, newQty) } : p))
-      );
-      await updatePartQuantity(partId, newQty);
-      if (teamId) await refresh(teamId);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to update quantity");
-    }
-  };
+   setLoading(true);
+   try {
+     const [p, m] = await Promise.all([listParts(tid), listTeamMembers(tid)]);
+     setParts(p);
+     setMembers(m);
+   } catch (e) {
+     setError(e instanceof Error ? e.message : "Failed to load parts");
+   } finally {
+     setLoading(false);
+   }
++ }, []); // Keep empty deps as before
 
   // commit typed quantity only when field lose focus (avoid write per keystroke!) - Anson
   const commitQuantity = async (partId: string, raw: string) => {
@@ -243,46 +237,61 @@ export default function PartsPage() {
                   </div>
                   <div className="flex items-center gap-3">
                     {canManage ? (
-                      <div className="flex items-center gap-1">
-                        <button
-                          type="button"
-                          onClick={() => handleQuantityChange(part.id, (part.quantity ?? 1) - 1)}
-                          className="px-2 py-1 bg-zinc-900 border border-zinc-800 rounded hover:bg-zinc-800 text-sm font-bold text-zinc-300"
-                        >
-                          −
-                        </button>
+                    <div className="flex items-center gap-1">
+                       <button
+                         type="button"
+                         onClick={() => {
+                           setParts((prev) =>
+                             prev.map((p) =>
+                               p.id === part.id
+                                 ? { ...p, quantity: Math.max(0, (p.quantity ?? 1) - 1) }
+                                 : p
+                             )
+                           );
+                         }}
+                         className="px-2 py-1 bg-zinc-900 border border-zinc-800 rounded hover:bg-zinc-800 text-sm font-bold text-zinc-300"
+                       >
+                         −
+                       </button>
 
-                        <input
-                          type="number"
-                          min="0"
-                          value={part.quantity ?? 1}
-                          onChange={(e) => {
-                            const val = parseInt(e.target.value, 10);
-                            const next = isNaN(val) ? 0 : val;
-                            // reflect locally, persist on blur
-                            setParts((prev) =>
-                              prev.map((p) =>
-                                p.id === part.id ? { ...p, quantity: Math.max(0, next) } : p
-                              )
-                            );
-                          }}
-                          onBlur={(e) => commitQuantity(part.id, e.target.value)}
-                          className="w-14 text-center bg-black border border-zinc-800 rounded py-1 text-sm text-white font-mono"
-                        />
+                       <input
+                         type="number"
+                         min="0"
+                         value={part.quantity ?? 1}
+                         onChange={(e) => {
+                           const val = parseInt(e.target.value, 10);
+                           const next = isNaN(val) ? 0 : val;
+                           setParts((prev) =>
+                             prev.map((p) =>
+                               p.id === part.id ? { ...p, quantity: Math.max(0, next) } : p
+                             )
+                           );
+                         }}
+                         onBlur={(e) => commitQuantity(part.id, e.target.value)}
+                         className="w-14 text-center bg-black border border-zinc-800 rounded py-1 text-sm text-white font-mono"
+                       />
 
-                        <button
-                          type="button"
-                          onClick={() => handleQuantityChange(part.id, (part.quantity ?? 1) + 1)}
-                          className="px-2 py-1 bg-zinc-900 border border-zinc-800 rounded hover:bg-zinc-800 text-sm font-bold text-zinc-300"
-                        >
-                          +
-                        </button>
-                      </div>
-                    ) : (
-                      <span className="text-sm font-mono text-zinc-400">
-                        Qty: {part.quantity ?? 1}
-                      </span>
-                    )}
+                       <button
+                         type="button"
+                         onClick={() => {
+                           setParts((prev) =>
+                             prev.map((p) =>
+                               p.id === part.id
+                                 ? { ...p, quantity: (p.quantity ?? 1) + 1 }
+                                 : p
+                             )
+                           );
+                         }}
+                         className="px-2 py-1 bg-zinc-900 border border-zinc-800 rounded hover:bg-zinc-800 text-sm font-bold text-zinc-300"
+                       >
+                         +
+                       </button>
+                     </div>
+                   ) : (
+                     <span className="text-sm font-mono text-zinc-400">
+                       Qty: {part.quantity ?? 1}
+                     </span>
+                   )}
 
                     {canManage ? (
                       <FieldInput
