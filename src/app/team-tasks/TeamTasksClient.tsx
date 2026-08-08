@@ -12,7 +12,6 @@ import AppShell, {
   SecondaryButton,
 } from "@/app/components/AppShell";
 import { listAssignableParts } from "@/lib/parts";
-import { supabase } from "@/lib/supabase";
 import {
   listMyTeams,
   listTeamMembers,
@@ -92,9 +91,45 @@ export default function TeamTasksClient() {
     }
   }, []);
 
+  // Effect for initializing user and teams from session and search params
+  useEffect(() => {
+    let mounted = true;
+    const init = async () => {
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (!mounted) return;
+        setUserId(user?.id ?? null);
+        const myTeams = await listMyTeams();
+        if (!mounted) return;
+        setTeams(myTeams);
+        const fromQuery = searchParams.get("team");
+        const initial =
+          (fromQuery && myTeams.find((t) => t.id === fromQuery)?.id) ||
+          myTeams[0]?.id ||
+          null;
+        if (!mounted) return;
+        setTeamId(initial);
+      } catch (e) {
+        if (!mounted) return;
+        setError(e instanceof Error ? e.message : "Failed to load");
+      }
+    };
+    init();
+
+    return () => {
+      mounted = false;
+    };
+  }, [searchParams]);
+
+  // Effect for refreshing data when teamId changes
   useEffect(() => {
     if (!teamId) return;
-    refresh(teamId);
+    const handleRefresh = async () => {
+      await refresh(teamId);
+    };
+    handleRefresh();
   }, [teamId, refresh]);
 
   const columns = useMemo(() => {
@@ -313,8 +348,7 @@ export default function TeamTasksClient() {
                       canManage={canManage}
                       subtaskDraft={subtaskDrafts[task.id] ?? ""}
                       onDraftChange={(v) =>
-                        setSubtaskDrafts((prev) => ({ ...prev, [task.id]: v }))
-                      }
+                        setSubtaskDrafts((prev) => ({ ...prev, [task.id]: v }))}
                       onStatus={async (status) => {
                         try {
                           await updateTask(task.id, { status });
@@ -387,28 +421,20 @@ function TaskCard({
     <Panel className="space-y-3 !p-4">
       <div className="flex justify-between gap-2">
         <h3 className="text-sm font-semibold text-zinc-100 leading-snug">{task.name}</h3>
-        <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 shrink-0">
-          {task.importance}
-        </span>
+        <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 shrink-0">{task.importance}</span>
       </div>
       {task.description ? (
         <p className="text-xs text-zinc-500 leading-relaxed">{task.description}</p>
       ) : null}
       <div className="flex flex-wrap gap-2">
         {task.category ? (
-          <span className="text-[10px] font-mono border border-zinc-800 px-2 py-0.5 rounded text-zinc-400">
-            {task.category}
-          </span>
+          <span className="text-[10px] font-mono border border-zinc-800 px-2 py-0.5 rounded text-zinc-400">{task.category}</span>
         ) : null}
         {task.due_date ? (
-          <span className="text-[10px] font-mono border border-zinc-800 px-2 py-0.5 rounded text-zinc-400">
-            Due {task.due_date}
-          </span>
+          <span className="text-[10px] font-mono border border-zinc-800 px-2 py-0.5 rounded text-zinc-400">Due {task.due_date}</span>
         ) : null}
         {task.competition_status ? (
-          <span className="text-[10px] font-mono border border-zinc-800 px-2 py-0.5 rounded text-zinc-400">
-            {task.competition_status}
-          </span>
+          <span className="text-[10px] font-mono border border-zinc-800 px-2 py-0.5 rounded text-zinc-400">{task.competition_status}</span>
         ) : null}
       </div>
       {task.task_assignees?.length || task.task_role_assignees?.length ? (
@@ -428,7 +454,6 @@ function TaskCard({
           Parts: {task.task_parts.map((p) => p.parts?.name ?? "part").join(", ")}
         </p>
       ) : null}
-
       {canManage ? (
         <FieldInput
           as="select"
@@ -442,7 +467,6 @@ function TaskCard({
           ))}
         </FieldInput>
       ) : null}
-
       <div className="space-y-2 border-t border-zinc-900 pt-3">
         <Label>Subtasks</Label>
         {(task.subtasks ?? []).map((s) => (
@@ -453,8 +477,7 @@ function TaskCard({
                 className="bg-black border border-zinc-800 rounded text-[10px] font-mono text-zinc-400 px-1 py-0.5"
                 value={s.status}
                 onChange={(e) =>
-                  onSubtaskStatus(s.id, e.target.value as TaskStatus)
-                }
+                  onSubtaskStatus(s.id, e.target.value as TaskStatus)}
               >
                 {TASK_COLUMNS.map((c) => (
                   <option key={c.id} value={c.id}>
@@ -480,15 +503,14 @@ function TaskCard({
           </div>
         ) : null}
       </div>
-
       {canManage ? (
         <SecondaryButton
-           type="button"
-           onClick={() => {
-             if (window.confirm(`Are you sure you want to delete "${task.name}"?`)) onDelete();
-           }}
-           className="w-full"
-         >
+          type="button"
+          onClick={() => {
+            if (window.confirm(`Are you sure you want to delete "${task.name}"?`)) onDelete();
+          }}
+          className="w-full"
+        >
           Delete
         </SecondaryButton>
       ) : null}
