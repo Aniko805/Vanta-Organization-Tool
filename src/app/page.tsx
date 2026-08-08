@@ -177,7 +177,7 @@ export default function Home() {
         >
           <div className="flex items-center space-x-3">
             <div className="w-8 h-8 bg-emerald-500/20 rounded flex items-center justify-center">
-              <span className="text-emerald-400 font-bold text-xl">���������������������📊</span>
+              <span className="text-emerald-400 font-bold text-xl">📊</span>
             </div>
             <div>
               <h3 className="font-semibold text-white">Dashboard</h3>
@@ -192,7 +192,7 @@ export default function Home() {
         >
           <div className="flex items-center space-x-3">
             <div className="w-8 h-8 bg-purple-500/20 rounded flex items-center justify-center">
-              <span className="text-purple-400 font-bold text-xl">���������������������👥</span>
+              <span className="text-purple-400 font-bold text-xl">👥</span>
             </div>
             <div>
               <h3 className="font-semibold text-white">Teams</h3>
@@ -207,7 +207,7 @@ export default function Home() {
         >
           <div className="flex items-center space-x-3">
             <div className="w-8 h-8 bg-blue-500/20 rounded flex items-center justify-center">
-              <span className="text-blue-400 font-bold text-xl">���������������������📋</span>
+              <span className="text-blue-400 font-bold text-xl">📋</span>
             </div>
             <div>
               <h3 className="font-semibold text-white">Team Tasks</h3>
@@ -222,7 +222,7 @@ export default function Home() {
         >
           <div className="flex items-center space-x-3">
             <div className="w-8 h-8 bg-green-500/20 rounded flex items-center justify-center">
-              <span className="text-green-400 font-bold text-xl">���������������������🔧</span>
+              <span className="text-green-400 font-bold text-xl">🔧</span>
             </div>
             <div>
               <h3 className="font-semibold text-white">Parts</h3>
@@ -237,7 +237,7 @@ export default function Home() {
         >
           <div className="flex items-center space-x-3">
             <div className="w-8 h-8 bg-yellow-500/20 rounded flex items-center justify-center">
-              <span className="text-yellow-400 font-bold text-xl">���������������������📝</span>
+              <span className="text-yellow-400 font-bold text-xl">📝</span>
             </div>
             <div>
               <h3 className="font-semibold text-white">Personal Tasks</h3>
@@ -252,7 +252,7 @@ export default function Home() {
         >
           <div className="flex items-center space-x-3">
             <div className="w-8 h-8 bg-gray-500/20 rounded flex items-center justify-center">
-              <span className="text-gray-400 font-bold text-xl">��������������⚙��������������️</span>
+              <span className="text-gray-400 font-bold text-xl">⚙️</span>
             </div>
             <div>
               <h3 className="font-semibold text-white">Settings</h3>
