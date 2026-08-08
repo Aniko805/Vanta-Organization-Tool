@@ -18,6 +18,7 @@ import {
   listTeamRoles,
   memberCanManageTasks,
 } from "@/lib/teams";
+import { supabase } from "@/lib/supabase";
 import {
   createSubtask,
   createTask,
