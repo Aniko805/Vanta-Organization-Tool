@@ -51,7 +51,7 @@ export default function TeamPage() {
   const isAdmin = selected && userId ? memberIsAdmin(selected, userId, myMembership) : false;
 
   const refreshTeams = useCallback(async (uid: string) => {
-    const next = await listMyTeams(uid);
+    const next = await listMyTeams();
     setTeams(next);
     setSelectedId((current) => {
       if (current && next.some((t) => t.id === current)) return current;
@@ -89,14 +89,20 @@ export default function TeamPage() {
   }, [refreshTeams]);
 
   useEffect(() => {
+    let mounted = true;
     if (!selectedId) {
       setMembers([]);
       setRoles([]);
       return;
     }
-    refreshSelected(selectedId).catch((e) =>
-      setError(e instanceof Error ? e.message : "Failed to load members")
-    );
+    refreshSelected(selectedId).catch((e) => {
+      if (mounted) {
+        setError(e instanceof Error ? e.message : "Failed to load members");
+      }
+    });
+    return () => {
+      mounted = false;
+    };
   }, [selectedId, refreshSelected]);
 
   const handleCreate = async () => {

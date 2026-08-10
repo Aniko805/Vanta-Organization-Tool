@@ -1,15 +1,20 @@
 import { supabase } from "./supabase";
 import type { Team, TeamMember, TeamRole } from "./types";
 
-export async function listMyTeams(userId: string): Promise<Team[]> {
+export async function listMyTeams(): Promise<Team[]> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return [];
+
   const { data: memberships, error: memberError } = await supabase
     .from("team_members")
-    .select("team_id")
-    .eq("user_id", userId);
+    .select("team_id");
 
   if (memberError) throw new Error(memberError.message);
 
-  const ids = [...new Set((memberships ?? []).map((m) => m.team_id))];
+  // Extract unique team IDs
+  const teamIdSet = new Set<string>();
+  (memberships ?? []).forEach(m => teamIdSet.add(m.team_id));
+  const ids = Array.from(teamIdSet);
   if (ids.length === 0) return [];
 
   const { data, error } = await supabase

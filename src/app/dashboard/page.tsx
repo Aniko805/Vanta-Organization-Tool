@@ -45,7 +45,7 @@ export default function DashboardPage() {
       }
       logs.push("Session authenticated.");
 
-      const myTeams = await listMyTeams(user.id);
+      const myTeams = await listMyTeams();
       setTeams(myTeams);
       logs.push(`Loaded ${myTeams.length} team(s).`);
 
@@ -86,7 +86,17 @@ export default function DashboardPage() {
   };
 
   useEffect(() => {
-    load();
+    let mounted = true;
+    (async () => {
+      try {
+        await load();
+      } catch (e) {
+        // Error is already handled in load function
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   return (

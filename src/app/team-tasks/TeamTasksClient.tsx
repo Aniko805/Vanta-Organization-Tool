@@ -102,7 +102,7 @@ export default function TeamTasksClient() {
         } = await supabase.auth.getUser();
         if (!mounted) return;
         setUserId(user?.id ?? null);
-        const myTeams = await listMyTeams();
+const myTeams = await listMyTeams();
         if (!mounted) return;
         setTeams(myTeams);
         const fromQuery = searchParams.get("team");
