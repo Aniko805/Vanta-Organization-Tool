@@ -106,7 +106,7 @@ export async function updateMemberRole(
   roleId: string | null
 ): Promise<void> {
   const { error } = await supabase
-    .from("team_members")
+    .from("member_roles")
     .update({ role_id: roleId })
     .eq("id", memberId);
 
