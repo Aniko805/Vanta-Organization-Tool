@@ -45,7 +45,7 @@ export default function DashboardPage() {
       }
       logs.push("Session authenticated.");
 
-      const myTeams = await listMyTeams();
+      const myTeams = await listMyTeams(user.id);
       setTeams(myTeams);
       logs.push(`Loaded ${myTeams.length} team(s).`);
 
