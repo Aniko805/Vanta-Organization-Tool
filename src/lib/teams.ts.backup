@@ -1,11 +1,10 @@
 import { supabase } from "./supabase";
 import type { Team, TeamMember, TeamRole } from "./types";
 
-export async function listMyTeams(userId: string): Promise<Team[]> {
+export async function listMyTeams(): Promise<Team[]> {
   const { data: memberships, error: memberError } = await supabase
     .from("team_members")
-    .select("team_id")
-    .eq("user_id", userId);
+    .select("team_id");
 
   if (memberError) throw new Error(memberError.message);
 
@@ -61,28 +60,12 @@ export async function joinTeamByInvite(code: string): Promise<string> {
   return data as string;
 }
 
-export async function leaveTeam(teamId: string): Promise<void> {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Not authenticated");
-
-  // Check if the user is the owner of the team
-  const { data: team, error: teamError } = await supabase
-    .from("teams")
-    .select("owner_id")
-    .eq("id", teamId)
-    .single();
-
-  if (teamError) throw new Error(teamError.message);
-  if (!team) throw new Error("Team not found");
-  if (team.owner_id === user.id) {
-    throw new Error("Owner cannot leave the team. Transfer ownership or delete the team.");
-  }
-
+export async function leaveTeam(teamId: string, userId: string): Promise<void> {
   const { error } = await supabase
     .from("team_members")
     .delete()
     .eq("team_id", teamId)
-    .eq("user_id", user.id);
+    .eq("user_id", userId);
 
   if (error) throw new Error(error.message);
 }
@@ -149,28 +132,6 @@ export async function regenerateInviteCode(teamId: string): Promise<string> {
 
   if (error) throw new Error(error.message);
   return data.invite_code as string;
-}
-
-export async function deleteTeam(teamId: string): Promise<void> {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("Not authenticated");
-
-  // Verify ownership
-  const { data: team, error: teamError } = await supabase
-    .from("teams")
-    .select("owner_id")
-    .eq("id", teamId)
-    .single();
-
-  if (teamError) throw new Error(teamError.message);
-  if (!team) throw new Error("Team not found");
-  if (team.owner_id !== user.id) {
-    throw new Error("Only the owner can delete the team");
-  }
-
-  // Delete the team (cascading deletes will remove related data)
-  const { error } = await supabase.from("teams").delete().eq("id", teamId);
-  if (error) throw new Error(error.message);
 }
 
 export function memberIsAdmin(
