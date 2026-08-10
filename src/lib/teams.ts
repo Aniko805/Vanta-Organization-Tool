@@ -7,7 +7,8 @@ export async function listMyTeams(): Promise<Team[]> {
 
   const { data: memberships, error: memberError } = await supabase
     .from("team_members")
-    .select("team_id");
+    .select("team_id")
+    .eq("user_id", user.id);
 
   if (memberError) throw new Error(memberError.message);
 
