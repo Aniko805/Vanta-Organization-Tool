@@ -1,10 +1,10 @@
 "use client";
 
-import { supabase } from "@/lib/supabase";
 import { hasCompletedProfile } from "@/lib/auth";
-import { useState } from "react";
+import { supabase } from "@/lib/supabase";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -15,8 +15,6 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<"signin" | "signup">("signin");
   const [error, setError] = useState<string | null>(null);
-
-  console.log(process.env.NEXT_PUBLIC_SUPABASE_URL);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,20 +48,6 @@ export default function LoginPage() {
                 },
               },
             });
-      // if (activeTab === "signup") {
-      //   if (!result.data.user) {
-      //     throw new Error("Failed to create user.");
-      //   }
-      //   const { error: profileError } = await supabase
-      //     .from("profiles")
-      //     .insert({id: result.data.user.id,});
-
-      //   if (profileError) {
-      //     setError(profileError.message);
-      //     return;
-      //   }
-      // }
-      console.log("RESULT:", result);
       if (result.error) {
         const message = result.error.message.toLowerCase().includes("rate limit")
           ? "Too many signup attempts. Please wait a minute and try again."
@@ -110,7 +94,7 @@ export default function LoginPage() {
         <div className="flex flex-col items-center mb-8">
           <Link href="/" className="flex items-center space-x-2 group">
             <div className="w-5 h-5 bg-white rotate-45 transform origin-center transition-transform group-hover:rotate-90 duration-500" />
-            <span className="text-sm font-semibold tracking-widest uppercase text-zinc-400 group-hover:text-white transition-colors">Vanta</span>
+            <span className="text-sm font-semibold tracking-widest uppercase text-zinc-400 group-hover:text-white transition-colors">Vulcan</span>
           </Link>
           <h2 className="text-2xl font-bold tracking-tight mt-4 bg-gradient-to-b from-white to-zinc-400 bg-clip-text text-transparent">
             {activeTab === "signin" ? "Welcome back" : "Start your journey"}

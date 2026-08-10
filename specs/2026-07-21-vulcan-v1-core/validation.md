@@ -1,4 +1,4 @@
-# Validation — Vanta v1 core
+# Validation — Vulcan v1 core
 
 ## Definition of done
 
@@ -17,7 +17,7 @@ Web v1 tools work against the migrated Supabase schema: teams, tasks, parts, per
 
 ## Manual test steps
 
-1. Run `001_vanta_schema.sql` in Supabase
+1. Run `001_vulcan_schema.sql` in Supabase
 2. Sign up two users; user A creates team; share invite code with B
 3. A creates part + team task assigned to B with subtask
 4. B sees task on Personal Tasks; both see Kanban

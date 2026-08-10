@@ -6,7 +6,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 ## Spec Driven Development
 
-Vanta is built under a Spec Driven Development constitution in `specs/`.
+Vulcan is built under a Spec Driven Development constitution in `specs/`.
 
 **Before implementing any feature**, agents MUST:
 

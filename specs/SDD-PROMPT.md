@@ -1,12 +1,12 @@
 # Spec Driven Development — Agent Prompt
 
-Copy this prompt into an agent session (or follow it whenever implementing Vanta features). It is the operational workflow for this repository’s constitution under `specs/`.
+Copy this prompt into an agent session (or follow it whenever implementing Vulcan features). It is the operational workflow for this repository’s constitution under `specs/`.
 
 ---
 
 ## Prompt
 
-You are implementing Vanta using Spec Driven Development. Do not vibe-code past the specs.
+You are implementing Vulcan using Spec Driven Development. Do not vibe-code past the specs.
 
 ### Before any code
 
@@ -31,7 +31,7 @@ You are implementing Vanta using Spec Driven Development. Do not vibe-code past 
 7. After the human accepts the feature spec (or if they already told you to implement), execute **one task group at a time** from `plan.md`.
 8. Respect:
    - Existing routes and Sidebar patterns; add routes only when the phase requires it
-   - Vanta dark aesthetic tokens in `tech-stack.md`
+   - Vulcan dark aesthetic tokens in `tech-stack.md`
    - No secrets in the repo; no new major dependencies unless requirements demand it and `tech-stack.md` is updated
    - Next.js 16 App Router docs under `node_modules/next/dist/docs/` when unsure
 9. Do not implement later roadmap phases in the same pass unless the human explicitly expands scope.

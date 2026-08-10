@@ -1,6 +1,5 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
 import AppShell, {
   EmptyState,
   ErrorText,
@@ -14,7 +13,7 @@ import {
   createPart,
   deletePart,
   listParts,
-  updatePartQuantity, // <-- 1. ADDED IMPORT
+  updatePartQuantity,
   updatePartStatus,
 } from "@/lib/parts";
 import { supabase } from "@/lib/supabase";
@@ -30,6 +29,7 @@ import {
   type Team,
   type TeamMember,
 } from "@/lib/types";
+import { useCallback, useEffect, useState } from "react";
 
 export default function PartsPage() {
   const [userId, setUserId] = useState<string | null>(null);
@@ -40,11 +40,12 @@ export default function PartsPage() {
   const [filter, setFilter] = useState<PartStatus | "all">("all");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const [name, setName] = useState("");
   const [sku, setSku] = useState("");
   const [notes, setNotes] = useState("");
-  const [quantity, setQuantity] = useState<number>(1); // State for new part quantity
+  const [quantity, setQuantity] = useState<number>(1);
 
   const selectedTeam = teams.find((t) => t.id === teamId) ?? null;
   const myMembership = members.find((m) => m.user_id === userId) ?? null;
@@ -54,25 +55,29 @@ export default function PartsPage() {
       : false;
 
   const refresh = useCallback(async (tid: string) => {
-    const [p, m] = await Promise.all([listParts(tid), listTeamMembers(tid)]);
-    setParts(p);
-    setMembers(m);
-  }, []);
+   setLoading(true);
+   try {
+     const [p, m] = await Promise.all([listParts(tid), listTeamMembers(tid)]);
+     setParts(p);
+     setMembers(m);
+   } catch (e) {
+     setError(e instanceof Error ? e.message : "Failed to load parts");
+   } finally {
+     setLoading(false);
+   }
+ }, []);
 
-  // 2. ADDED QUANTITY HANDLER FUNCTION
-  const handleQuantityChange = async (partId: string, newQty: number) => {
+  // commit typed quantity only when field lose focus (avoid write per keystroke!) - Anson
+  const commitQuantity = async (partId: string, raw: string) => {
+    const parsed = Math.max(0, parseInt(raw, 10) || 0);
     try {
-      // Optimistically update UI so it feels snappy
-      setParts((prev) =>
-        prev.map((p) => (p.id === partId ? { ...p, quantity: Math.max(0, newQty) } : p))
-      );
-      await updatePartQuantity(partId, newQty);
+      await updatePartQuantity(partId, parsed);
       if (teamId) await refresh(teamId);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update quantity");
     }
   };
-
+  
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -97,9 +102,10 @@ export default function PartsPage() {
 
   useEffect(() => {
     if (!teamId) return;
-    refresh(teamId).catch((e) =>
-      setError(e instanceof Error ? e.message : "Failed to load parts")
-    );
+    const loadData = async () => {
+      await refresh(teamId);
+    };
+    loadData();
   }, [teamId, refresh]);
 
   const visible =
@@ -212,7 +218,11 @@ export default function PartsPage() {
           </div>
 
           <div className="space-y-2">
-            {visible.length === 0 ? (
+            {loading ? (
+              <Panel>
+                <EmptyState>Loading parts…</EmptyState>
+              </Panel>
+            ) : visible.length === 0 ? (
               <Panel>
                 <EmptyState>No parts in this filter.</EmptyState>
               </Panel>
@@ -227,41 +237,62 @@ export default function PartsPage() {
                     </p>
                   </div>
                   <div className="flex items-center gap-3">
-                    {/* 3. YOUR QUANTITY CONTROLS PLACED HERE */}
                     {canManage ? (
-                      <div className="flex items-center gap-1">
-                        <button
-                          type="button"
-                          onClick={() => handleQuantityChange(part.id, (part.quantity ?? 1) - 1)}
-                          className="px-2 py-1 bg-zinc-900 border border-zinc-800 rounded hover:bg-zinc-800 text-sm font-bold text-zinc-300"
-                        >
-                          -
-                        </button>
+                    <div className="flex items-center gap-1">
+                       <button
+                         type="button"
+                         onClick={() => {
+                           setParts((prev) =>
+                             prev.map((p) =>
+                               p.id === part.id
+                                 ? { ...p, quantity: Math.max(0, (p.quantity ?? 1) - 1) }
+                                 : p
+                             )
+                           );
+                         }}
+                         className="px-2 py-1 bg-zinc-900 border border-zinc-800 rounded hover:bg-zinc-800 text-sm font-bold text-zinc-300"
+                       >
+                         −
+                       </button>
 
-                        <input
-                          type="number"
-                          min="0"
-                          value={part.quantity ?? 1}
-                          onChange={(e) => {
-                            const val = parseInt(e.target.value, 10);
-                            handleQuantityChange(part.id, isNaN(val) ? 0 : val);
-                          }}
-                          className="w-14 text-center bg-black border border-zinc-800 rounded py-1 text-sm text-white font-mono"
-                        />
+                       <input
+                         type="number"
+                         min="0"
+                         value={part.quantity ?? 1}
+                         onChange={(e) => {
+                           const val = parseInt(e.target.value, 10);
+                           const next = isNaN(val) ? 0 : val;
+                           setParts((prev) =>
+                             prev.map((p) =>
+                               p.id === part.id ? { ...p, quantity: Math.max(0, next) } : p
+                             )
+                           );
+                         }}
+                         onBlur={(e) => commitQuantity(part.id, e.target.value)}
+                         className="w-14 text-center bg-black border border-zinc-800 rounded py-1 text-sm text-white font-mono"
+                       />
 
-                        <button
-                          type="button"
-                          onClick={() => handleQuantityChange(part.id, (part.quantity ?? 1) + 1)}
-                          className="px-2 py-1 bg-zinc-900 border border-zinc-800 rounded hover:bg-zinc-800 text-sm font-bold text-zinc-300"
-                        >
-                          +
-                        </button>
-                      </div>
-                    ) : (
-                      <span className="text-sm font-mono text-zinc-400">
-                        Qty: {part.quantity ?? 1}
-                      </span>
-                    )}
+                       <button
+                         type="button"
+                         onClick={() => {
+                           setParts((prev) =>
+                             prev.map((p) =>
+                               p.id === part.id
+                                 ? { ...p, quantity: (p.quantity ?? 1) + 1 }
+                                 : p
+                             )
+                           );
+                         }}
+                         className="px-2 py-1 bg-zinc-900 border border-zinc-800 rounded hover:bg-zinc-800 text-sm font-bold text-zinc-300"
+                       >
+                         +
+                       </button>
+                     </div>
+                   ) : (
+                     <span className="text-sm font-mono text-zinc-400">
+                       Qty: {part.quantity ?? 1}
+                     </span>
+                   )}
 
                     {canManage ? (
                       <FieldInput
@@ -297,6 +328,7 @@ export default function PartsPage() {
                     {canManage ? (
                       <SecondaryButton
                         onClick={async () => {
+                          if (!window.confirm(`Are you sure you want to delete "${part.name}"? This cannot be undone.`)) return;
                           try {
                             await deletePart(part.id);
                             if (teamId) await refresh(teamId);

@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { getUserDisplayName, getUserProfile } from "@/lib/auth";
+import { getUserProfile } from "@/lib/auth";
+import { displayNameFromProfile } from "@/lib/types";
 import { supabase } from "@/lib/supabase";
 
 export default function Sidebar() {
@@ -28,14 +29,11 @@ export default function Sidebar() {
         return;
       }
 
-      const [name, profile] = await Promise.all([
-        getUserDisplayName(user),
-        getUserProfile(user.id),
-      ]);
+      const profile = await getUserProfile(user.id);
 
       if (!isMounted) return;
 
-      setDisplayName(name);
+      setDisplayName(displayNameFromProfile(profile));
       setAvatarUrl(profile?.avatar_url?.trim() || null);
     };
 
@@ -60,10 +58,10 @@ export default function Sidebar() {
       <div>
         {/* Logo */}
         <div className="mb-10">
-          <span className="text-sm font-semibold tracking-widest uppercase">Vanta</span>
+          <span className="text-sm font-semibold tracking-widest uppercase">Vulcan</span>
           <img
             src="/logo_transparent.png"
-            alt="Vanta logo"
+            alt="Vulcan logo"
             className="mt-3 h-14 w-auto object-contain"
           />
         </div>

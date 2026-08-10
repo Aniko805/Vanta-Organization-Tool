@@ -1,8 +1,8 @@
 # Mission
 
-## What Vanta is
+## What Vulcan is
 
-Vanta is an open-source organization tool for students and teams. Its primary focus is helping **FRC and FTC (FIRST Robotics / Tech Challenge)** teams organize parts efficiently, communicate between members, plan events, and assign work through a Kanban-style task system so scarce build season time is used well.
+Vulcan is an open-source organization tool for students and teams. Its primary focus is helping **FRC and FTC (FIRST Robotics / Tech Challenge)** teams organize parts efficiently, communicate between members, plan events, and assign work through a Kanban-style task system so scarce build season time is used well.
 
 The product is web-first today (Next.js on Vercel, data and auth on Supabase). A mobile adaptation is intentional future work and is **out of scope for v1**.
 
@@ -50,4 +50,4 @@ The product is web-first today (Next.js on Vercel, data and auth on Supabase). A
 
 ## Success looks like
 
-A signed-in team can create a team, invite members with roles, track parts through inventory statuses, and run team and personal tasks on a shared board—without leaving Vanta or leaking secrets into the repository.
+A signed-in team can create a team, invite members with roles, track parts through inventory statuses, and run team and personal tasks on a shared board—without leaving Vulcan or leaking secrets into the repository.

@@ -73,20 +73,21 @@ export async function leaveTeam(teamId: string, userId: string): Promise<void> {
 export async function listTeamMembers(teamId: string): Promise<TeamMember[]> {
   const { data, error } = await supabase
     .from("team_members")
-    .select(`
-      *,
-      profiles(*),
-      member_roles(
-        team_roles(*)
-      )
-    `)
-    .eq("team_id", teamId)
-
-  console.log({ data, error });
+    .select(`*, profiles(*)`)
+    .eq("team_id", teamId);
 
   if (error) throw new Error(error.message);
 
-  return (data ?? []) as TeamMember[];
+  // Resolve each member's role in JS instead of relying on a PostgREST
+  // relationship between team_members and team_roles (avoids schema-cache
+  // "Could not find a relationship" errors when the FK isn't cached).
+  const roles = await listTeamRoles(teamId);
+  const roleById = new Map(roles.map((r) => [r.id, r]));
+
+  return (data ?? []).map((m) => ({
+    ...m,
+    team_roles: m.role_id ? (roleById.get(m.role_id) ?? null) : null,
+  })) as TeamMember[];
 }
 
 export async function listTeamRoles(teamId: string): Promise<TeamRole[]> {
