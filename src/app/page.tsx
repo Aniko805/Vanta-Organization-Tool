@@ -103,16 +103,11 @@ export default function Home() {
               href="/login"
               className="w-full sm:w-auto px-8 py-3 bg-white text-black font-medium text-sm rounded-md hover:bg-zinc-200 transition-all duration-200 shadow-lg shadow-white/5 active:scale-95 text-center flex items-center justify-center"
             >
-              Sign In
+              Open Vulcan
             </Link>
 
             {/* Dashboard Mock Button */}
-            <Link 
-              href="/dashboard"
-              className="w-full sm:w-auto px-8 py-3 bg-zinc-900 border border-zinc-800 text-white font-medium text-sm rounded-md hover:bg-zinc-800 transition-all duration-200 active:scale-95 text-center flex items-center justify-center"
-            >
-              Dashboard
-            </Link>
+            
             
             {/* Functional GitHub Link Button */}
             <a 
