@@ -21,6 +21,7 @@ import {
   regenerateInviteCode,
   removeMember,
   updateMemberRole,
+  deleteTeam,
 } from "@/lib/teams";
 import {
   displayNameFromProfile,
@@ -88,14 +89,20 @@ export default function TeamPage() {
   }, [refreshTeams]);
 
   useEffect(() => {
+    let mounted = true;
     if (!selectedId) {
       setMembers([]);
       setRoles([]);
       return;
     }
-    refreshSelected(selectedId).catch((e) =>
-      setError(e instanceof Error ? e.message : "Failed to load members")
-    );
+    refreshSelected(selectedId).catch((e) => {
+      if (mounted) {
+        setError(e instanceof Error ? e.message : "Failed to load members");
+      }
+    });
+    return () => {
+      mounted = false;
+    };
   }, [selectedId, refreshSelected]);
 
   const handleCreate = async () => {
@@ -143,7 +150,7 @@ export default function TeamPage() {
     }
     setBusy(true);
     try {
-      await leaveTeam(selected.id, userId);
+      await leaveTeam(selected.id);
       await refreshTeams(userId);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Leave failed");
@@ -162,6 +169,22 @@ export default function TeamPage() {
       );
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not regenerate code");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!selected || !userId) return;
+    if (!window.confirm("Are you sure you want to delete this team? This action cannot be undone.")) return;
+    setBusy(true);
+    try {
+      await deleteTeam(selected.id);
+      // After deletion, clear selection and refresh teams
+      setSelectedId(null);
+      await refreshTeams(userId);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Delete failed");
     } finally {
       setBusy(false);
     }

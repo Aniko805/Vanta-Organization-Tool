@@ -86,7 +86,17 @@ export default function DashboardPage() {
   };
 
   useEffect(() => {
-    load();
+    let mounted = true;
+    (async () => {
+      try {
+        await load();
+      } catch (e) {
+        // Error is already handled in load function
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   return (
