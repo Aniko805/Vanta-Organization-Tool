@@ -180,7 +180,6 @@ export default function TeamPage() {
     setBusy(true);
     try {
       await deleteTeam(selected.id);
-      // After deletion, clear selection and refresh teams
       setSelectedId(null);
       await refreshTeams(userId);
     } catch (e) {
@@ -350,16 +349,34 @@ export default function TeamPage() {
                             className="w-40"
                             value={member.role_id ?? ""}
                             onChange={async (e) => {
+                              const newRoleId = e.target.value || null;
+                              const selectedRole = roles.find((r) => r.id === newRoleId);
+
+                              // Update local UI state immediately
+                              setMembers((prev) =>
+                                prev.map((m) =>
+                                  m.id === member.id
+                                    ? {
+                                        ...m,
+                                        role_id: newRoleId,
+                                        team_roles: selectedRole
+                                          ? { id: selectedRole.id, name: selectedRole.name }
+                                          : null,
+                                      }
+                                    : m
+                                )
+                              );
+
                               try {
-                                await updateMemberRole(
-                                  member.id,
-                                  e.target.value || null
-                                );
-                                await refreshSelected(selected.id);
+                                await updateMemberRole(member.id, newRoleId);
                               } catch (err) {
                                 setError(
                                   err instanceof Error ? err.message : "Role update failed"
                                 );
+                                // Revert local state if database call fails
+                                if (selected) {
+                                  await refreshSelected(selected.id);
+                                }
                               }
                             }}
                           >
@@ -377,7 +394,9 @@ export default function TeamPage() {
                               if (!window.confirm("Are you sure you want to remove this member from the team?")) return;
                               try {
                                 await removeMember(member.id);
-                                await refreshSelected(selected.id);
+                                if (selected) {
+                                  await refreshSelected(selected.id);
+                                }
                               } catch (err) {
                                 setError(
                                   err instanceof Error ? err.message : "Remove failed"
