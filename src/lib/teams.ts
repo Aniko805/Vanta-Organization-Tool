@@ -2,9 +2,7 @@ import { supabase } from "./supabase";
 import type { Team, TeamMember, TeamRole } from "./types";
 
 export async function listMyTeams(): Promise<Team[]> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { data: { user } } = await supabase.auth.getUser();
   if (!user) return [];
 
   const { data: memberships, error: memberError } = await supabase
@@ -16,7 +14,7 @@ export async function listMyTeams(): Promise<Team[]> {
 
   // Extract unique team IDs
   const teamIdSet = new Set<string>();
-  (memberships ?? []).forEach((m) => teamIdSet.add(m.team_id));
+  (memberships ?? []).forEach(m => teamIdSet.add(m.team_id));
   const ids = Array.from(teamIdSet);
   if (ids.length === 0) return [];
 
@@ -70,9 +68,7 @@ export async function joinTeamByInvite(code: string): Promise<string> {
 }
 
 export async function leaveTeam(teamId: string): Promise<void> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Not authenticated");
 
   // Check if the user is the owner of the team
@@ -85,9 +81,7 @@ export async function leaveTeam(teamId: string): Promise<void> {
   if (teamError) throw new Error(teamError.message);
   if (!team) throw new Error("Team not found");
   if (team.owner_id === user.id) {
-    throw new Error(
-      "Owner cannot leave the team. Transfer ownership or delete the team."
-    );
+    throw new Error("Owner cannot leave the team. Transfer ownership or delete the team.");
   }
 
   const { error } = await supabase
@@ -115,7 +109,7 @@ export async function listTeamMembers(teamId: string): Promise<TeamMember[]> {
 
   return (data ?? []).map((m) => ({
     ...m,
-    team_roles: m.role_id ? roleById.get(m.role_id) ?? null : null,
+    team_roles: m.role_id ? (roleById.get(m.role_id) ?? null) : null,
   })) as TeamMember[];
 }
 
@@ -135,7 +129,7 @@ export async function updateMemberRole(
   roleId: string | null
 ): Promise<void> {
   const { error } = await supabase
-    .from("team_members") // FIXED: target team_members instead of member_roles
+    .from("member_roles")
     .update({ role_id: roleId })
     .eq("id", memberId);
 
@@ -143,10 +137,7 @@ export async function updateMemberRole(
 }
 
 export async function removeMember(memberId: string): Promise<void> {
-  const { error } = await supabase
-    .from("team_members")
-    .delete()
-    .eq("id", memberId);
+  const { error } = await supabase.from("team_members").delete().eq("id", memberId);
   if (error) throw new Error(error.message);
 }
 
@@ -167,9 +158,7 @@ export async function regenerateInviteCode(teamId: string): Promise<string> {
 }
 
 export async function deleteTeam(teamId: string): Promise<void> {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Not authenticated");
 
   // Verify ownership
