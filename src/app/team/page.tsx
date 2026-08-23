@@ -357,24 +357,29 @@ export default function TeamPage() {
                               const newRoleId = e.target.value || null;
                               const selectedRole = roles.find((r) => r.id === newRoleId) ?? null;
 
-                              setMembers((prev) =>
-                                prev.map((m) =>
-                                  m.id === member.id
-                                    ? {
-                                        ...m,
-                                        role_id: newRoleId,
-                                        team_roles: selectedRole,
-                                      }
-                                    : m
-                                )
-                              );
+                              setError(null);
 
                               try {
+                                // 1. Save to Supabase first
                                 await updateMemberRole(member.id, newRoleId);
+
+                                // 2. Update local state once Supabase write succeeds
+                                setMembers((prev) =>
+                                  prev.map((m) =>
+                                    m.id === member.id
+                                      ? {
+                                          ...m,
+                                          role_id: newRoleId,
+                                          team_roles: selectedRole,
+                                        }
+                                      : m
+                                  )
+                                );
                               } catch (err) {
                                 setError(
                                   err instanceof Error ? err.message : "Role update failed"
                                 );
+                                // Re-sync with actual database state on error
                                 if (selected) {
                                   await refreshSelected(selected.id);
                                 }
