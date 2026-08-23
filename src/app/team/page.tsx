@@ -286,6 +286,11 @@ export default function TeamPage() {
                   <SecondaryButton disabled={busy} onClick={handleLeave}>
                     Leave
                   </SecondaryButton>
+                  {isAdmin ? (
+                    <SecondaryButton disabled={busy} onClick={handleDelete}>
+                      Delete Team
+                    </SecondaryButton>
+                  ) : null}
                 </div>
               </div>
 
@@ -350,18 +355,15 @@ export default function TeamPage() {
                             value={member.role_id ?? ""}
                             onChange={async (e) => {
                               const newRoleId = e.target.value || null;
-                              const selectedRole = roles.find((r) => r.id === newRoleId);
+                              const selectedRole = roles.find((r) => r.id === newRoleId) ?? null;
 
-                              // Update local UI state immediately
                               setMembers((prev) =>
                                 prev.map((m) =>
                                   m.id === member.id
                                     ? {
                                         ...m,
                                         role_id: newRoleId,
-                                        team_roles: selectedRole
-                                          ? { id: selectedRole.id, name: selectedRole.name }
-                                          : null,
+                                        team_roles: selectedRole,
                                       }
                                     : m
                                 )
@@ -373,7 +375,6 @@ export default function TeamPage() {
                                 setError(
                                   err instanceof Error ? err.message : "Role update failed"
                                 );
-                                // Revert local state if database call fails
                                 if (selected) {
                                   await refreshSelected(selected.id);
                                 }
