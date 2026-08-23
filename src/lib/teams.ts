@@ -2,7 +2,9 @@ import { supabase } from "./supabase";
 import type { Team, TeamMember, TeamRole } from "./types";
 
 export async function listMyTeams(): Promise<Team[]> {
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   if (!user) return [];
 
   const { data: memberships, error: memberError } = await supabase
@@ -14,7 +16,7 @@ export async function listMyTeams(): Promise<Team[]> {
 
   // Extract unique team IDs
   const teamIdSet = new Set<string>();
-  (memberships ?? []).forEach(m => teamIdSet.add(m.team_id));
+  (memberships ?? []).forEach((m) => teamIdSet.add(m.team_id));
   const ids = Array.from(teamIdSet);
   if (ids.length === 0) return [];
 
@@ -68,7 +70,9 @@ export async function joinTeamByInvite(code: string): Promise<string> {
 }
 
 export async function leaveTeam(teamId: string): Promise<void> {
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   if (!user) throw new Error("Not authenticated");
 
   // Check if the user is the owner of the team
@@ -81,7 +85,9 @@ export async function leaveTeam(teamId: string): Promise<void> {
   if (teamError) throw new Error(teamError.message);
   if (!team) throw new Error("Team not found");
   if (team.owner_id === user.id) {
-    throw new Error("Owner cannot leave the team. Transfer ownership or delete the team.");
+    throw new Error(
+      "Owner cannot leave the team. Transfer ownership or delete the team."
+    );
   }
 
   const { error } = await supabase
@@ -94,23 +100,44 @@ export async function leaveTeam(teamId: string): Promise<void> {
 }
 
 export async function listTeamMembers(teamId: string): Promise<TeamMember[]> {
-  const { data, error } = await supabase
+  const { data: members, error } = await supabase
     .from("team_members")
     .select(`*, profiles(*)`)
     .eq("team_id", teamId);
 
   if (error) throw new Error(error.message);
 
-  // Resolve each member's role in JS instead of relying on a PostgREST
-  // relationship between team_members and team_roles (avoids schema-cache
-  // "Could not find a relationship" errors when the FK isn't cached).
+  const memberIds = (members ?? []).map((m) => m.id);
+
+  // Query member_roles for all members in this team
+  let memberRolesRows: { member_id: string; role_id: string }[] = [];
+  if (memberIds.length > 0) {
+    const { data: mrData, error: mrError } = await supabase
+      .from("member_roles")
+      .select("member_id, role_id")
+      .in("member_id", memberIds);
+
+    if (mrError) throw new Error(mrError.message);
+    if (mrData) memberRolesRows = mrData;
+  }
+
+  // Fetch available roles for the team
   const roles = await listTeamRoles(teamId);
   const roleById = new Map(roles.map((r) => [r.id, r]));
 
-  return (data ?? []).map((m) => ({
-    ...m,
-    team_roles: m.role_id ? (roleById.get(m.role_id) ?? null) : null,
-  })) as TeamMember[];
+  // Create a map from member_id -> role_id
+  const memberToRoleMap = new Map(
+    memberRolesRows.map((mr) => [mr.member_id, mr.role_id])
+  );
+
+  return (members ?? []).map((m) => {
+    const activeRoleId = memberToRoleMap.get(m.id) ?? null;
+    return {
+      ...m,
+      role_id: activeRoleId,
+      team_roles: activeRoleId ? roleById.get(activeRoleId) ?? null : null,
+    };
+  }) as TeamMember[];
 }
 
 export async function listTeamRoles(teamId: string): Promise<TeamRole[]> {
@@ -128,16 +155,32 @@ export async function updateMemberRole(
   memberId: string,
   roleId: string | null
 ): Promise<void> {
-  const { error } = await supabase
+  // 1. Delete any existing role assignment in member_roles for this member
+  const { error: deleteError } = await supabase
     .from("member_roles")
-    .update({ role_id: roleId })
-    .eq("id", memberId);
+    .delete()
+    .eq("member_id", memberId);
 
-  if (error) throw new Error(error.message);
+  if (deleteError) throw new Error(deleteError.message);
+
+  // 2. If a new role ID is provided, insert a new row in member_roles
+  if (roleId) {
+    const { error: insertError } = await supabase
+      .from("member_roles")
+      .insert({
+        member_id: memberId,
+        role_id: roleId,
+      });
+
+    if (insertError) throw new Error(insertError.message);
+  }
 }
 
 export async function removeMember(memberId: string): Promise<void> {
-  const { error } = await supabase.from("team_members").delete().eq("id", memberId);
+  const { error } = await supabase
+    .from("team_members")
+    .delete()
+    .eq("id", memberId);
   if (error) throw new Error(error.message);
 }
 
@@ -158,7 +201,9 @@ export async function regenerateInviteCode(teamId: string): Promise<string> {
 }
 
 export async function deleteTeam(teamId: string): Promise<void> {
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   if (!user) throw new Error("Not authenticated");
 
   // Verify ownership
