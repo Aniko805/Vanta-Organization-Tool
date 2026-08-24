@@ -1,9 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
 import {
-  getTeam,
+  listMyTeams,
   listTeamMembers,
   listTeamRoles,
   updateMemberRoles,
@@ -11,10 +10,6 @@ import {
 import type { Team, TeamMember, TeamRole } from "@/lib/types";
 
 export default function TeamManagementPage() {
-  const params = useParams();
-  // Ensure teamId is extracted safely as a string
-  const teamId = Array.isArray(params?.id) ? params.id[0] : params?.id;
-
   const [team, setTeam] = useState<Team | null>(null);
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [roles, setRoles] = useState<TeamRole[]>([]);
@@ -24,39 +19,47 @@ export default function TeamManagementPage() {
 
   useEffect(() => {
     async function loadTeamData() {
-      if (!teamId) return;
-
       try {
         setLoading(true);
         setErrorMsg(null);
 
-        // Run requests with fallback error reporting
-        const [fetchedTeam, fetchedMembers, fetchedRoles] = await Promise.all([
-          getTeam(teamId),
-          listTeamMembers(teamId),
-          listTeamRoles(teamId),
+        // 1. Fetch user's teams first
+        const myTeams = await listMyTeams();
+        if (myTeams.length === 0) {
+          setLoading(false);
+          return;
+        }
+
+        // Use the first active team
+        const activeTeam = myTeams[0];
+        setTeam(activeTeam);
+
+        // 2. Fetch members and roles for this team
+        const [fetchedMembers, fetchedRoles] = await Promise.all([
+          listTeamMembers(activeTeam.id),
+          listTeamRoles(activeTeam.id),
         ]);
 
-        setTeam(fetchedTeam);
         setMembers(fetchedMembers);
         setRoles(fetchedRoles);
       } catch (err: any) {
         console.error("Error loading team data:", err);
         setErrorMsg(err?.message || "Failed to load team data.");
       } finally {
-        // ALWAYS turn off loading state
         setLoading(false);
       }
     }
 
     loadTeamData();
-  }, [teamId]);
+  }, []);
 
   const handleRoleToggle = async (
     memberId: string,
     roleId: string,
     currentRoleIds: string[]
   ) => {
+    if (!team) return;
+
     try {
       setUpdatingMemberId(memberId);
 
@@ -66,10 +69,11 @@ export default function TeamManagementPage() {
 
       await updateMemberRoles(memberId, newRoleIds);
 
-      const updatedMembers = await listTeamMembers(teamId as string);
+      const updatedMembers = await listTeamMembers(team.id);
       setMembers(updatedMembers);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to update roles:", err);
+      alert(err?.message || "Could not update roles");
     } finally {
       setUpdatingMemberId(null);
     }
@@ -89,7 +93,11 @@ export default function TeamManagementPage() {
   }
 
   if (!team) {
-    return <div className="p-6">Team not found. Verify the URL ID parameter.</div>;
+    return (
+      <div className="p-6">
+        No teams found. Please create or join a team first.
+      </div>
+    );
   }
 
   return (
