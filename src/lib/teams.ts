@@ -121,7 +121,6 @@ export async function listTeamMembers(teamId: string): Promise<TeamMember[]> {
   const roles = await listTeamRoles(teamId);
   const roleById = new Map(roles.map((r) => [r.id, r]));
 
-  // Build a map of member_id -> array of assigned role_ids
   const memberToRoleIdsMap = new Map<string, string[]>();
   for (const mr of memberRolesRows) {
     const list = memberToRoleIdsMap.get(mr.member_id) ?? [];
@@ -139,7 +138,6 @@ export async function listTeamMembers(teamId: string): Promise<TeamMember[]> {
       ...m,
       role_ids: activeRoleIds,
       team_roles_list: assignedRoles,
-      // Fallback property for single-role backwards compatibility
       team_roles: assignedRoles[0] ?? null,
     };
   }) as TeamMember[];
@@ -160,7 +158,6 @@ export async function updateMemberRoles(
   memberId: string,
   roleIds: string[]
 ): Promise<void> {
-  // 1. Remove all current role associations for this member
   const { error: deleteError } = await supabase
     .from("member_roles")
     .delete()
@@ -168,7 +165,6 @@ export async function updateMemberRoles(
 
   if (deleteError) throw new Error(deleteError.message);
 
-  // 2. Insert rows for each provided role_id (filtering out duplicates or empty values)
   const validRoleIds = Array.from(new Set(roleIds.filter(Boolean)));
 
   if (validRoleIds.length > 0) {
