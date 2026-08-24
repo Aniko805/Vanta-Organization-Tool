@@ -155,11 +155,21 @@ export async function listTeamRoles(teamId: string): Promise<TeamRole[]> {
   return (data ?? []) as TeamRole[];
 }
 
+// Support single role updates for backward compatibility
+export async function updateMemberRole(
+  memberId: string,
+  roleId: string | null
+): Promise<void> {
+  const roleIds = roleId ? [roleId] : [];
+  await updateMemberRoles(memberId, roleIds);
+}
+
+// Support multiple role assignments
 export async function updateMemberRoles(
   memberId: string,
   roleIds: string[]
 ): Promise<void> {
-  // 1. Remove all current role links for this member
+  // 1. Delete existing roles for member
   const { error: deleteError } = await supabase
     .from("member_roles")
     .delete()
@@ -167,7 +177,7 @@ export async function updateMemberRoles(
 
   if (deleteError) throw new Error(deleteError.message);
 
-  // 2. Insert new role associations
+  // 2. Insert array of new roles if provided
   if (roleIds.length > 0) {
     const rowsToInsert = roleIds.map((roleId) => ({
       member_id: memberId,
