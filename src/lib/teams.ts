@@ -123,9 +123,9 @@ export async function listTeamMembers(teamId: string): Promise<TeamMember[]> {
 
   const memberToRoleIdsMap = new Map<string, string[]>();
   for (const mr of memberRolesRows) {
-    const list = memberToRoleIdsMap.get(mr.member_id) ?? [];
-    list.push(mr.role_id);
-    memberToRoleIdsMap.set(mr.member_id, list);
+    const existing = memberToRoleIdsMap.get(mr.member_id) ?? [];
+    existing.push(mr.role_id);
+    memberToRoleIdsMap.set(mr.member_id, existing);
   }
 
   return (members ?? []).map((m) => {
@@ -136,9 +136,10 @@ export async function listTeamMembers(teamId: string): Promise<TeamMember[]> {
 
     return {
       ...m,
+      role_id: activeRoleIds[0] ?? null,
       role_ids: activeRoleIds,
-      team_roles_list: assignedRoles,
       team_roles: assignedRoles[0] ?? null,
+      team_roles_list: assignedRoles,
     };
   }) as TeamMember[];
 }
@@ -158,6 +159,7 @@ export async function updateMemberRoles(
   memberId: string,
   roleIds: string[]
 ): Promise<void> {
+  // 1. Remove all current role links for this member
   const { error: deleteError } = await supabase
     .from("member_roles")
     .delete()
@@ -165,10 +167,9 @@ export async function updateMemberRoles(
 
   if (deleteError) throw new Error(deleteError.message);
 
-  const validRoleIds = Array.from(new Set(roleIds.filter(Boolean)));
-
-  if (validRoleIds.length > 0) {
-    const rowsToInsert = validRoleIds.map((roleId) => ({
+  // 2. Insert new role associations
+  if (roleIds.length > 0) {
+    const rowsToInsert = roleIds.map((roleId) => ({
       member_id: memberId,
       role_id: roleId,
     }));
