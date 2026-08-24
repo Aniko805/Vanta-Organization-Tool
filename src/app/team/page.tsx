@@ -30,7 +30,7 @@ import {
   type TeamRole,
 } from "@/lib/types";
 import Link from "next/link";
-import React, { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 export default function TeamPage() {
   const [userId, setUserId] = useState<string | null>(null);
@@ -338,7 +338,9 @@ export default function TeamPage() {
                           <p className="text-sm font-semibold text-zinc-200">
                             {displayNameFromProfile(member.profiles)}
                             {member.user_id === userId ? (
-                              <span className="ml-2 text-[10px] font-mono text-zinc-500">you</span>
+                              <span className="ml-2 text-[10px] font-mono text-zinc-500">
+                                you
+                              </span>
                             ) : null}
                             {member.user_id === selected.owner_id ? (
                               <span className="ml-2 text-[10px] font-mono text-emerald-500">
@@ -357,7 +359,9 @@ export default function TeamPage() {
                                 </span>
                               ))
                             ) : (
-                              <span className="text-[10px] font-mono text-zinc-600">No roles</span>
+                              <span className="text-[10px] font-mono text-zinc-600">
+                                No role
+                              </span>
                             )}
                           </div>
                         </div>
@@ -386,7 +390,9 @@ export default function TeamPage() {
                                         if (selected) await refreshSelected(selected.id);
                                       } catch (err) {
                                         setError(
-                                          err instanceof Error ? err.message : "Failed to update role"
+                                          err instanceof Error
+                                            ? err.message
+                                            : "Failed to update role"
                                         );
                                       }
                                     }}
@@ -403,14 +409,18 @@ export default function TeamPage() {
                                     title="Remove Role"
                                     className="px-2 py-1 text-xs text-red-400 hover:text-red-300"
                                     onClick={async () => {
-                                      const updatedList = assignedRoleIds.filter((_, i) => i !== idx);
+                                      const updatedList = assignedRoleIds.filter(
+                                        (_, i) => i !== idx
+                                      );
                                       setError(null);
                                       try {
                                         await updateMemberRoles(member.id, updatedList);
                                         if (selected) await refreshSelected(selected.id);
                                       } catch (err) {
                                         setError(
-                                          err instanceof Error ? err.message : "Failed to remove role"
+                                          err instanceof Error
+                                            ? err.message
+                                            : "Failed to remove role"
                                         );
                                       }
                                     }}
@@ -429,14 +439,19 @@ export default function TeamPage() {
                                   );
                                   if (!unassignedRole) return;
 
-                                  const updatedList = [...assignedRoleIds, unassignedRole.id];
+                                  const updatedList = [
+                                    ...assignedRoleIds,
+                                    unassignedRole.id,
+                                  ];
                                   setError(null);
                                   try {
                                     await updateMemberRoles(member.id, updatedList);
                                     if (selected) await refreshSelected(selected.id);
                                   } catch (err) {
                                     setError(
-                                      err instanceof Error ? err.message : "Failed to add role"
+                                      err instanceof Error
+                                        ? err.message
+                                        : "Failed to add role"
                                     );
                                   }
                                 }}

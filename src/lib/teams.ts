@@ -139,7 +139,7 @@ export async function listTeamMembers(teamId: string): Promise<TeamMember[]> {
       ...m,
       role_ids: activeRoleIds,
       team_roles_list: assignedRoles,
-      // Fallback property for legacy single-role checks
+      // Fallback property for single-role backwards compatibility
       team_roles: assignedRoles[0] ?? null,
     };
   }) as TeamMember[];
@@ -168,7 +168,7 @@ export async function updateMemberRoles(
 
   if (deleteError) throw new Error(deleteError.message);
 
-  // 2. Insert rows for each provided role_id (filtering out empty strings or nulls)
+  // 2. Insert rows for each provided role_id (filtering out duplicates or empty values)
   const validRoleIds = Array.from(new Set(roleIds.filter(Boolean)));
 
   if (validRoleIds.length > 0) {
