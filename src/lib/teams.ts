@@ -14,7 +14,6 @@ export async function listMyTeams(): Promise<Team[]> {
 
   if (memberError) throw new Error(memberError.message);
 
-  // Extract unique team IDs
   const teamIdSet = new Set<string>();
   (memberships ?? []).forEach((m) => teamIdSet.add(m.team_id));
   const ids = Array.from(teamIdSet);
@@ -75,7 +74,6 @@ export async function leaveTeam(teamId: string): Promise<void> {
   } = await supabase.auth.getUser();
   if (!user) throw new Error("Not authenticated");
 
-  // Check if the user is the owner of the team
   const { data: team, error: teamError } = await supabase
     .from("teams")
     .select("owner_id")
@@ -109,7 +107,6 @@ export async function listTeamMembers(teamId: string): Promise<TeamMember[]> {
 
   const memberIds = (members ?? []).map((m) => m.id);
 
-  // Query member_roles for all members in this team
   let memberRolesRows: { member_id: string; role_id: string }[] = [];
   if (memberIds.length > 0) {
     const { data: mrData, error: mrError } = await supabase
@@ -121,21 +118,29 @@ export async function listTeamMembers(teamId: string): Promise<TeamMember[]> {
     if (mrData) memberRolesRows = mrData;
   }
 
-  // Fetch available roles for the team
   const roles = await listTeamRoles(teamId);
   const roleById = new Map(roles.map((r) => [r.id, r]));
 
-  // Create a map from member_id -> role_id
-  const memberToRoleMap = new Map(
-    memberRolesRows.map((mr) => [mr.member_id, mr.role_id])
-  );
+  // Build a map of member_id -> array of assigned role_ids
+  const memberToRoleIdsMap = new Map<string, string[]>();
+  for (const mr of memberRolesRows) {
+    const list = memberToRoleIdsMap.get(mr.member_id) ?? [];
+    list.push(mr.role_id);
+    memberToRoleIdsMap.set(mr.member_id, list);
+  }
 
   return (members ?? []).map((m) => {
-    const activeRoleId = memberToRoleMap.get(m.id) ?? null;
+    const activeRoleIds = memberToRoleIdsMap.get(m.id) ?? [];
+    const assignedRoles = activeRoleIds
+      .map((id) => roleById.get(id))
+      .filter((r): r is TeamRole => Boolean(r));
+
     return {
       ...m,
-      role_id: activeRoleId,
-      team_roles: activeRoleId ? roleById.get(activeRoleId) ?? null : null,
+      role_ids: activeRoleIds,
+      team_roles_list: assignedRoles,
+      // Fallback property for legacy single-role checks
+      team_roles: assignedRoles[0] ?? null,
     };
   }) as TeamMember[];
 }
@@ -151,11 +156,11 @@ export async function listTeamRoles(teamId: string): Promise<TeamRole[]> {
   return (data ?? []) as TeamRole[];
 }
 
-export async function updateMemberRole(
+export async function updateMemberRoles(
   memberId: string,
-  roleId: string | null
+  roleIds: string[]
 ): Promise<void> {
-  // 1. Delete any existing role assignment in member_roles for this member
+  // 1. Remove all current role associations for this member
   const { error: deleteError } = await supabase
     .from("member_roles")
     .delete()
@@ -163,14 +168,18 @@ export async function updateMemberRole(
 
   if (deleteError) throw new Error(deleteError.message);
 
-  // 2. If a new role ID is provided, insert a new row in member_roles
-  if (roleId) {
+  // 2. Insert rows for each provided role_id (filtering out empty strings or nulls)
+  const validRoleIds = Array.from(new Set(roleIds.filter(Boolean)));
+
+  if (validRoleIds.length > 0) {
+    const rowsToInsert = validRoleIds.map((roleId) => ({
+      member_id: memberId,
+      role_id: roleId,
+    }));
+
     const { error: insertError } = await supabase
       .from("member_roles")
-      .insert({
-        member_id: memberId,
-        role_id: roleId,
-      });
+      .insert(rowsToInsert);
 
     if (insertError) throw new Error(insertError.message);
   }
@@ -206,7 +215,6 @@ export async function deleteTeam(teamId: string): Promise<void> {
   } = await supabase.auth.getUser();
   if (!user) throw new Error("Not authenticated");
 
-  // Verify ownership
   const { data: team, error: teamError } = await supabase
     .from("teams")
     .select("owner_id")
@@ -219,7 +227,6 @@ export async function deleteTeam(teamId: string): Promise<void> {
     throw new Error("Only the owner can delete the team");
   }
 
-  // Delete the team (cascading deletes will remove related data)
   const { error } = await supabase.from("teams").delete().eq("id", teamId);
   if (error) throw new Error(error.message);
 }
@@ -230,8 +237,8 @@ export function memberIsAdmin(
   membership?: TeamMember | null
 ): boolean {
   if (team.owner_id === userId) return true;
-  const role = membership?.team_roles;
-  return Boolean(role?.is_admin || role?.can_manage_members);
+  const roles = membership?.team_roles_list ?? (membership?.team_roles ? [membership.team_roles] : []);
+  return roles.some((role) => role.is_admin || role.can_manage_members);
 }
 
 export function memberCanManageTasks(
@@ -240,8 +247,8 @@ export function memberCanManageTasks(
   membership?: TeamMember | null
 ): boolean {
   if (team.owner_id === userId) return true;
-  const role = membership?.team_roles;
-  return Boolean(role?.is_admin || role?.can_manage_tasks);
+  const roles = membership?.team_roles_list ?? (membership?.team_roles ? [membership.team_roles] : []);
+  return roles.some((role) => role.is_admin || role.can_manage_tasks);
 }
 
 export function memberCanManageInventory(
@@ -250,7 +257,7 @@ export function memberCanManageInventory(
   membership?: TeamMember | null
 ): boolean {
   if (team.owner_id === userId) return true;
-  const role = membership?.team_roles;
-  if (!membership?.role_id) return true;
-  return Boolean(role?.is_admin || role?.can_manage_inventory);
+  const roles = membership?.team_roles_list ?? (membership?.team_roles ? [membership.team_roles] : []);
+  if (roles.length === 0) return true;
+  return roles.some((role) => role.is_admin || role.can_manage_inventory);
 }

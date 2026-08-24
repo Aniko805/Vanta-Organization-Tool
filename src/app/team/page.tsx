@@ -12,6 +12,7 @@ import AppShell, {
 import { supabase } from "@/lib/supabase";
 import {
   createTeam,
+  deleteTeam,
   joinTeamByInvite,
   leaveTeam,
   listMyTeams,
@@ -20,8 +21,7 @@ import {
   memberIsAdmin,
   regenerateInviteCode,
   removeMember,
-  updateMemberRole,
-  deleteTeam,
+  updateMemberRoles,
 } from "@/lib/teams";
 import {
   displayNameFromProfile,
@@ -30,7 +30,7 @@ import {
   type TeamRole,
 } from "@/lib/types";
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 
 export default function TeamPage() {
   const [userId, setUserId] = useState<string | null>(null);
@@ -326,96 +326,154 @@ export default function TeamPage() {
               <div>
                 <Label>Members</Label>
                 <div className="mt-3 divide-y divide-zinc-900 border border-zinc-900 rounded-lg overflow-hidden">
-                  {members.map((member) => (
-                    <div
-                      key={member.id}
-                      className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 bg-zinc-950/30"
-                    >
-                      <div>
-                        <p className="text-sm font-semibold text-zinc-200">
-                          {displayNameFromProfile(member.profiles)}
-                          {member.user_id === userId ? (
-                            <span className="ml-2 text-[10px] font-mono text-zinc-500">you</span>
+                  {members.map((member) => {
+                    const assignedRoleIds = member.role_ids ?? [];
+
+                    return (
+                      <div
+                        key={member.id}
+                        className="flex flex-wrap items-start justify-between gap-3 px-4 py-3 bg-zinc-950/30"
+                      >
+                        <div>
+                          <p className="text-sm font-semibold text-zinc-200">
+                            {displayNameFromProfile(member.profiles)}
+                            {member.user_id === userId ? (
+                              <span className="ml-2 text-[10px] font-mono text-zinc-500">you</span>
+                            ) : null}
+                            {member.user_id === selected.owner_id ? (
+                              <span className="ml-2 text-[10px] font-mono text-emerald-500">
+                                OWNER
+                              </span>
+                            ) : null}
+                          </p>
+                          <div className="mt-1 flex flex-wrap gap-1">
+                            {member.team_roles_list && member.team_roles_list.length > 0 ? (
+                              member.team_roles_list.map((r) => (
+                                <span
+                                  key={r.id}
+                                  className="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-800 text-zinc-300"
+                                >
+                                  {r.name}
+                                </span>
+                              ))
+                            ) : (
+                              <span className="text-[10px] font-mono text-zinc-600">No roles</span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex items-start gap-2">
+                          {isAdmin ? (
+                            <div className="flex flex-col gap-2">
+                              {assignedRoleIds.map((currentRoleId, idx) => (
+                                <div key={idx} className="flex items-center gap-1">
+                                  <FieldInput
+                                    as="select"
+                                    className="w-36 text-xs"
+                                    value={currentRoleId}
+                                    onChange={async (e) => {
+                                      const newRoleId = e.target.value;
+                                      const updatedList = [...assignedRoleIds];
+                                      if (newRoleId) {
+                                        updatedList[idx] = newRoleId;
+                                      } else {
+                                        updatedList.splice(idx, 1);
+                                      }
+
+                                      setError(null);
+                                      try {
+                                        await updateMemberRoles(member.id, updatedList);
+                                        if (selected) await refreshSelected(selected.id);
+                                      } catch (err) {
+                                        setError(
+                                          err instanceof Error ? err.message : "Failed to update role"
+                                        );
+                                      }
+                                    }}
+                                  >
+                                    <option value="">Select role...</option>
+                                    {roles.map((role) => (
+                                      <option key={role.id} value={role.id}>
+                                        {role.name}
+                                      </option>
+                                    ))}
+                                  </FieldInput>
+                                  <button
+                                    type="button"
+                                    title="Remove Role"
+                                    className="px-2 py-1 text-xs text-red-400 hover:text-red-300"
+                                    onClick={async () => {
+                                      const updatedList = assignedRoleIds.filter((_, i) => i !== idx);
+                                      setError(null);
+                                      try {
+                                        await updateMemberRoles(member.id, updatedList);
+                                        if (selected) await refreshSelected(selected.id);
+                                      } catch (err) {
+                                        setError(
+                                          err instanceof Error ? err.message : "Failed to remove role"
+                                        );
+                                      }
+                                    }}
+                                  >
+                                    ✕
+                                  </button>
+                                </div>
+                              ))}
+
+                              <SecondaryButton
+                                type="button"
+                                className="text-[10px] self-start"
+                                onClick={async () => {
+                                  const unassignedRole = roles.find(
+                                    (r) => !assignedRoleIds.includes(r.id)
+                                  );
+                                  if (!unassignedRole) return;
+
+                                  const updatedList = [...assignedRoleIds, unassignedRole.id];
+                                  setError(null);
+                                  try {
+                                    await updateMemberRoles(member.id, updatedList);
+                                    if (selected) await refreshSelected(selected.id);
+                                  } catch (err) {
+                                    setError(
+                                      err instanceof Error ? err.message : "Failed to add role"
+                                    );
+                                  }
+                                }}
+                              >
+                                + Add Role
+                              </SecondaryButton>
+                            </div>
                           ) : null}
-                          {member.user_id === selected.owner_id ? (
-                            <span className="ml-2 text-[10px] font-mono text-emerald-500">
-                              OWNER
-                            </span>
-                          ) : null}
-                        </p>
-                        <p className="text-[10px] font-mono text-zinc-600">
-                          {member.team_roles?.name ?? "No role"}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {isAdmin ? (
-                          <FieldInput
-                            as="select"
-                            className="w-40"
-                            value={member.role_id ?? ""}
-                            onChange={async (e) => {
-                              const newRoleId = e.target.value || null;
-                              const selectedRole = roles.find((r) => r.id === newRoleId) ?? null;
 
-                              setError(null);
-
-                              try {
-                                // 1. Save to Supabase first
-                                await updateMemberRole(member.id, newRoleId);
-
-                                // 2. Update local state once Supabase write succeeds
-                                setMembers((prev) =>
-                                  prev.map((m) =>
-                                    m.id === member.id
-                                      ? {
-                                          ...m,
-                                          role_id: newRoleId,
-                                          team_roles: selectedRole,
-                                        }
-                                      : m
+                          {isAdmin && member.user_id !== selected.owner_id ? (
+                            <SecondaryButton
+                              onClick={async () => {
+                                if (
+                                  !window.confirm(
+                                    "Are you sure you want to remove this member from the team?"
                                   )
-                                );
-                              } catch (err) {
-                                setError(
-                                  err instanceof Error ? err.message : "Role update failed"
-                                );
-                                // Re-sync with actual database state on error
-                                if (selected) {
-                                  await refreshSelected(selected.id);
+                                )
+                                  return;
+                                try {
+                                  await removeMember(member.id);
+                                  if (selected) {
+                                    await refreshSelected(selected.id);
+                                  }
+                                } catch (err) {
+                                  setError(
+                                    err instanceof Error ? err.message : "Remove failed"
+                                  );
                                 }
-                              }
-                            }}
-                          >
-                            <option value="">No role</option>
-                            {roles.map((role) => (
-                              <option key={role.id} value={role.id}>
-                                {role.name}
-                              </option>
-                            ))}
-                          </FieldInput>
-                        ) : null}
-                        {isAdmin && member.user_id !== selected.owner_id ? (
-                          <SecondaryButton
-                            onClick={async () => {
-                              if (!window.confirm("Are you sure you want to remove this member from the team?")) return;
-                              try {
-                                await removeMember(member.id);
-                                if (selected) {
-                                  await refreshSelected(selected.id);
-                                }
-                              } catch (err) {
-                                setError(
-                                  err instanceof Error ? err.message : "Remove failed"
-                                );
-                              }
-                            }}
-                          >
-                            Remove
-                          </SecondaryButton>
-                        ) : null}
+                              }}
+                            >
+                              Remove
+                            </SecondaryButton>
+                          ) : null}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             </>
