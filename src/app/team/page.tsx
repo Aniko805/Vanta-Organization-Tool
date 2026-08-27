@@ -21,7 +21,6 @@ import {
   regenerateInviteCode,
   removeMember,
   updateMemberRoles,
-  deleteTeam,
 } from "@/lib/teams";
 import {
   displayNameFromProfile,
@@ -175,20 +174,71 @@ export default function TeamPage() {
     }
   };
 
-  const handleRoleToggle = async (
+  // Dropdown Change Handler
+  const handleDropdownRoleChange = async (
     memberId: string,
-    roleId: string,
-    currentRoleIds: string[]
+    currentRoleIds: string[],
+    indexToUpdate: number,
+    newRoleId: string
   ) => {
     if (!selected) return;
 
     try {
       setUpdatingMemberId(memberId);
-      const newRoleIds = currentRoleIds.includes(roleId)
-        ? currentRoleIds.filter((id) => id !== roleId)
-        : [...currentRoleIds, roleId];
+      const updated = [...currentRoleIds];
 
-      await updateMemberRoles(memberId, newRoleIds);
+      if (newRoleId === "") {
+        // Remove dropdown selection if empty option chosen
+        updated.splice(indexToUpdate, 1);
+      } else {
+        updated[indexToUpdate] = newRoleId;
+      }
+
+      // Deduplicate role IDs
+      const uniqueRoleIds = Array.from(new Set(updated.filter(Boolean)));
+      await updateMemberRoles(memberId, uniqueRoleIds);
+      await refreshSelected(selected.id);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Role update failed");
+    } finally {
+      setUpdatingMemberId(null);
+    }
+  };
+
+  // Add Another Dropdown Handler
+  const handleAddRoleDropdown = async (memberId: string, currentRoleIds: string[]) => {
+    if (!selected) return;
+
+    // Pick the first available role not yet assigned
+    const availableRole = roles.find((r) => !currentRoleIds.includes(r.id));
+    if (!availableRole) return;
+
+    try {
+      setUpdatingMemberId(memberId);
+      const updated = [...currentRoleIds, availableRole.id];
+      await updateMemberRoles(memberId, updated);
+      await refreshSelected(selected.id);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Role update failed");
+    } finally {
+      setUpdatingMemberId(null);
+    }
+  };
+
+  // Remove Dropdown Handler
+  const handleRemoveRoleDropdown = async (
+    memberId: string,
+    currentRoleIds: string[],
+    indexToRemove: number
+  ) => {
+    if (!selected) return;
+
+    try {
+      setUpdatingMemberId(memberId);
+      const updated = [...currentRoleIds];
+      updated.splice(indexToRemove, 1);
+
+      await updateMemberRoles(memberId, updated);
       await refreshSelected(selected.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Role update failed");
@@ -329,19 +379,26 @@ export default function TeamPage() {
                 </p>
               </div>
 
-              {/* Members Section (Updated with multi-role support) */}
+              {/* Members Section with Multi-Dropdowns */}
               <div>
                 <Label>Members</Label>
                 <div className="mt-3 divide-y divide-zinc-900 border border-zinc-900 rounded-lg overflow-hidden">
                   {members.map((member) => {
-                    const assignedRoleIds = member.role_ids ?? (member.role_id ? [member.role_id] : []);
+                    const assignedRoleIds =
+                      member.role_ids && member.role_ids.length > 0
+                        ? member.role_ids
+                        : member.role_id
+                        ? [member.role_id]
+                        : [];
+
+                    const hasAvailableRoles = assignedRoleIds.length < roles.length;
 
                     return (
                       <div
                         key={member.id}
                         className="flex flex-wrap items-center justify-between gap-4 px-4 py-3 bg-zinc-950/30"
                       >
-                        {/* Member Identity & Assigned Role Badges */}
+                        {/* Member Identity & Role Badges */}
                         <div className="space-y-1">
                           <div className="flex items-center gap-2">
                             <span className="text-sm font-semibold text-zinc-200">
@@ -357,7 +414,7 @@ export default function TeamPage() {
                             ) : null}
                           </div>
 
-                          {/* Role Pills */}
+                          {/* Active Role Badges */}
                           <div className="flex flex-wrap gap-1.5 pt-0.5">
                             {member.team_roles_list && member.team_roles_list.length > 0 ? (
                               member.team_roles_list.map((r) => (
@@ -376,39 +433,92 @@ export default function TeamPage() {
                           </div>
                         </div>
 
-                        {/* Actions (Role Checkboxes & Remove Button) */}
+                        {/* Actions: Dynamic Dropdowns & Add Button */}
                         <div className="flex items-center gap-4">
                           {isAdmin ? (
-                            <div className="flex items-center gap-3 border-l border-zinc-900 pl-4">
-                              <span className="text-[11px] font-semibold text-zinc-400">
-                                Assign Roles:
-                              </span>
-                              <div className="flex flex-wrap gap-2.5">
-                                {roles.map((role) => {
-                                  const isChecked = assignedRoleIds.includes(role.id);
-                                  return (
-                                    <label
-                                      key={role.id}
-                                      className="flex items-center space-x-1.5 text-xs text-zinc-300 cursor-pointer select-none hover:text-white"
-                                    >
-                                      <input
-                                        type="checkbox"
-                                        checked={isChecked}
+                            <div className="flex flex-col gap-2 border-l border-zinc-900 pl-4">
+                              {/* Stacked Dropdowns */}
+                              <div className="flex flex-col gap-2">
+                                {assignedRoleIds.length === 0 ? (
+                                  <FieldInput
+                                    as="select"
+                                    className="w-36 text-xs"
+                                    value=""
+                                    disabled={updatingMemberId === member.id}
+                                    onChange={(e) =>
+                                      handleDropdownRoleChange(
+                                        member.id,
+                                        [],
+                                        0,
+                                        e.target.value
+                                      )
+                                    }
+                                  >
+                                    <option value="">No role</option>
+                                    {roles.map((role) => (
+                                      <option key={role.id} value={role.id}>
+                                        {role.name}
+                                      </option>
+                                    ))}
+                                  </FieldInput>
+                                ) : (
+                                  assignedRoleIds.map((currentRoleId, idx) => (
+                                    <div key={idx} className="flex items-center gap-1.5">
+                                      <FieldInput
+                                        as="select"
+                                        className="w-36 text-xs"
+                                        value={currentRoleId}
                                         disabled={updatingMemberId === member.id}
-                                        onChange={() =>
-                                          handleRoleToggle(
+                                        onChange={(e) =>
+                                          handleDropdownRoleChange(
                                             member.id,
-                                            role.id,
-                                            assignedRoleIds
+                                            assignedRoleIds,
+                                            idx,
+                                            e.target.value
                                           )
                                         }
-                                        className="rounded border-zinc-700 bg-zinc-900 text-blue-500 focus:ring-0 focus:ring-offset-0"
-                                      />
-                                      <span>{role.name}</span>
-                                    </label>
-                                  );
-                                })}
+                                      >
+                                        <option value="">No role</option>
+                                        {roles.map((role) => (
+                                          <option key={role.id} value={role.id}>
+                                            {role.name}
+                                          </option>
+                                        ))}
+                                      </FieldInput>
+
+                                      <button
+                                        type="button"
+                                        title="Remove role"
+                                        disabled={updatingMemberId === member.id}
+                                        onClick={() =>
+                                          handleRemoveRoleDropdown(
+                                            member.id,
+                                            assignedRoleIds,
+                                            idx
+                                          )
+                                        }
+                                        className="text-zinc-500 hover:text-red-400 p-1 text-xs transition-colors"
+                                      >
+                                        ✕
+                                      </button>
+                                    </div>
+                                  ))
+                                )}
                               </div>
+
+                              {/* "+ Add role" button */}
+                              {hasAvailableRoles && assignedRoleIds.length > 0 && (
+                                <button
+                                  type="button"
+                                  disabled={updatingMemberId === member.id}
+                                  onClick={() =>
+                                    handleAddRoleDropdown(member.id, assignedRoleIds)
+                                  }
+                                  className="text-[11px] font-medium text-emerald-400 hover:text-emerald-300 text-left transition-colors"
+                                >
+                                  + Add another role
+                                </button>
+                              )}
                             </div>
                           ) : null}
 
