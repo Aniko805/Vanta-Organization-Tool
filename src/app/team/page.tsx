@@ -1,301 +1,449 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import AppShell, {
+  EmptyState,
+  ErrorText,
+  FieldInput,
+  Label,
+  Panel,
+  PrimaryButton,
+  SecondaryButton,
+} from "@/app/components/AppShell";
+import { supabase } from "@/lib/supabase";
 import {
+  createTeam,
+  joinTeamByInvite,
+  leaveTeam,
   listMyTeams,
   listTeamMembers,
   listTeamRoles,
-  updateMemberRoles,
-  removeMember,
+  memberIsAdmin,
   regenerateInviteCode,
+  removeMember,
+  updateMemberRoles,
   deleteTeam,
 } from "@/lib/teams";
-import type { Team, TeamMember, TeamRole } from "@/lib/types";
+import {
+  displayNameFromProfile,
+  type Team,
+  type TeamMember,
+  type TeamRole,
+} from "@/lib/types";
+import Link from "next/link";
+import { useCallback, useEffect, useState } from "react";
 
-export default function TeamManagementPage() {
-  const [team, setTeam] = useState<Team | null>(null);
+export default function TeamPage() {
+  const [userId, setUserId] = useState<string | null>(null);
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [roles, setRoles] = useState<TeamRole[]>([]);
   const [loading, setLoading] = useState(true);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
-
-  // UI state
-  const [inviteCode, setInviteCode] = useState<string>("");
-  const [copied, setCopied] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
   const [updatingMemberId, setUpdatingMemberId] = useState<string | null>(null);
 
-  useEffect(() => {
-    async function loadData() {
-      try {
-        setLoading(true);
-        setErrorMsg(null);
+  const [createName, setCreateName] = useState("");
+  const [createNumber, setCreateNumber] = useState("");
+  const [inviteCode, setInviteCode] = useState("");
 
-        const myTeams = await listMyTeams();
-        if (myTeams.length === 0) {
-          setLoading(false);
-          return;
-        }
+  const selected = teams.find((t) => t.id === selectedId) ?? null;
+  const myMembership = members.find((m) => m.user_id === userId) ?? null;
+  const isAdmin = selected && userId ? memberIsAdmin(selected, userId, myMembership) : false;
 
-        const activeTeam = myTeams[0];
-        setTeam(activeTeam);
-        setInviteCode(activeTeam.invite_code);
-
-        const [fetchedMembers, fetchedRoles] = await Promise.all([
-          listTeamMembers(activeTeam.id),
-          listTeamRoles(activeTeam.id),
-        ]);
-
-        setMembers(fetchedMembers);
-        setRoles(fetchedRoles);
-      } catch (err: any) {
-        console.error("Error loading team page:", err);
-        setErrorMsg(err?.message || "Failed to load team settings.");
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    loadData();
+  const refreshTeams = useCallback(async (uid: string) => {
+    const next = await listMyTeams();
+    setTeams(next);
+    setSelectedId((current) => {
+      if (current && next.some((t) => t.id === current)) return current;
+      return next[0]?.id ?? null;
+    });
+    return next;
   }, []);
+
+  const refreshSelected = useCallback(async (teamId: string) => {
+    const [m, r] = await Promise.all([listTeamMembers(teamId), listTeamRoles(teamId)]);
+    setMembers(m);
+    setRoles(r);
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!mounted) return;
+      if (!user) return;
+      setUserId(user.id);
+      try {
+        await refreshTeams(user.id);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Failed to load teams");
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [refreshTeams]);
+
+  useEffect(() => {
+    let mounted = true;
+    if (!selectedId) {
+      setMembers([]);
+      setRoles([]);
+      return;
+    }
+    refreshSelected(selectedId).catch((e) => {
+      if (mounted) {
+        setError(e instanceof Error ? e.message : "Failed to load members");
+      }
+    });
+    return () => {
+      mounted = false;
+    };
+  }, [selectedId, refreshSelected]);
+
+  const handleCreate = async () => {
+    if (!userId || !createName.trim()) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const team = await createTeam({
+        name: createName,
+        teamNumber: createNumber,
+        ownerId: userId,
+      });
+      setCreateName("");
+      setCreateNumber("");
+      await refreshTeams(userId);
+      setSelectedId(team.id);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Create failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleJoin = async () => {
+    if (!userId || !inviteCode.trim()) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const tid = await joinTeamByInvite(inviteCode);
+      setInviteCode("");
+      await refreshTeams(userId);
+      setSelectedId(tid);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Join failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleLeave = async () => {
+    if (!userId || !selected) return;
+    if (selected.owner_id === userId) {
+      setError("Owner cannot leave. Transfer ownership or delete the team.");
+      return;
+    }
+    setBusy(true);
+    try {
+      await leaveTeam(selected.id);
+      await refreshTeams(userId);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Leave failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleRegen = async () => {
+    if (!selected) return;
+    setBusy(true);
+    try {
+      const code = await regenerateInviteCode(selected.id);
+      setTeams((prev) =>
+        prev.map((t) => (t.id === selected.id ? { ...t, invite_code: code } : t))
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not regenerate code");
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const handleRoleToggle = async (
     memberId: string,
     roleId: string,
     currentRoleIds: string[]
   ) => {
-    if (!team) return;
+    if (!selected) return;
 
     try {
       setUpdatingMemberId(memberId);
-
       const newRoleIds = currentRoleIds.includes(roleId)
         ? currentRoleIds.filter((id) => id !== roleId)
         : [...currentRoleIds, roleId];
 
       await updateMemberRoles(memberId, newRoleIds);
-
-      const updatedMembers = await listTeamMembers(team.id);
-      setMembers(updatedMembers);
-    } catch (err: any) {
-      alert(err?.message || "Failed to update member roles.");
+      await refreshSelected(selected.id);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Role update failed");
     } finally {
       setUpdatingMemberId(null);
     }
   };
 
-  const handleRemoveMember = async (memberId: string) => {
-    if (!team || !confirm("Are you sure you want to remove this member?")) return;
-
-    try {
-      await removeMember(memberId);
-      setMembers(members.filter((m) => m.id !== memberId));
-    } catch (err: any) {
-      alert(err?.message || "Failed to remove member.");
-    }
-  };
-
-  const handleRegenerateCode = async () => {
-    if (!team) return;
-
-    try {
-      const newCode = await regenerateInviteCode(team.id);
-      setInviteCode(newCode);
-      setTeam({ ...team, invite_code: newCode });
-    } catch (err: any) {
-      alert(err?.message || "Failed to generate new invite code.");
-    }
-  };
-
-  const handleCopyCode = () => {
-    navigator.clipboard.writeText(inviteCode);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  const handleDeleteTeam = async () => {
-    if (
-      !team ||
-      !confirm(
-        "Are you sure you want to delete this team? This action cannot be undone."
-      )
-    )
-      return;
-
-    try {
-      await deleteTeam(team.id);
-      window.location.href = "/";
-    } catch (err: any) {
-      alert(err?.message || "Failed to delete team.");
-    }
-  };
-
-  if (loading) {
-    return <div className="p-8 text-zinc-400">Loading team settings...</div>;
-  }
-
-  if (errorMsg) {
-    return <div className="p-8 text-red-400">{errorMsg}</div>;
-  }
-
-  if (!team) {
-    return (
-      <div className="p-8 text-zinc-400">
-        No team found. Please create or join a team first.
-      </div>
-    );
-  }
-
   return (
-    <div className="max-w-5xl mx-auto p-6 space-y-8 text-zinc-100">
-      {/* Header */}
-      <div className="flex items-center justify-between border-b border-zinc-800 pb-5">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">{team.name}</h1>
-          {team.team_number && (
-            <p className="text-sm text-zinc-400 mt-1">
-              Team #{team.team_number}
-            </p>
-          )}
-        </div>
-        <button
-          onClick={handleDeleteTeam}
-          className="px-4 py-2 text-sm font-medium text-red-400 bg-red-950/40 hover:bg-red-900/60 border border-red-800/60 rounded-md transition"
-        >
-          Delete Team
-        </button>
-      </div>
-
-      {/* Invite Code Section */}
-      <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-5 space-y-3">
-        <h2 className="text-lg font-semibold text-zinc-200">Team Invite Code</h2>
-        <p className="text-sm text-zinc-400">
-          Share this code with teammates to allow them to join your organization.
-        </p>
-        <div className="flex items-center gap-3 pt-1">
-          <code className="bg-zinc-950 border border-zinc-800 text-amber-400 font-mono px-4 py-2 rounded-md text-base tracking-widest">
-            {inviteCode}
-          </code>
-          <button
-            onClick={handleCopyCode}
-            className="px-3 py-2 text-sm font-medium bg-zinc-800 hover:bg-zinc-700 rounded-md transition"
+    <AppShell
+      eyebrow="Collaboration"
+      title="Team"
+      actions={
+        selected ? (
+          <Link
+            href={`/team-tasks?team=${selected.id}`}
+            className="px-4 py-2 bg-white text-black text-xs font-semibold rounded hover:bg-zinc-200 active:scale-95 transition-all"
           >
-            {copied ? "Copied!" : "Copy Code"}
-          </button>
-          <button
-            onClick={handleRegenerateCode}
-            className="px-3 py-2 text-sm font-medium text-zinc-400 hover:text-zinc-200 transition"
-          >
-            Regenerate
-          </button>
-        </div>
-      </div>
+            Open Team Tasks
+          </Link>
+        ) : null
+      }
+    >
+      <ErrorText>{error}</ErrorText>
 
-      {/* Team Members List */}
-      <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-5 space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-zinc-200">
-            Members ({members.length})
-          </h2>
-        </div>
-
-        <div className="divide-y divide-zinc-800/80">
-          {members.map((member) => {
-            const assignedRoleIds = member.role_ids ?? [];
-            const displayName =
-              member.profiles?.full_name ||
-              member.profiles?.display_name ||
-              member.profiles?.first_name ||
-              "Unknown Member";
-
-            return (
-              <div
-                key={member.id}
-                className="py-4 flex flex-col md:flex-row md:items-center justify-between gap-4"
-              >
-                {/* Member Info & Role Badges */}
-                <div className="space-y-1.5">
-                  <div className="flex items-center gap-2">
-                    <p className="font-medium text-zinc-100">{displayName}</p>
-                    {member.user_id === team.owner_id && (
-                      <span className="px-2 py-0.5 text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded">
-                        Owner
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left Sidebar Panel */}
+        <Panel className="space-y-6">
+          <div>
+            <Label>Your teams</Label>
+            <div className="mt-3 space-y-2">
+              {loading ? (
+                <EmptyState>Loading…</EmptyState>
+              ) : teams.length === 0 ? (
+                <EmptyState>No teams yet. Create or join one.</EmptyState>
+              ) : (
+                teams.map((team) => (
+                  <button
+                    key={team.id}
+                    type="button"
+                    onClick={() => setSelectedId(team.id)}
+                    className={`w-full text-left px-3 py-2 rounded border text-sm transition-colors ${
+                      selectedId === team.id
+                        ? "border-zinc-600 bg-zinc-900/60 text-white"
+                        : "border-zinc-900 text-zinc-400 hover:text-zinc-200"
+                    }`}
+                  >
+                    <span className="font-semibold">{team.name}</span>
+                    {team.team_number ? (
+                      <span className="ml-2 text-[10px] font-mono text-zinc-500">
+                        #{team.team_number}
                       </span>
-                    )}
-                  </div>
-                  {member.profiles?.email && (
-                    <p className="text-xs text-zinc-400">
-                      {member.profiles.email}
-                    </p>
-                  )}
+                    ) : null}
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
 
-                  {/* Active Role Badges */}
-                  <div className="flex flex-wrap gap-1.5 pt-1">
-                    {member.team_roles_list &&
-                    member.team_roles_list.length > 0 ? (
-                      member.team_roles_list.map((role) => (
-                        <span
-                          key={role.id}
-                          className="px-2.5 py-0.5 text-xs font-medium rounded-full bg-blue-950/80 text-blue-300 border border-blue-800/60"
-                        >
-                          {role.name}
-                        </span>
-                      ))
-                    ) : (
-                      <span className="text-xs text-zinc-500">
-                        No assigned roles
-                      </span>
-                    )}
-                  </div>
+          <div className="border-t border-zinc-900 pt-4 space-y-3">
+            <Label>Create team</Label>
+            <FieldInput
+              placeholder="Team name"
+              value={createName}
+              onChange={(e) => setCreateName(e.target.value)}
+            />
+            <FieldInput
+              placeholder="Team number (FRC/FTC)"
+              value={createNumber}
+              onChange={(e) => setCreateNumber(e.target.value)}
+            />
+            <PrimaryButton disabled={busy || !createName.trim()} onClick={handleCreate}>
+              Create
+            </PrimaryButton>
+          </div>
+
+          <div className="border-t border-zinc-900 pt-4 space-y-3">
+            <Label>Join with invite code</Label>
+            <FieldInput
+              placeholder="Invite code"
+              value={inviteCode}
+              onChange={(e) => setInviteCode(e.target.value)}
+            />
+            <SecondaryButton disabled={busy || !inviteCode.trim()} onClick={handleJoin}>
+              Join team
+            </SecondaryButton>
+          </div>
+        </Panel>
+
+        {/* Right Main Details Panel */}
+        <Panel className="lg:col-span-2 space-y-6">
+          {!selected ? (
+            <EmptyState>Select a team to manage members and invites.</EmptyState>
+          ) : (
+            <>
+              <div className="flex flex-wrap justify-between gap-4">
+                <div>
+                  <h2 className="text-xl font-bold">{selected.name}</h2>
+                  <p className="text-xs font-mono text-zinc-500 mt-1">
+                    {selected.team_number ? `Team #${selected.team_number} · ` : null}
+                    Owner session {selected.owner_id === userId ? "(you)" : ""}
+                  </p>
                 </div>
-
-                {/* Role Toggles & Actions */}
-                <div className="flex items-center gap-6 border-t md:border-t-0 border-zinc-800 pt-3 md:pt-0">
-                  <div className="flex flex-col gap-1.5">
-                    <span className="text-xs font-semibold text-zinc-400">
-                      Assign Roles:
-                    </span>
-                    <div className="flex flex-wrap gap-3">
-                      {roles.map((role) => {
-                        const isChecked = assignedRoleIds.includes(role.id);
-                        return (
-                          <label
-                            key={role.id}
-                            className="flex items-center space-x-2 text-sm text-zinc-300 cursor-pointer select-none hover:text-zinc-100"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={isChecked}
-                              disabled={updatingMemberId === member.id}
-                              onChange={() =>
-                                handleRoleToggle(
-                                  member.id,
-                                  role.id,
-                                  assignedRoleIds
-                                )
-                              }
-                              className="accent-blue-600 rounded bg-zinc-950 border-zinc-700 text-blue-600 focus:ring-blue-500 focus:ring-offset-zinc-900"
-                            />
-                            <span>{role.name}</span>
-                          </label>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {member.user_id !== team.owner_id && (
-                    <button
-                      onClick={() => handleRemoveMember(member.id)}
-                      className="text-xs font-medium text-red-400 hover:text-red-300 transition"
-                    >
-                      Remove
-                    </button>
-                  )}
+                <div className="flex gap-2">
+                  <SecondaryButton disabled={busy} onClick={handleLeave}>
+                    Leave
+                  </SecondaryButton>
                 </div>
               </div>
-            );
-          })}
-        </div>
+
+              {/* Invite Code Box */}
+              <div className="p-4 border border-zinc-900 rounded-lg bg-black/40 space-y-2">
+                <Label>Invite code</Label>
+                <div className="flex flex-wrap items-center gap-3">
+                  <code className="text-sm font-mono text-emerald-400 tracking-wider">
+                    {selected.invite_code}
+                  </code>
+                  <SecondaryButton
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(selected.invite_code);
+                      } catch {
+                        setError("Failed to copy, please copy manually.");
+                      }
+                    }}
+                  >
+                    Copy
+                  </SecondaryButton>
+                  {isAdmin ? (
+                    <SecondaryButton disabled={busy} onClick={handleRegen}>
+                      Regenerate
+                    </SecondaryButton>
+                  ) : null}
+                </div>
+                <p className="text-[10px] font-mono text-zinc-600">
+                  Share this code with teammates so they can join from this page.
+                </p>
+              </div>
+
+              {/* Members Section (Updated with multi-role support) */}
+              <div>
+                <Label>Members</Label>
+                <div className="mt-3 divide-y divide-zinc-900 border border-zinc-900 rounded-lg overflow-hidden">
+                  {members.map((member) => {
+                    const assignedRoleIds = member.role_ids ?? (member.role_id ? [member.role_id] : []);
+
+                    return (
+                      <div
+                        key={member.id}
+                        className="flex flex-wrap items-center justify-between gap-4 px-4 py-3 bg-zinc-950/30"
+                      >
+                        {/* Member Identity & Assigned Role Badges */}
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-semibold text-zinc-200">
+                              {displayNameFromProfile(member.profiles)}
+                            </span>
+                            {member.user_id === userId ? (
+                              <span className="text-[10px] font-mono text-zinc-500">you</span>
+                            ) : null}
+                            {member.user_id === selected.owner_id ? (
+                              <span className="text-[10px] font-mono text-emerald-500">
+                                OWNER
+                              </span>
+                            ) : null}
+                          </div>
+
+                          {/* Role Pills */}
+                          <div className="flex flex-wrap gap-1.5 pt-0.5">
+                            {member.team_roles_list && member.team_roles_list.length > 0 ? (
+                              member.team_roles_list.map((r) => (
+                                <span
+                                  key={r.id}
+                                  className="px-2 py-0.5 text-[11px] font-medium rounded-full bg-blue-950/60 text-blue-300 border border-blue-800/50"
+                                >
+                                  {r.name}
+                                </span>
+                              ))
+                            ) : (
+                              <span className="text-[10px] font-mono text-zinc-600">
+                                {member.team_roles?.name ?? "No role"}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Actions (Role Checkboxes & Remove Button) */}
+                        <div className="flex items-center gap-4">
+                          {isAdmin ? (
+                            <div className="flex items-center gap-3 border-l border-zinc-900 pl-4">
+                              <span className="text-[11px] font-semibold text-zinc-400">
+                                Assign Roles:
+                              </span>
+                              <div className="flex flex-wrap gap-2.5">
+                                {roles.map((role) => {
+                                  const isChecked = assignedRoleIds.includes(role.id);
+                                  return (
+                                    <label
+                                      key={role.id}
+                                      className="flex items-center space-x-1.5 text-xs text-zinc-300 cursor-pointer select-none hover:text-white"
+                                    >
+                                      <input
+                                        type="checkbox"
+                                        checked={isChecked}
+                                        disabled={updatingMemberId === member.id}
+                                        onChange={() =>
+                                          handleRoleToggle(
+                                            member.id,
+                                            role.id,
+                                            assignedRoleIds
+                                          )
+                                        }
+                                        className="rounded border-zinc-700 bg-zinc-900 text-blue-500 focus:ring-0 focus:ring-offset-0"
+                                      />
+                                      <span>{role.name}</span>
+                                    </label>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          ) : null}
+
+                          {isAdmin && member.user_id !== selected.owner_id ? (
+                            <SecondaryButton
+                              onClick={async () => {
+                                if (
+                                  !window.confirm(
+                                    "Are you sure you want to remove this member from the team?"
+                                  )
+                                )
+                                  return;
+                                try {
+                                  await removeMember(member.id);
+                                  await refreshSelected(selected.id);
+                                } catch (err) {
+                                  setError(
+                                    err instanceof Error ? err.message : "Remove failed"
+                                  );
+                                }
+                              }}
+                            >
+                              Remove
+                            </SecondaryButton>
+                          ) : null}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </>
+          )}
+        </Panel>
       </div>
-    </div>
+    </AppShell>
   );
 }

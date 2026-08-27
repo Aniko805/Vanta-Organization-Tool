@@ -7,9 +7,6 @@ export type Profile = {
   username: string | null;
   first_name: string | null;
   last_name: string | null;
-  display_name?: string | null;
-  full_name?: string | null;
-  email?: string | null;
   avatar_url: string | null;
   bio: string | null;
 };
@@ -37,12 +34,12 @@ export type TeamMember = {
   id: string;
   team_id: string;
   user_id: string;
-  role_id: string | null;
-  role_ids?: string[];
-  joined_at: string;
+  role_id: string | null; // Single legacy role reference
+  role_ids?: string[]; // Array of assigned role IDs (multi-role)
+  joined_at?: string;
   profiles?: Profile | null;
-  team_roles?: TeamRole | null;
-  team_roles_list?: TeamRole[];
+  team_roles?: TeamRole | null; // Single legacy role object
+  team_roles_list?: TeamRole[]; // Array of assigned role objects (multi-role)
 };
 
 export type Part = {
@@ -107,16 +104,15 @@ export const PART_STATUSES: { id: PartStatus; label: string }[] = [
   { id: "removed", label: "Removed" },
 ];
 
-export function displayNameFromProfile(profile?: Profile | null, fallback = "Member") {
+export function displayNameFromProfile(
+  profile?: Profile | null,
+  fallback = "Member"
+) {
   if (!profile) return fallback;
-  const full = profile.full_name?.trim();
-  if (full) return full;
   const first = profile.first_name?.trim();
   const last = profile.last_name?.trim();
   if (first && last) return `${first} ${last}`;
   if (first) return first;
-  if (profile.display_name?.trim()) return profile.display_name.trim();
   if (profile.username?.trim()) return profile.username.trim();
-  if (profile.email?.trim()) return profile.email.trim();
   return fallback;
 }
