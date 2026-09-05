@@ -38,11 +38,7 @@ export default function Home() {
     );
   }
 
-  if (!user) {
-    // Show the public landing page (we'll keep the current one but without the auth check)
-    // We'll return the same JSX as before but without the user check.
-    // We'll copy the old JSX here.
-    return (
+  return (
       <div className="relative min-h-screen bg-black text-white font-sans overflow-hidden select-none">
         {/* 1. Subtle Background Grid Effect */}
         <div className="absolute inset-0 bg-[linear-gradient(to_right,#1f1f2e_1px,transparent_1px),linear-gradient(to_bottom,#1f1f2e_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_50%,#000_70%,transparent_100%)] opacity-20 pointer-events-none" />
@@ -98,12 +94,11 @@ export default function Home() {
 
           {/* Interactive CTA Buttons (Unified into single container) */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 w-full max-w-xs sm:max-w-none">
-            {/* Sign In Button Linked to /login */}
             <Link 
-              href="/login"
+              href={user ? "/dashboard" : "/login"}
               className="w-full sm:w-auto px-8 py-3 bg-white text-black font-medium text-sm rounded-md hover:bg-zinc-200 transition-all duration-200 shadow-lg shadow-white/5 active:scale-95 text-center flex items-center justify-center"
             >
-              Open Vulcan
+              {user ? "Dashboard" : "Sign in"}
             </Link>
 
             {/* Dashboard Mock Button */}
@@ -144,118 +139,5 @@ export default function Home() {
           </div>
         </section>
       </div>
-    );
-  }
-
-  // User is logged in
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-  };
-
-  return (
-    <div className="relative min-h-screen bg-black text-white font-sans overflow-hidden select-none flex flex-col items-center justify-center p-10">
-      {/* Simplified header with logout */}
-      <header className="mb-8 flex items-center justify-between w-full">
-        <h1 className="text-3xl font-bold text-white">
-          Welcome back, {user.email?.split('@')[0] ?? 'User'}!
-        </h1>
-        <button onClick={handleLogout} className="px-4 py-2 bg-white text-black text-xs font-semibold rounded hover:bg-zinc-200 transition-colors active:scale-95">
-          Sign Out
-        </button>
-      </header>
-
-      {/* Quick links grid */}
-      <div className="gap-6 w-full max-w-4xl">
-        <Link 
-          href="/dashboard"
-          className="group flex items-center justify-center p-6 bg-zinc-950/30 border border-zinc-800/50 rounded-xl hover:bg-zinc-900/40 hover:border-zinc-800/70 transition-all duration-300"
-        >
-          <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 bg-emerald-500/20 rounded flex items-center justify-center">
-              <span className="text-emerald-400 font-bold text-xl">📊</span>
-            </div>
-            <div>
-              <h3 className="font-semibold text-white">Dashboard</h3>
-              <p className="text-xs text-zinc-400">Overview of your teams and tasks</p>
-            </div>
-          </div>
-        </Link>
-
-        <Link 
-          href="/team"
-          className="group flex items-center justify-center p-6 bg-zinc-950/30 border border-zinc-800/50 rounded-xl hover:bg-zinc-900/40 hover:border-zinc-800/70 transition-all duration-300"
-        >
-          <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 bg-purple-500/20 rounded flex items-center justify-center">
-              <span className="text-purple-400 font-bold text-xl">👥</span>
-            </div>
-            <div>
-              <h3 className="font-semibold text-white">Teams</h3>
-              <p className="text-xs text-zinc-400">Manage your teams and roles</p>
-            </div>
-          </div>
-        </Link>
-
-        <Link 
-          href="/team-tasks"
-          className="group flex items-center justify-center p-6 bg-zinc-950/30 border border-zinc-800/50 rounded-xl hover:bg-zinc-800/70 transition-all duration-300"
-        >
-          <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 bg-blue-500/20 rounded flex items-center justify-center">
-              <span className="text-blue-400 font-bold text-xl">📋</span>
-            </div>
-            <div>
-              <h3 className="font-semibold text-white">Team Tasks</h3>
-              <p className="text-xs text-zinc-400">Kanban boards for team projects</p>
-            </div>
-          </div>
-        </Link>
-
-        <Link 
-          href="/parts"
-          className="group flex items-center justify-center p-6 bg-zinc-950/30 border border-zinc-800/50 rounded-xl hover:bg-zinc-800/70 transition-all duration-300"
-        >
-          <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 bg-green-500/20 rounded flex items-center justify-center">
-              <span className="text-green-400 font-bold text-xl">🔧</span>
-            </div>
-            <div>
-              <h3 className="font-semibold text-white">Parts</h3>
-              <p className="text-xs text-zinc-400">Inventory and parts management</p>
-            </div>
-          </div>
-        </Link>
-
-        <Link 
-          href="/personal-tasks"
-          className="group flex items-center justify-center p-6 bg-zinc-950/30 border border-zinc-800/50 rounded-xl hover:bg-zinc-800/70 transition-all duration-300"
-        >
-          <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 bg-yellow-500/20 rounded flex items-center justify-center">
-              <span className="text-yellow-400 font-bold text-xl">📝</span>
-            </div>
-            <div>
-              <h3 className="font-semibold text-white">Personal Tasks</h3>
-              <p className="text-xs text-zinc-400">Your individual task list</p>
-            </div>
-          </div>
-        </Link>
-
-        <Link 
-          href="/settings"
-          className="group flex items-center justify-center p-6 bg-zinc-950/30 border border-zinc-800/50 rounded-xl hover:bg-zinc-800/70 transition-all duration-300"
-        >
-          <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 bg-gray-500/20 rounded flex items-center justify-center">
-              <span className="text-gray-400 font-bold text-xl">⚙️</span>
-            </div>
-            <div>
-              <h3 className="font-semibold text-white">Settings</h3>
-              <p className="text-xs text-zinc-400">Manage your profile and preferences</p>
-            </div>
-          </div>
-        </Link>
-      </div>
-    </div>
   );
 }
