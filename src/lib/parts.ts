@@ -59,3 +59,46 @@ export async function deletePart(partId: string): Promise<void> {
   const { error } = await supabase.from("parts").delete().eq("id", partId);
   if (error) throw new Error(error.message);
 }
+
+export async function updatePartQuantity(
+  partStatusId: string,
+  quantity: number
+): Promise<void> {
+  const { error } = await supabase
+    .from("part_status")
+    .update({ quantity })
+    .eq("id", partStatusId);
+
+  if (error) throw new Error(error.message);
+}
+
+export async function updatePartStatus(
+  partStatusId: string,
+  statusId: string
+): Promise<void> {
+  const { error } = await supabase
+    .from("part_status")
+    .update({ status_id: statusId })
+    .eq("id", partStatusId);
+
+  if (error) throw new Error(error.message);
+}
+
+export async function countPartsByStatus(
+  teamId: string
+): Promise<Record<string, number>> {
+  const { data, error } = await supabase
+    .from("part_status")
+    .select("name, status_id, part!inner(team_id)")
+    .eq("part.team_id", teamId);
+
+  if (error) throw new Error(error.message);
+
+  const counts: Record<string, number> = {};
+  (data ?? []).forEach((row) => {
+    const key = row.name || "Unknown";
+    counts[key] = (counts[key] || 0) + 1;
+  });
+
+  return counts;
+}

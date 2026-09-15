@@ -132,6 +132,16 @@ export const TASK_COLUMNS: { id: TaskStatus; label: string }[] = [
   { id: "done", label: "Done" },
 ];
 
+export const PART_STATUSES = [
+  { value: "PLANNING", label: "Planning" },
+  { value: "DESIGNING", label: "Designing" },
+  { value: "ORDERED", label: "Ordered" },
+  { value: "MANUFACTURING", label: "Manufacturing" },
+  { value: "ASSEMBLING", label: "Assembling" },
+  { value: "TESTING", label: "Testing" },
+  { value: "COMPLETE", label: "Complete" },
+];
+
 export function displayNameFromProfile(
   profile?: Profile | null,
   fallback = "Member"

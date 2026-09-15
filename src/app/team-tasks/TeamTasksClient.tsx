@@ -421,7 +421,7 @@ function TaskCard({
   onSubtaskStatus: (id: string, s: TaskStatus) => void;
 }) {
   return (
-    <Panel className="space-y-3 !p-4">
+    <Panel className="space-y-3 p-4!">
       <div className="flex justify-between gap-2">
         <h3 className="text-sm font-semibold text-zinc-100 leading-snug">{task.name}</h3>
         <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 shrink-0">{task.importance}</span>
