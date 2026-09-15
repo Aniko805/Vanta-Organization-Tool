@@ -110,7 +110,15 @@ export async function listTeamTasks(teamId: string): Promise<TaskWithRelations[]
       *,
       task_assignees(user_id, profiles(*)),
       task_role_assignees(role_id, team_roles(*)),
-      task_parts(part_id, parts(*)),
+      task_parts(
+        part_id, 
+        parts(
+          id, 
+          team_id, 
+          part_catalog_id, 
+          part_catalog(id, name, sku, description, manufacturer)
+        )
+      ),
       subtasks(*)
     `
     )
@@ -134,18 +142,26 @@ export async function listPersonalAndAssignedTasks(
 
   const assignedIds = (assignedRows ?? []).map((r) => r.task_id);
 
+  const queryWithRelations = `
+    *,
+    task_assignees(user_id, profiles(*)),
+    task_role_assignees(role_id, team_roles(*)),
+    task_parts(
+      part_id, 
+      parts(
+        id, 
+        team_id, 
+        part_catalog_id, 
+        part_catalog(id, name, sku, description, manufacturer)
+      )
+    ),
+    subtasks(*),
+    teams(id, name, team_number)
+  `;
+
   const { data: personal, error: personalError } = await supabase
     .from("tasks")
-    .select(
-      `
-      *,
-      task_assignees(user_id, profiles(*)),
-      task_role_assignees(role_id, team_roles(*)),
-      task_parts(part_id, parts(*)),
-      subtasks(*),
-      teams(id, name, team_number)
-    `
-    )
+    .select(queryWithRelations)
     .eq("is_personal", true)
     .eq("created_by", userId)
     .order("created_at", { ascending: false });
@@ -156,16 +172,7 @@ export async function listPersonalAndAssignedTasks(
   if (assignedIds.length > 0) {
     const { data, error } = await supabase
       .from("tasks")
-      .select(
-        `
-        *,
-        task_assignees(user_id, profiles(*)),
-        task_role_assignees(role_id, team_roles(*)),
-        task_parts(part_id, parts(*)),
-        subtasks(*),
-        teams(id, name, team_number)
-      `
-      )
+      .select(queryWithRelations)
       .in("id", assignedIds)
       .order("created_at", { ascending: false });
 

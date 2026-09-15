@@ -92,7 +92,6 @@ export default function TeamTasksClient() {
     }
   }, []);
 
-  // Effect for initializing user and teams from session and search params
   useEffect(() => {
     let mounted = true;
     const init = async () => {
@@ -102,7 +101,7 @@ export default function TeamTasksClient() {
         } = await supabase.auth.getUser();
         if (!mounted) return;
         setUserId(user?.id ?? null);
-const myTeams = await listMyTeams();
+        const myTeams = await listMyTeams();
         if (!mounted) return;
         setTeams(myTeams);
         const fromQuery = searchParams.get("team");
@@ -124,7 +123,6 @@ const myTeams = await listMyTeams();
     };
   }, [searchParams]);
 
-  // Effect for refreshing data when teamId changes
   useEffect(() => {
     if (!teamId) return;
     const handleRefresh = async () => {
@@ -303,20 +301,24 @@ const myTeams = await listMyTeams();
                     {parts.length === 0 ? (
                       <EmptyState>No assignable parts</EmptyState>
                     ) : (
-                      parts.map((p) => (
-                        <label
-                          key={p.id}
-                          className="flex items-center gap-2 text-xs text-zinc-400"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={partIds.includes(p.id)}
-                            onChange={() => toggleId(partIds, p.id, setPartIds)}
-                          />
-                          {p.name}
-                          {p.sku ? ` (${p.sku})` : ""}
-                        </label>
-                      ))
+                      parts.map((p) => {
+                        const catalogName = p.part_catalog?.name ?? "Unnamed Part";
+                        const catalogSku = p.part_catalog?.sku ? ` (${p.part_catalog.sku})` : "";
+                        return (
+                          <label
+                            key={p.id}
+                            className="flex items-center gap-2 text-xs text-zinc-400"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={partIds.includes(p.id)}
+                              onChange={() => toggleId(partIds, p.id, setPartIds)}
+                            />
+                            {catalogName}
+                            {catalogSku}
+                          </label>
+                        );
+                      })
                     )}
                   </div>
                 </div>
@@ -452,7 +454,7 @@ function TaskCard({
       ) : null}
       {task.task_parts?.length ? (
         <p className="text-[10px] font-mono text-emerald-600/80">
-          Parts: {task.task_parts.map((p) => p.parts?.name ?? "part").join(", ")}
+          Parts: {task.task_parts.map((tp) => tp.parts?.part_catalog?.name ?? "Part").join(", ")}
         </p>
       ) : null}
       {canManage ? (

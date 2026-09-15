@@ -1,58 +1,93 @@
-export type PartStatus = "inventory" | "to_be_used" | "used" | "removed";
 export type TaskStatus = "todo" | "in_progress" | "done" | "blocked";
 export type Importance = "low" | "medium" | "high" | "critical";
 
 export type Profile = {
   id: string;
-  username: string | null;
+  username: string;
   first_name: string | null;
   last_name: string | null;
   avatar_url: string | null;
   bio: string | null;
+  created_at?: string;
+  updated_at?: string;
 };
 
 export type Team = {
   id: string;
   name: string;
   team_number: string | null;
-  owner_id: string;
+  owner_id: string | null;
   invite_code: string;
-  created_at: string;
+  created_at: string | null;
+  updated_at: string;
 };
 
 export type TeamRole = {
   id: string;
-  team_id: string;
-  name: string;
+  team_id: string | null;
+  name: string | null;
   is_admin: boolean;
   can_manage_members: boolean;
   can_manage_tasks: boolean;
   can_manage_inventory: boolean;
+  created_at: string;
 };
 
 export type TeamMember = {
   id: string;
   team_id: string;
   user_id: string;
-  role_id: string | null; // Single legacy role reference
-  role_ids?: string[]; // Array of assigned role IDs (multi-role)
+  role_id?: string | null;
+  role_ids?: string[];
   joined_at?: string;
   profiles?: Profile | null;
-  team_roles?: TeamRole | null; // Single legacy role object
-  team_roles_list?: TeamRole[]; // Array of assigned role objects (multi-role)
+  team_roles?: TeamRole | null;
+  team_roles_list?: TeamRole[];
+};
+
+export type PartCatalog = {
+  id: string;
+  name: string;
+  sku: string | null;
+  description: string | null;
+  manufacturer: string | null;
+  team_id: string | null;
+  is_official: boolean;
+  created_by: string | null;
+  created_at: string;
+};
+
+export type StatusList = {
+  id: string;
+  name: string;
+  description: string | null;
+  team_id: string | null;
+  is_default: boolean;
+  created_by: string | null;
+  created_at: string;
+};
+
+export type PartStatus = {
+  id: string;
+  name: string;
+  description: string | null;
+  status_id: string | null;
+  part_id: string | null;
+  quantity: number;
+  created_by: string | null;
+  created_at: string;
+  status_list?: StatusList | null;
 };
 
 export type Part = {
   id: string;
   team_id: string;
-  name: string;
-  sku: string | null;
-  status: PartStatus;
-  notes: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
-  quantity?: number;
+  part_catalog_id: string | null;
+  part_catalog?: PartCatalog | null;
+  part_status?: PartStatus[];
 };
 
 export type Task = {
@@ -95,13 +130,6 @@ export const TASK_COLUMNS: { id: TaskStatus; label: string }[] = [
   { id: "in_progress", label: "In Progress" },
   { id: "blocked", label: "Blocked" },
   { id: "done", label: "Done" },
-];
-
-export const PART_STATUSES: { id: PartStatus; label: string }[] = [
-  { id: "inventory", label: "Inventory" },
-  { id: "to_be_used", label: "To Be Used" },
-  { id: "used", label: "Used" },
-  { id: "removed", label: "Removed" },
 ];
 
 export function displayNameFromProfile(
