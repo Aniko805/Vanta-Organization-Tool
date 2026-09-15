@@ -25,7 +25,6 @@ import {
 import {
   PART_STATUSES,
   type Part,
-  type PartStatus,
   type Team,
   type TeamMember,
 } from "@/lib/types";
@@ -37,7 +36,7 @@ export default function PartsPage() {
   const [teamId, setTeamId] = useState<string | null>(null);
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [parts, setParts] = useState<Part[]>([]);
-  const [filter, setFilter] = useState<PartStatus | "all">("all");
+  const [filter, setFilter] = useState<string>("all");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -55,29 +54,28 @@ export default function PartsPage() {
       : false;
 
   const refresh = useCallback(async (tid: string) => {
-   setLoading(true);
-   try {
-     const [p, m] = await Promise.all([listParts(tid), listTeamMembers(tid)]);
-     setParts(p);
-     setMembers(m);
-   } catch (e) {
-     setError(e instanceof Error ? e.message : "Failed to load parts");
-   } finally {
-     setLoading(false);
-   }
- }, []);
+    setLoading(true);
+    try {
+      const [p, m] = await Promise.all([listParts(tid), listTeamMembers(tid)]);
+      setParts(p);
+      setMembers(m);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load parts");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-  // commit typed quantity only when field lose focus (avoid write per keystroke!) - Anson
-  const commitQuantity = async (partId: string, raw: string) => {
+  const commitQuantity = async (partStatusId: string, raw: string) => {
     const parsed = Math.max(0, parseInt(raw, 10) || 0);
     try {
-      await updatePartQuantity(partId, parsed);
+      await updatePartQuantity(partStatusId, parsed);
       if (teamId) await refresh(teamId);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update quantity");
     }
   };
-  
+
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -109,21 +107,49 @@ export default function PartsPage() {
   }, [teamId, refresh]);
 
   const visible =
-    filter === "all" ? parts : parts.filter((p) => p.status === filter);
+    filter === "all"
+      ? parts
+      : parts.filter((p) =>
+          p.part_status?.some((ps) => ps.name === filter || ps.status_id === filter)
+        );
 
   const handleCreate = async () => {
     if (!userId || !teamId || !name.trim()) return;
     setBusy(true);
     setError(null);
     try {
-      await createPart({
+      // 1. Insert into part_catalog
+      const { data: catalogData, error: catalogError } = await supabase
+        .from("part_catalog")
+        .insert({
+          name,
+          sku: sku || null,
+          description: notes || null,
+          team_id: teamId,
+          created_by: userId,
+        })
+        .select()
+        .single();
+
+      if (catalogError) throw new Error(catalogError.message);
+
+      // 2. Create actual Part relation
+      const part = await createPart({
         teamId,
-        name,
-        sku,
-        notes,
+        catalogId: catalogData.id,
         createdBy: userId,
-        quantity,
       });
+
+      // 3. Insert initial status tracking entry
+      const { error: statusError } = await supabase.from("part_status").insert({
+        part_id: part.id,
+        name: PART_STATUSES[0].value,
+        quantity,
+        created_by: userId,
+      });
+
+      if (statusError) throw new Error(statusError.message);
+
       setName("");
       setSku("");
       setNotes("");
@@ -207,14 +233,20 @@ export default function PartsPage() {
               onClick={() => setFilter("all")}
               label={`All (${parts.length})`}
             />
-            {PART_STATUSES.map((s) => (
-              <FilterChip
-                key={s.id}
-                active={filter === s.id}
-                onClick={() => setFilter(s.id)}
-                label={`${s.label} (${parts.filter((p) => p.status === s.id).length})`}
-              />
-            ))}
+            {PART_STATUSES.map((s) => {
+              const count = parts.filter((p) =>
+                p.part_status?.some((ps) => ps.name === s.value || ps.status_id === s.value)
+              ).length;
+
+              return (
+                <FilterChip
+                  key={s.value}
+                  active={filter === s.value}
+                  onClick={() => setFilter(s.value)}
+                  label={`${s.label} (${count})`}
+                />
+              );
+            })}
           </div>
 
           <div className="space-y-2">
@@ -227,124 +259,160 @@ export default function PartsPage() {
                 <EmptyState>No parts in this filter.</EmptyState>
               </Panel>
             ) : (
-              visible.map((part) => (
-                <Panel key={part.id} className="!p-4 flex flex-wrap items-center justify-between gap-4">
-                  <div>
-                    <p className="text-sm font-semibold text-zinc-100">{part.name}</p>
-                    <p className="text-[10px] font-mono text-zinc-600 mt-1">
-                      {part.sku ? `SKU ${part.sku}` : "No SKU"}
-                      {part.notes ? ` · ${part.notes}` : ""}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    {canManage ? (
-                    <div className="flex items-center gap-1">
-                       <button
-                         type="button"
-                         onClick={() => {
-                           setParts((prev) =>
-                             prev.map((p) =>
-                               p.id === part.id
-                                 ? { ...p, quantity: Math.max(0, (p.quantity ?? 1) - 1) }
-                                 : p
-                             )
-                           );
-                         }}
-                         className="px-2 py-1 bg-zinc-900 border border-zinc-800 rounded hover:bg-zinc-800 text-sm font-bold text-zinc-300"
-                       >
-                         −
-                       </button>
+              visible.map((part) => {
+                const catalog = part.part_catalog;
+                const statusRecord = part.part_status?.[0];
+                const currentQty = statusRecord?.quantity ?? 1;
+                const currentStatusName = statusRecord?.name ?? "PLANNING";
 
-                       <input
-                         type="number"
-                         min="0"
-                         value={part.quantity ?? 1}
-                         onChange={(e) => {
-                           const val = parseInt(e.target.value, 10);
-                           const next = isNaN(val) ? 0 : val;
-                           setParts((prev) =>
-                             prev.map((p) =>
-                               p.id === part.id ? { ...p, quantity: Math.max(0, next) } : p
-                             )
-                           );
-                         }}
-                         onBlur={(e) => commitQuantity(part.id, e.target.value)}
-                         className="w-14 text-center bg-black border border-zinc-800 rounded py-1 text-sm text-white font-mono"
-                       />
+                return (
+                  <Panel key={part.id} className="!p-4 flex flex-wrap items-center justify-between gap-4">
+                    <div>
+                      <p className="text-sm font-semibold text-zinc-100">
+                        {catalog?.name ?? "Unnamed Part"}
+                      </p>
+                      <p className="text-[10px] font-mono text-zinc-600 mt-1">
+                        {catalog?.sku ? `SKU ${catalog.sku}` : "No SKU"}
+                        {catalog?.description ? ` · ${catalog.description}` : ""}
+                      </p>
+                    </div>
 
-                       <button
-                         type="button"
-                         onClick={() => {
-                           setParts((prev) =>
-                             prev.map((p) =>
-                               p.id === part.id
-                                 ? { ...p, quantity: (p.quantity ?? 1) + 1 }
-                                 : p
-                             )
-                           );
-                         }}
-                         className="px-2 py-1 bg-zinc-900 border border-zinc-800 rounded hover:bg-zinc-800 text-sm font-bold text-zinc-300"
-                       >
-                         +
-                       </button>
-                     </div>
-                   ) : (
-                     <span className="text-sm font-mono text-zinc-400">
-                       Qty: {part.quantity ?? 1}
-                     </span>
-                   )}
+                    <div className="flex items-center gap-3">
+                      {canManage && statusRecord ? (
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newQty = Math.max(0, currentQty - 1);
+                              setParts((prev) =>
+                                prev.map((p) =>
+                                  p.id === part.id && p.part_status?.[0]
+                                    ? {
+                                        ...p,
+                                        part_status: [
+                                          { ...p.part_status[0], quantity: newQty },
+                                          ...p.part_status.slice(1),
+                                        ],
+                                      }
+                                    : p
+                                )
+                              );
+                              commitQuantity(statusRecord.id, String(newQty));
+                            }}
+                            className="px-2 py-1 bg-zinc-900 border border-zinc-800 rounded hover:bg-zinc-800 text-sm font-bold text-zinc-300"
+                          >
+                            −
+                          </button>
 
-                    {canManage ? (
-                      <FieldInput
-                        as="select"
-                        className="w-40"
-                        value={part.status}
-                        onChange={async (e) => {
-                          try {
-                            await updatePartStatus(
-                              part.id,
-                              e.target.value as PartStatus
-                            );
-                            if (teamId) await refresh(teamId);
-                          } catch (err) {
-                            setError(
-                              err instanceof Error ? err.message : "Status update failed"
-                            );
-                          }
-                        }}
-                      >
-                        {PART_STATUSES.map((s) => (
-                          <option key={s.id} value={s.id}>
-                            {s.label}
-                          </option>
-                        ))}
-                      </FieldInput>
-                    ) : (
-                      <span className="text-[10px] font-mono uppercase text-zinc-500">
-                        {part.status}
-                      </span>
-                    )}
+                          <input
+                            type="number"
+                            min="0"
+                            value={currentQty}
+                            onChange={(e) => {
+                              const val = parseInt(e.target.value, 10);
+                              const next = isNaN(val) ? 0 : Math.max(0, val);
+                              setParts((prev) =>
+                                prev.map((p) =>
+                                  p.id === part.id && p.part_status?.[0]
+                                    ? {
+                                        ...p,
+                                        part_status: [
+                                          { ...p.part_status[0], quantity: next },
+                                          ...p.part_status.slice(1),
+                                        ],
+                                      }
+                                    : p
+                                )
+                              );
+                            }}
+                            onBlur={(e) => commitQuantity(statusRecord.id, e.target.value)}
+                            className="w-14 text-center bg-black border border-zinc-800 rounded py-1 text-sm text-white font-mono"
+                          />
 
-                    {canManage ? (
-                      <SecondaryButton
-                        onClick={async () => {
-                          if (!window.confirm(`Are you sure you want to delete "${part.name}"? This cannot be undone.`)) return;
-                          try {
-                            await deletePart(part.id);
-                            if (teamId) await refresh(teamId);
-                          } catch (err) {
-                            setError(
-                              err instanceof Error ? err.message : "Delete failed"
-                            );
-                          }
-                        }}
-                      >
-                        Delete
-                      </SecondaryButton>
-                    ) : null}
-                  </div>
-                </Panel>
-              ))
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newQty = currentQty + 1;
+                              setParts((prev) =>
+                                prev.map((p) =>
+                                  p.id === part.id && p.part_status?.[0]
+                                    ? {
+                                        ...p,
+                                        part_status: [
+                                          { ...p.part_status[0], quantity: newQty },
+                                          ...p.part_status.slice(1),
+                                        ],
+                                      }
+                                    : p
+                                )
+                              );
+                              commitQuantity(statusRecord.id, String(newQty));
+                            }}
+                            className="px-2 py-1 bg-zinc-900 border border-zinc-800 rounded hover:bg-zinc-800 text-sm font-bold text-zinc-300"
+                          >
+                            +
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="text-sm font-mono text-zinc-400">
+                          Qty: {currentQty}
+                        </span>
+                      )}
+
+                      {canManage && statusRecord ? (
+                        <FieldInput
+                          as="select"
+                          className="w-40"
+                          value={currentStatusName}
+                          onChange={async (e) => {
+                            try {
+                              await updatePartStatus(statusRecord.id, e.target.value);
+                              if (teamId) await refresh(teamId);
+                            } catch (err) {
+                              setError(
+                                err instanceof Error ? err.message : "Status update failed"
+                              );
+                            }
+                          }}
+                        >
+                          {PART_STATUSES.map((s) => (
+                            <option key={s.value} value={s.value}>
+                              {s.label}
+                            </option>
+                          ))}
+                        </FieldInput>
+                      ) : (
+                        <span className="text-[10px] font-mono uppercase text-zinc-500">
+                          {currentStatusName}
+                        </span>
+                      )}
+
+                      {canManage ? (
+                        <SecondaryButton
+                          onClick={async () => {
+                            if (
+                              !window.confirm(
+                                `Are you sure you want to delete "${catalog?.name ?? "this part"}"? This cannot be undone.`
+                              )
+                            )
+                              return;
+                            try {
+                              await deletePart(part.id);
+                              if (teamId) await refresh(teamId);
+                            } catch (err) {
+                              setError(
+                                err instanceof Error ? err.message : "Delete failed"
+                              );
+                            }
+                          }}
+                        >
+                          Delete
+                        </SecondaryButton>
+                      ) : null}
+                    </div>
+                  </Panel>
+                );
+              })
             )}
           </div>
         </>
