@@ -12,6 +12,7 @@ import AppShell, {
 import {
   createPart,
   deletePart,
+  listPartStatuses,
   listParts,
   updatePartQuantity,
   updatePartStatus,
@@ -22,12 +23,7 @@ import {
   listTeamMembers,
   memberCanManageInventory,
 } from "@/lib/teams";
-import {
-  PART_STATUSES,
-  type Part,
-  type Team,
-  type TeamMember,
-} from "@/lib/types";
+import { type Part, type StatusList, type Team, type TeamMember } from "@/lib/types";
 import { useCallback, useEffect, useState } from "react";
 
 export default function PartsPage() {
@@ -36,6 +32,7 @@ export default function PartsPage() {
   const [teamId, setTeamId] = useState<string | null>(null);
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [parts, setParts] = useState<Part[]>([]);
+  const [statuses, setStatuses] = useState<StatusList[]>([]);
   const [filter, setFilter] = useState<string>("all");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -56,9 +53,14 @@ export default function PartsPage() {
   const refresh = useCallback(async (tid: string) => {
     setLoading(true);
     try {
-      const [p, m] = await Promise.all([listParts(tid), listTeamMembers(tid)]);
+      const [p, m, s] = await Promise.all([
+        listParts(tid),
+        listTeamMembers(tid),
+        listPartStatuses(tid),
+      ]);
       setParts(p);
       setMembers(m);
+      setStatuses(s);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load parts");
     } finally {
@@ -110,7 +112,13 @@ export default function PartsPage() {
     filter === "all"
       ? parts
       : parts.filter((p) =>
-          p.part_status?.some((ps) => ps.name === filter || ps.status_id === filter)
+          p.part_status?.some(
+            (ps) =>
+              ps.status_id === filter ||
+              ps.status_list?.id === filter ||
+              ps.status_list?.name === filter ||
+              ps.name === filter
+          )
         );
 
   const handleCreate = async () => {
@@ -118,6 +126,15 @@ export default function PartsPage() {
     setBusy(true);
     setError(null);
     try {
+      const initialStatus =
+        statuses.find((status) => status.is_default) ??
+        statuses.find((status) => status.name === "PLANNING") ??
+        statuses[0];
+
+      if (!initialStatus) {
+        throw new Error("No inventory statuses are configured for this team.");
+      }
+
       // 1. Insert into part_catalog
       const { data: catalogData, error: catalogError } = await supabase
         .from("part_catalog")
@@ -143,7 +160,8 @@ export default function PartsPage() {
       // 3. Insert initial status tracking entry
       const { error: statusError } = await supabase.from("part_status").insert({
         part_id: part.id,
-        name: PART_STATUSES[0].value,
+        status_id: initialStatus.id,
+        name: initialStatus.name,
         quantity,
         created_by: userId,
       });
@@ -233,17 +251,23 @@ export default function PartsPage() {
               onClick={() => setFilter("all")}
               label={`All (${parts.length})`}
             />
-            {PART_STATUSES.map((s) => {
+            {statuses.map((status) => {
               const count = parts.filter((p) =>
-                p.part_status?.some((ps) => ps.name === s.value || ps.status_id === s.value)
+                p.part_status?.some(
+                  (ps) =>
+                    ps.status_id === status.id ||
+                    ps.status_list?.id === status.id ||
+                    ps.status_list?.name === status.name ||
+                    ps.name === status.name
+                )
               ).length;
 
               return (
                 <FilterChip
-                  key={s.value}
-                  active={filter === s.value}
-                  onClick={() => setFilter(s.value)}
-                  label={`${s.label} (${count})`}
+                  key={status.id}
+                  active={filter === status.id}
+                  onClick={() => setFilter(status.id)}
+                  label={`${status.name} (${count})`}
                 />
               );
             })}
@@ -263,7 +287,13 @@ export default function PartsPage() {
                 const catalog = part.part_catalog;
                 const statusRecord = part.part_status?.[0];
                 const currentQty = statusRecord?.quantity ?? 1;
-                const currentStatusName = statusRecord?.name ?? "PLANNING";
+                const currentStatusId =
+                  statusRecord?.status_list?.id ??
+                  statuses.find((status) => status.id === statusRecord?.status_id)?.id ??
+                  statuses.find((status) => status.name === statusRecord?.name)?.id ??
+                  "";
+                const currentStatusName =
+                  statusRecord?.status_list?.name ?? statusRecord?.name ?? "Unknown";
 
                 return (
                   <Panel key={part.id} className="!p-4 flex flex-wrap items-center justify-between gap-4">
@@ -363,7 +393,7 @@ export default function PartsPage() {
                         <FieldInput
                           as="select"
                           className="w-40"
-                          value={currentStatusName}
+                          value={currentStatusId}
                           onChange={async (e) => {
                             try {
                               await updatePartStatus(statusRecord.id, e.target.value);
@@ -375,9 +405,9 @@ export default function PartsPage() {
                             }
                           }}
                         >
-                          {PART_STATUSES.map((s) => (
-                            <option key={s.value} value={s.value}>
-                              {s.label}
+                          {statuses.map((status) => (
+                            <option key={status.id} value={status.id}>
+                              {status.name}
                             </option>
                           ))}
                         </FieldInput>

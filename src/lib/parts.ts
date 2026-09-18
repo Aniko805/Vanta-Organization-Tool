@@ -1,5 +1,27 @@
 import { supabase } from "./supabase";
-import type { Part } from "./types";
+import type { Part, StatusList } from "./types";
+
+export async function listPartStatuses(teamId: string): Promise<StatusList[]> {
+  const [globalResult, teamResult] = await Promise.all([
+    supabase
+      .from("status_list")
+      .select("*")
+      .is("team_id", null)
+      .eq("is_default", true)
+      .order("name", { ascending: true }),
+    supabase
+      .from("status_list")
+      .select("*")
+      .eq("team_id", teamId)
+      .order("is_default", { ascending: false })
+      .order("name", { ascending: true }),
+  ]);
+
+  if (globalResult.error) throw new Error(globalResult.error.message);
+  if (teamResult.error) throw new Error(teamResult.error.message);
+
+  return [...(teamResult.data ?? []), ...(globalResult.data ?? [])] as StatusList[];
+}
 
 export async function listParts(teamId: string): Promise<Part[]> {
   const { data, error } = await supabase
