@@ -51,6 +51,7 @@ export default function Sidebar() {
     { label: "Team Tasks", href: "/team-tasks" },
     { label: "Parts", href: "/parts" },
     { label: "Settings", href: "/settings" },
+    { name: "Part Identifier", href: "/parts/identify",}
   ];
 
   return (
