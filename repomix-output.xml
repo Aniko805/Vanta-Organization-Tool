@@ -80,6 +80,8 @@ src/
     next-steps-after-signup/
       page.tsx
     parts/
+      identify/
+        page.tsx
       page.tsx
     personal-tasks/
       page.tsx
@@ -766,6 +768,135 @@ CREATE TABLE public.subtask_assignees (
 );
 </file>
 
+<file path="src/app/parts/identify/page.tsx">
+"use client";
+
+import { useState, useRef } from "react";
+import Sidebar from "@/app/components/Sidebar";
+
+export default function PartsIdentifyPage() {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  const [stream, setStream] = useState<MediaStream | null>(null);
+  const [capturedImage, setCapturedImage] = useState<string | null>(null);
+
+  const startCamera = async () => {
+    try {
+      const mediaStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment" },
+      });
+      setStream(mediaStream);
+      if (videoRef.current) {
+        videoRef.current.srcObject = mediaStream;
+      }
+    } catch (err) {
+      console.error("Camera error:", err);
+    }
+  };
+
+  const stopCamera = () => {
+    if (stream) {
+      stream.getTracks().forEach((track) => track.stop());
+      setStream(null);
+    }
+  };
+
+  const capturePhoto = () => {
+    if (!videoRef.current || !canvasRef.current) return;
+    const canvas = canvasRef.current;
+    const video = videoRef.current;
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    const ctx = canvas.getContext("2d");
+    if (ctx) {
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      setCapturedImage(canvas.toDataURL("image/png"));
+      stopCamera();
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-black text-white font-sans flex select-none">
+      <Sidebar />
+
+      <main className="flex-1 p-10 max-w-5xl mx-auto space-y-8">
+        <header className="border-b border-zinc-900 pb-6">
+          <p className="text-xs font-mono text-zinc-500 uppercase tracking-widest mb-1">
+            Tools / CV Identification
+          </p>
+          <h1 className="text-3xl font-extrabold tracking-tight">Part Identifier</h1>
+          <p className="text-sm text-zinc-500 mt-2">
+            Scan or upload photos of parts to identify and add them to your team inventory.
+          </p>
+        </header>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Camera / Scan Box */}
+          <div className="p-6 bg-zinc-950 border border-zinc-900 rounded-xl space-y-4">
+            <h2 className="text-sm font-semibold text-zinc-200 uppercase font-mono tracking-wider">
+              Camera Feed
+            </h2>
+
+            <div className="relative aspect-video bg-zinc-900 rounded-lg overflow-hidden flex items-center justify-center border border-zinc-800">
+              {capturedImage ? (
+                <img src={capturedImage} alt="Captured scan" className="w-full h-full object-contain" />
+              ) : stream ? (
+                <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
+              ) : (
+                <p className="text-xs font-mono text-zinc-500">Camera inactive</p>
+              )}
+            </div>
+
+            <canvas ref={canvasRef} className="hidden" />
+
+            <div className="flex gap-3">
+              {!stream && !capturedImage && (
+                <button
+                  onClick={startCamera}
+                  className="px-4 py-2 bg-white text-black font-semibold text-xs rounded hover:bg-zinc-200 transition"
+                >
+                  Start Camera
+                </button>
+              )}
+
+              {stream && (
+                <button
+                  onClick={capturePhoto}
+                  className="px-4 py-2 bg-emerald-500 text-black font-semibold text-xs rounded hover:bg-emerald-400 transition"
+                >
+                  Capture
+                </button>
+              )}
+
+              {capturedImage && (
+                <button
+                  onClick={() => { setCapturedImage(null); startCamera(); }}
+                  className="px-4 py-2 border border-zinc-700 text-zinc-300 font-semibold text-xs rounded hover:text-white transition"
+                >
+                  Retake
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Identification Details */}
+          <div className="p-6 bg-zinc-950 border border-zinc-900 rounded-xl space-y-4">
+            <h2 className="text-sm font-semibold text-zinc-200 uppercase font-mono tracking-wider">
+              Part Metadata
+            </h2>
+            <p className="text-xs text-zinc-500 leading-relaxed">
+              Once captured, part recognition results and inventory mapping options will appear here.
+            </p>
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}
+</file>
+
 <file path="src/app/settings/page.tsx">
 "use client";
 
@@ -987,25 +1118,6 @@ export default function SettingsPage() {
         </section>
       </main>
     </div>
-  );
-}
-</file>
-
-<file path="src/app/team-tasks/page.tsx">
-import { Suspense } from "react";
-import TeamTasksClient from "./TeamTasksClient";
-
-export default function Page() {
-  return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen bg-black text-zinc-500 font-mono text-xs flex items-center justify-center">
-          Loading team tasks…
-        </div>
-      }
-    >
-      <TeamTasksClient />
-    </Suspense>
   );
 }
 </file>
@@ -2625,6 +2737,56 @@ export default function NextStepsAfterSignup() {
 }
 </file>
 
+<file path="src/app/team-tasks/page.tsx">
+import { Suspense } from "react";
+import TeamTasksClient from "./TeamTasksClient";
+import { supabase } from "@/lib/supabase";
+
+async function TeamTasksContent() {
+  // Fetch tasks
+  const { data: tasks } = await supabase
+    .from("tasks")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  // Fetch profiles for team members
+  const { data: profiles } = await supabase
+    .from("profiles")
+    .select("*");
+
+  // Fetch parts catalog/parts
+  const { data: parts } = await supabase
+    .from("parts")
+    .select("*");
+
+  // Get current user's team or active team (fallback to default string if not found)
+  const teamId = tasks?.[0]?.team_id || "";
+
+  return (
+    <TeamTasksClient
+      initialTasks={tasks || []}
+      teamMembers={profiles || []}
+      assignableParts={parts || []}
+      teamId={teamId}
+    />
+  );
+}
+
+export default function Page() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-black text-zinc-500 font-mono text-xs flex items-center justify-center">
+          Loading team tasks…
+        </div>
+      }
+    >
+      <TeamTasksContent />
+    </Suspense>
+  );
+}
+</file>
+
 <file path="src/app/layout.tsx">
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
@@ -2659,276 +2821,6 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">{children}</body>
     </html>
   );
-}
-</file>
-
-<file path="src/lib/tasks.ts">
-import { supabase } from "./supabase";
-import type {
-  Importance,
-  Subtask,
-  Task,
-  TaskStatus,
-  TaskWithRelations,
-} from "./types";
-
-export type TaskInput = {
-  name: string;
-  description?: string;
-  status?: TaskStatus;
-  importance?: Importance;
-  category?: string;
-  competition_status?: string;
-  due_date?: string | null;
-  team_id?: string | null;
-  is_personal?: boolean;
-  created_by: string;
-  assigneeIds?: string[];
-  roleIds?: string[];
-  partIds?: string[];
-};
-
-async function attachRelations(
-  taskId: string,
-  input: Pick<TaskInput, "assigneeIds" | "roleIds" | "partIds">
-) {
-  if (input.assigneeIds?.length) {
-    const { error } = await supabase.from("task_assignees").insert(
-      input.assigneeIds.map((user_id) => ({ task_id: taskId, user_id }))
-    );
-    if (error) throw new Error(error.message);
-  }
-
-  if (input.roleIds?.length) {
-    const { error } = await supabase.from("task_role_assignees").insert(
-      input.roleIds.map((role_id) => ({ task_id: taskId, role_id }))
-    );
-    if (error) throw new Error(error.message);
-  }
-
-  if (input.partIds?.length) {
-    const { error } = await supabase.from("task_parts").insert(
-      input.partIds.map((part_id) => ({ task_id: taskId, part_id }))
-    );
-    if (error) throw new Error(error.message);
-  }
-}
-
-export async function createTask(input: TaskInput): Promise<Task> {
-  const isPersonal = Boolean(input.is_personal);
-  const { data, error } = await supabase
-    .from("tasks")
-    .insert({
-      name: input.name.trim(),
-      description: input.description?.trim() || null,
-      status: input.status ?? "todo",
-      importance: input.importance ?? "medium",
-      category: input.category?.trim() || null,
-      competition_status: input.competition_status?.trim() || null,
-      due_date: input.due_date || null,
-      team_id: isPersonal ? null : input.team_id,
-      is_personal: isPersonal,
-      created_by: input.created_by,
-    })
-    .select("*")
-    .single();
-
-  if (error) throw new Error(error.message);
-
-  await attachRelations(data.id, input);
-  return data as Task;
-}
-
-export async function updateTask(
-  taskId: string,
-  updates: Partial<{
-    name: string;
-    description: string | null;
-    status: TaskStatus;
-    importance: Importance;
-    category: string | null;
-    competition_status: string | null;
-    due_date: string | null;
-  }>
-): Promise<Task> {
-  const { data, error } = await supabase
-    .from("tasks")
-    .update({ ...updates, updated_at: new Date().toISOString() })
-    .eq("id", taskId)
-    .select("*")
-    .single();
-
-  if (error) throw new Error(error.message);
-  return data as Task;
-}
-
-export async function deleteTask(taskId: string): Promise<void> {
-  const { error } = await supabase.from("tasks").delete().eq("id", taskId);
-  if (error) throw new Error(error.message);
-}
-
-export async function listTeamTasks(teamId: string): Promise<TaskWithRelations[]> {
-  const { data, error } = await supabase
-    .from("tasks")
-    .select(
-      `
-      *,
-      task_assignees(user_id, profiles(*)),
-      task_role_assignees(role_id, team_roles(*)),
-      task_parts(
-        part_id, 
-        parts(
-          id, 
-          team_id, 
-          part_catalog_id, 
-          part_catalog(id, name, sku, description, manufacturer)
-        )
-      ),
-      subtasks(*)
-    `
-    )
-    .eq("team_id", teamId)
-    .eq("is_personal", false)
-    .order("created_at", { ascending: false });
-
-  if (error) throw new Error(error.message);
-  return (data ?? []) as TaskWithRelations[];
-}
-
-export async function listPersonalAndAssignedTasks(
-  userId: string
-): Promise<TaskWithRelations[]> {
-  const { data: assignedRows, error: assignedError } = await supabase
-    .from("task_assignees")
-    .select("task_id")
-    .eq("user_id", userId);
-
-  if (assignedError) throw new Error(assignedError.message);
-
-  const assignedIds = (assignedRows ?? []).map((r) => r.task_id);
-
-  const queryWithRelations = `
-    *,
-    task_assignees(user_id, profiles(*)),
-    task_role_assignees(role_id, team_roles(*)),
-    task_parts(
-      part_id, 
-      parts(
-        id, 
-        team_id, 
-        part_catalog_id, 
-        part_catalog(id, name, sku, description, manufacturer)
-      )
-    ),
-    subtasks(*),
-    teams(id, name, team_number)
-  `;
-
-  const { data: personal, error: personalError } = await supabase
-    .from("tasks")
-    .select(queryWithRelations)
-    .eq("is_personal", true)
-    .eq("created_by", userId)
-    .order("created_at", { ascending: false });
-
-  if (personalError) throw new Error(personalError.message);
-
-  let assigned: TaskWithRelations[] = [];
-  if (assignedIds.length > 0) {
-    const { data, error } = await supabase
-      .from("tasks")
-      .select(queryWithRelations)
-      .in("id", assignedIds)
-      .order("created_at", { ascending: false });
-
-    if (error) throw new Error(error.message);
-    assigned = (data ?? []) as TaskWithRelations[];
-  }
-
-  const byId = new Map<string, TaskWithRelations>();
-  for (const task of [...(personal ?? []), ...assigned] as TaskWithRelations[]) {
-    byId.set(task.id, task);
-  }
-  return [...byId.values()];
-}
-
-export async function createSubtask(input: {
-  taskId: string;
-  name: string;
-  description?: string;
-  due_date?: string | null;
-  importance?: Importance;
-  assigneeIds?: string[];
-}): Promise<Subtask> {
-  const { data, error } = await supabase
-    .from("subtasks")
-    .insert({
-      task_id: input.taskId,
-      name: input.name.trim(),
-      description: input.description?.trim() || null,
-      due_date: input.due_date || null,
-      importance: input.importance ?? "medium",
-    })
-    .select("*")
-    .single();
-
-  if (error) throw new Error(error.message);
-
-  if (input.assigneeIds?.length) {
-    const { error: assignError } = await supabase.from("subtask_assignees").insert(
-      input.assigneeIds.map((user_id) => ({
-        subtask_id: data.id,
-        user_id,
-      }))
-    );
-    if (assignError) throw new Error(assignError.message);
-  }
-
-  return data as Subtask;
-}
-
-export async function updateSubtaskStatus(
-  subtaskId: string,
-  status: TaskStatus
-): Promise<void> {
-  const { error } = await supabase
-    .from("subtasks")
-    .update({ status })
-    .eq("id", subtaskId);
-  if (error) throw new Error(error.message);
-}
-
-export async function setTaskAssignees(
-  taskId: string,
-  userIds: string[]
-): Promise<void> {
-  const { error: delError } = await supabase
-    .from("task_assignees")
-    .delete()
-    .eq("task_id", taskId);
-  if (delError) throw new Error(delError.message);
-
-  if (userIds.length === 0) return;
-
-  const { error } = await supabase.from("task_assignees").insert(
-    userIds.map((user_id) => ({ task_id: taskId, user_id }))
-  );
-  if (error) throw new Error(error.message);
-}
-
-export async function setTaskParts(taskId: string, partIds: string[]): Promise<void> {
-  const { error: delError } = await supabase
-    .from("task_parts")
-    .delete()
-    .eq("task_id", taskId);
-  if (delError) throw new Error(delError.message);
-
-  if (partIds.length === 0) return;
-
-  const { error } = await supabase.from("task_parts").insert(
-    partIds.map((part_id) => ({ task_id: taskId, part_id }))
-  );
-  if (error) throw new Error(error.message);
 }
 </file>
 
@@ -3097,7 +2989,7 @@ export default function PersonalTasksPage() {
     try {
       await createTask({
         name,
-        description,
+        description: description.trim() || null,
         importance,
         due_date: dueDate || null,
         is_personal: true,
@@ -3282,136 +3174,6 @@ function TaskRow({
         </SecondaryButton>
       ) : null}
     </Panel>
-  );
-}
-</file>
-
-<file path="src/app/components/Sidebar.tsx">
-"use client";
-
-import { useEffect, useState } from "react";
-import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { getUserProfile } from "@/lib/auth";
-import { displayNameFromProfile } from "@/lib/types";
-import { supabase } from "@/lib/supabase";
-
-export default function Sidebar() {
-  const router = useRouter();
-  const pathname = usePathname();
-  const [displayName, setDisplayName] = useState("User");
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
-
-  useEffect(() => {
-    let isMounted = true;
-
-    const loadUser = async () => {
-      const {
-        data: { user },
-        error,
-      } = await supabase.auth.getUser();
-
-      if (!isMounted) return;
-
-      if (error || !user) {
-        router.replace("/login");
-        return;
-      }
-
-      const profile = await getUserProfile(user.id);
-
-      if (!isMounted) return;
-
-      setDisplayName(displayNameFromProfile(profile));
-      setAvatarUrl(profile?.avatar_url?.trim() || null);
-    };
-
-    loadUser();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [router]);
-
-  const navItems = [
-    { label: "Overview", href: "/dashboard" },
-    { label: "Personal Tasks", href: "/personal-tasks" },
-    { label: "Team", href: "/team" },
-    { label: "Team Tasks", href: "/team-tasks" },
-    { label: "Parts", href: "/parts" },
-    { label: "Settings", href: "/settings" },
-  ];
-
-  return (
-    <aside className="w-64 border-r border-zinc-900 bg-zinc-950/20 backdrop-blur-md flex flex-col justify-between p-6">
-      <div>
-        {/* Logo */}
-        <div className="mb-10">
-          <span className="text-sm font-semibold tracking-widest uppercase">Vulcan</span>
-          <img
-            src="/logo_transparent.png"
-            alt="Vulcan logo"
-            className="mt-3 h-14 w-auto object-contain"
-          />
-        </div>
-
-        {/* Navigation Links */}
-        <nav className="space-y-1">
-          {navItems.map((item) => {
-            const isActive = pathname === item.href;
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`flex items-center space-x-3 px-3 py-2 rounded-md text-xs font-mono transition-colors ${
-                  isActive
-                    ? "bg-zinc-900/60 text-white"
-                    : "text-zinc-500 hover:text-zinc-300"
-                }`}
-              >
-                <span>{item.label}</span>
-              </Link>
-            );
-          })}
-        </nav>
-      </div>
-
-      {/* User Card at Bottom */}
-      <div className="border-t border-zinc-900 pt-4 flex items-center justify-between">
-        <div className="flex items-center space-x-3">
-          {avatarUrl ? (
-            <img
-              src={avatarUrl}
-              alt={`${displayName} avatar`}
-              className="h-8 w-8 rounded-full border border-zinc-700 object-cover"
-            />
-          ) : (
-            <div className="w-8 h-8 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-xs font-mono font-bold">
-              {displayName.charAt(0).toUpperCase() || "V"}
-            </div>
-          )}
-          <div>
-            <p className="text-xs font-semibold text-zinc-300">{displayName}</p>
-            <p className="text-[10px] font-mono text-zinc-600">Active Session</p>
-          </div>
-        </div>
-        <div className="flex flex-col items-end gap-2">
-          <button
-            type="button"
-            onClick={async () => {
-              await supabase.auth.signOut();
-              router.replace("/login");
-            }}
-            className="text-zinc-600 hover:text-white transition-colors text-xs font-mono"
-          >
-            Log out
-          </button>
-          <Link href="/" className="text-zinc-600 hover:text-white transition-colors text-xs font-mono">
-            Exit
-          </Link>
-        </div>
-      </div>
-    </aside>
   );
 }
 </file>
@@ -3658,162 +3420,306 @@ export async function hasCompletedProfile(userId: string) {
 // }
 </file>
 
-<file path="src/lib/types.ts">
-export type TaskStatus = "todo" | "in_progress" | "done" | "blocked";
-export type Importance = "low" | "medium" | "high" | "critical";
+<file path="src/lib/tasks.ts">
+import { supabase } from "./supabase";
+import type {
+  Importance,
+  Subtask,
+  Task,
+  TaskStatus,
+  TaskWithRelations,
+} from "./types";
 
-export type Profile = {
-  id: string;
-  username: string;
-  first_name: string | null;
-  last_name: string | null;
-  avatar_url: string | null;
-  bio: string | null;
-  created_at?: string;
-  updated_at?: string;
-};
-
-export type Team = {
-  id: string;
+export type TaskInput = {
   name: string;
-  team_number: string | null;
-  owner_id: string | null;
-  invite_code: string;
-  created_at: string | null;
-  updated_at: string;
-};
-
-export type TeamRole = {
-  id: string;
-  team_id: string | null;
-  name: string | null;
-  is_admin: boolean;
-  can_manage_members: boolean;
-  can_manage_tasks: boolean;
-  can_manage_inventory: boolean;
-  created_at: string;
-};
-
-export type TeamMember = {
-  id: string;
-  team_id: string;
-  user_id: string;
-  role_id?: string | null;
-  role_ids?: string[];
-  joined_at?: string;
-  profiles?: Profile | null;
-  team_roles?: TeamRole | null;
-  team_roles_list?: TeamRole[];
-};
-
-export type PartCatalog = {
-  id: string;
-  name: string;
-  sku: string | null;
-  description: string | null;
-  manufacturer: string | null;
-  team_id: string | null;
-  is_official: boolean;
-  created_by: string | null;
-  created_at: string;
-};
-
-export type StatusList = {
-  id: string;
-  name: string;
-  description: string | null;
-  team_id: string | null;
-  is_default: boolean;
-  created_by: string | null;
-  created_at: string;
-};
-
-export type PartStatus = {
-  id: string;
-  name: string;
-  description: string | null;
-  status_id: string | null;
-  part_id: string | null;
-  quantity: number;
-  created_by: string | null;
-  created_at: string;
-  status_list?: StatusList | null;
-};
-
-export type Part = {
-  id: string;
-  team_id: string;
-  created_by: string | null;
-  created_at: string;
-  updated_at: string;
-  part_catalog_id: string | null;
-  part_catalog?: PartCatalog | null;
-  part_status?: PartStatus[];
-};
-
-export type Task = {
-  id: string;
-  team_id: string | null;
+  description?: string;
+  status?: TaskStatus;
+  importance?: Importance;
+  category?: string;
+  competition_status?: string;
+  due_date?: string | null;
+  team_id?: string | null;
+  is_personal?: boolean;
   created_by: string;
-  name: string;
-  description: string | null;
-  status: TaskStatus;
-  importance: Importance;
-  category: string | null;
-  competition_status: string | null;
-  due_date: string | null;
-  is_personal: boolean;
-  created_at: string;
-  updated_at: string;
+  assigneeIds?: string[];
+  roleIds?: string[];
+  partIds?: string[];
 };
 
-export type Subtask = {
-  id: string;
-  task_id: string;
-  name: string;
-  description: string | null;
-  status: TaskStatus;
-  importance: Importance;
-  due_date: string | null;
-  created_at: string;
-};
-
-export type TaskWithRelations = Task & {
-  task_assignees?: { user_id: string; profiles?: Profile | null }[];
-  task_role_assignees?: { role_id: string; team_roles?: TeamRole | null }[];
-  task_parts?: { part_id: string; parts?: Part | null }[];
-  subtasks?: Subtask[];
-  teams?: Pick<Team, "id" | "name" | "team_number"> | null;
-};
-
-export const TASK_COLUMNS: { id: TaskStatus; label: string }[] = [
-  { id: "todo", label: "To Do" },
-  { id: "in_progress", label: "In Progress" },
-  { id: "blocked", label: "Blocked" },
-  { id: "done", label: "Done" },
-];
-
-export const PART_STATUSES = [
-  { value: "PLANNING", label: "Planning" },
-  { value: "DESIGNING", label: "Designing" },
-  { value: "ORDERED", label: "Ordered" },
-  { value: "MANUFACTURING", label: "Manufacturing" },
-  { value: "ASSEMBLING", label: "Assembling" },
-  { value: "TESTING", label: "Testing" },
-  { value: "COMPLETE", label: "Complete" },
-];
-
-export function displayNameFromProfile(
-  profile?: Profile | null,
-  fallback = "Member"
+async function attachRelations(
+  taskId: string,
+  input: Pick<TaskInput, "assigneeIds" | "roleIds" | "partIds">
 ) {
-  if (!profile) return fallback;
-  const first = profile.first_name?.trim();
-  const last = profile.last_name?.trim();
-  if (first && last) return `${first} ${last}`;
-  if (first) return first;
-  if (profile.username?.trim()) return profile.username.trim();
-  return fallback;
+  if (input.assigneeIds?.length) {
+    const { error } = await supabase.from("task_assignees").insert(
+      input.assigneeIds.map((user_id) => ({ task_id: taskId, user_id }))
+    );
+    if (error) throw new Error(error.message);
+  }
+
+  if (input.roleIds?.length) {
+    const { error } = await supabase.from("task_role_assignees").insert(
+      input.roleIds.map((role_id) => ({ task_id: taskId, role_id }))
+    );
+    if (error) throw new Error(error.message);
+  }
+
+  if (input.partIds?.length) {
+    const { error } = await supabase.from("task_parts").insert(
+      input.partIds.map((part_id) => ({ task_id: taskId, part_id }))
+    );
+    if (error) throw new Error(error.message);
+  }
+}
+
+export async function createTask(input: {
+  team_id?: string | null;
+  name: string;
+  description?: string | null;
+  status?: "todo" | "in_progress" | "done" | "blocked";
+  importance?: "low" | "medium" | "high" | "critical";
+  category?: string | null;
+  due_date?: string | null;
+  is_personal?: boolean;
+  parent_id?: string | null;
+  created_by?: string;
+  assignee_ids?: string[];
+  part_ids?: string[];
+}) {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const creatorId = input.created_by || user?.id;
+  if (!creatorId) throw new Error("Not authenticated");
+
+  const { data: task, error } = await supabase
+    .from("tasks")
+    .insert({
+      team_id: input.team_id ?? null,
+      created_by: creatorId,
+      name: input.name,
+      description: input.description ? input.description : null,
+      status: input.status ?? "todo",
+      importance: input.importance ?? "medium",
+      category: input.category ? input.category : null,
+      due_date: input.due_date ? input.due_date : null,
+      is_personal: input.is_personal ?? false,
+      parent_id: input.parent_id ? input.parent_id : null,
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+
+  if (input.assignee_ids && input.assignee_ids.length > 0) {
+    const assignees = input.assignee_ids.map((id) => ({
+      task_id: task.id,
+      user_id: id,
+    }));
+    await supabase.from("task_assignees").insert(assignees);
+  }
+
+  if (input.part_ids && input.part_ids.length > 0) {
+    const parts = input.part_ids.map((id) => ({
+      task_id: task.id,
+      part_id: id,
+    }));
+    await supabase.from("task_parts").insert(parts);
+  }
+
+  return task;
+}
+export async function updateTask(
+  taskId: string,
+  updates: Partial<{
+    name: string;
+    description: string | null;
+    status: TaskStatus;
+    importance: Importance;
+    category: string | null;
+    competition_status: string | null;
+    due_date: string | null;
+  }>
+): Promise<Task> {
+  const { data, error } = await supabase
+    .from("tasks")
+    .update({ ...updates, updated_at: new Date().toISOString() })
+    .eq("id", taskId)
+    .select("*")
+    .single();
+
+  if (error) throw new Error(error.message);
+  return data as Task;
+}
+
+export async function deleteTask(taskId: string): Promise<void> {
+  const { error } = await supabase.from("tasks").delete().eq("id", taskId);
+  if (error) throw new Error(error.message);
+}
+
+export async function listTeamTasks(teamId: string): Promise<TaskWithRelations[]> {
+  const { data, error } = await supabase
+    .from("tasks")
+    .select(
+      `
+      *,
+      task_assignees(user_id, profiles(*)),
+      task_role_assignees(role_id, team_roles(*)),
+      task_parts(
+        part_id, 
+        parts(
+          id, 
+          team_id, 
+          part_catalog_id, 
+          part_catalog(id, name, sku, description, manufacturer)
+        )
+      ),
+      subtasks(*)
+    `
+    )
+    .eq("team_id", teamId)
+    .eq("is_personal", false)
+    .order("created_at", { ascending: false });
+
+  if (error) throw new Error(error.message);
+  return (data ?? []) as TaskWithRelations[];
+}
+
+export async function listPersonalAndAssignedTasks(
+  userId: string
+): Promise<TaskWithRelations[]> {
+  const { data: assignedRows, error: assignedError } = await supabase
+    .from("task_assignees")
+    .select("task_id")
+    .eq("user_id", userId);
+
+  if (assignedError) throw new Error(assignedError.message);
+
+  const assignedIds = (assignedRows ?? []).map((r) => r.task_id);
+
+  const queryWithRelations = `
+    *,
+    task_assignees(user_id, profiles(*)),
+    task_role_assignees(role_id, team_roles(*)),
+    task_parts(
+      part_id, 
+      parts(
+        id, 
+        team_id, 
+        part_catalog_id, 
+        part_catalog(id, name, sku, description, manufacturer)
+      )
+    ),
+    subtasks(*),
+    teams(id, name, team_number)
+  `;
+
+  const { data: personal, error: personalError } = await supabase
+    .from("tasks")
+    .select(queryWithRelations)
+    .eq("is_personal", true)
+    .eq("created_by", userId)
+    .order("created_at", { ascending: false });
+
+  if (personalError) throw new Error(personalError.message);
+
+  let assigned: TaskWithRelations[] = [];
+  if (assignedIds.length > 0) {
+    const { data, error } = await supabase
+      .from("tasks")
+      .select(queryWithRelations)
+      .in("id", assignedIds)
+      .order("created_at", { ascending: false });
+
+    if (error) throw new Error(error.message);
+    assigned = (data ?? []) as TaskWithRelations[];
+  }
+
+  const byId = new Map<string, TaskWithRelations>();
+  for (const task of [...(personal ?? []), ...assigned] as TaskWithRelations[]) {
+    byId.set(task.id, task);
+  }
+  return [...byId.values()];
+}
+
+export async function createSubtask(input: {
+  taskId: string;
+  name: string;
+  description?: string;
+  due_date?: string | null;
+  importance?: Importance;
+  assigneeIds?: string[];
+}): Promise<Subtask> {
+  const { data, error } = await supabase
+    .from("subtasks")
+    .insert({
+      task_id: input.taskId,
+      name: input.name.trim(),
+      description: input.description?.trim() || null,
+      due_date: input.due_date || null,
+      importance: input.importance ?? "medium",
+    })
+    .select("*")
+    .single();
+
+  if (error) throw new Error(error.message);
+
+  if (input.assigneeIds?.length) {
+    const { error: assignError } = await supabase.from("subtask_assignees").insert(
+      input.assigneeIds.map((user_id) => ({
+        subtask_id: data.id,
+        user_id,
+      }))
+    );
+    if (assignError) throw new Error(assignError.message);
+  }
+
+  return data as Subtask;
+}
+
+export async function updateSubtaskStatus(
+  subtaskId: string,
+  status: TaskStatus
+): Promise<void> {
+  const { error } = await supabase
+    .from("subtasks")
+    .update({ status })
+    .eq("id", subtaskId);
+  if (error) throw new Error(error.message);
+}
+
+export async function setTaskAssignees(
+  taskId: string,
+  userIds: string[]
+): Promise<void> {
+  const { error: delError } = await supabase
+    .from("task_assignees")
+    .delete()
+    .eq("task_id", taskId);
+  if (delError) throw new Error(delError.message);
+
+  if (userIds.length === 0) return;
+
+  const { error } = await supabase.from("task_assignees").insert(
+    userIds.map((user_id) => ({ task_id: taskId, user_id }))
+  );
+  if (error) throw new Error(error.message);
+}
+
+export async function setTaskParts(taskId: string, partIds: string[]): Promise<void> {
+  const { error: delError } = await supabase
+    .from("task_parts")
+    .delete()
+    .eq("task_id", taskId);
+  if (delError) throw new Error(delError.message);
+
+  if (partIds.length === 0) return;
+
+  const { error } = await supabase.from("task_parts").insert(
+    partIds.map((part_id) => ({ task_id: taskId, part_id }))
+  );
+  if (error) throw new Error(error.message);
 }
 </file>
 
@@ -4164,527 +4070,294 @@ export async function countPartsByStatus(
 }
 </file>
 
-<file path="src/app/team-tasks/TeamTasksClient.tsx">
+<file path="src/lib/types.ts">
+export type TaskStatus = "todo" | "in_progress" | "done" | "blocked";
+export type Importance = "low" | "medium" | "high" | "critical";
+
+export type Profile = {
+  id: string;
+  username: string;
+  first_name: string | null;
+  last_name: string | null;
+  avatar_url: string | null;
+  bio: string | null;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type Team = {
+  id: string;
+  name: string;
+  team_number: string | null;
+  owner_id: string | null;
+  invite_code: string;
+  created_at: string | null;
+  updated_at: string;
+};
+
+export type TeamRole = {
+  id: string;
+  team_id: string | null;
+  name: string | null;
+  is_admin: boolean;
+  can_manage_members: boolean;
+  can_manage_tasks: boolean;
+  can_manage_inventory: boolean;
+  created_at: string;
+};
+
+export type TeamMember = {
+  id: string;
+  team_id: string;
+  user_id: string;
+  role_id?: string | null;
+  role_ids?: string[];
+  joined_at?: string;
+  profiles?: Profile | null;
+  team_roles?: TeamRole | null;
+  team_roles_list?: TeamRole[];
+};
+
+export type PartCatalog = {
+  id: string;
+  name: string;
+  sku: string | null;
+  description: string | null;
+  manufacturer: string | null;
+  team_id: string | null;
+  is_official: boolean;
+  created_by: string | null;
+  created_at: string;
+};
+
+export type StatusList = {
+  id: string;
+  name: string;
+  description: string | null;
+  team_id: string | null;
+  is_default: boolean;
+  created_by: string | null;
+  created_at: string;
+};
+
+export type PartStatus = {
+  id: string;
+  name: string;
+  description: string | null;
+  status_id: string | null;
+  part_id: string | null;
+  quantity: number;
+  created_by: string | null;
+  created_at: string;
+  status_list?: StatusList | null;
+};
+
+export type Part = {
+  id: string;
+  team_id: string;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  part_catalog_id: string | null;
+  part_catalog?: PartCatalog | null;
+  part_status?: PartStatus[];
+};
+
+export type Task = {
+  id: string;
+  team_id: string;
+  created_by: string;
+  name: string;
+  description?: string | null;
+  status: "todo" | "in_progress" | "done" | "blocked";
+  importance: "low" | "medium" | "high" | "critical";
+  category?: string | null;
+  due_date?: string | null;
+  is_personal: boolean;
+  parent_id?: string | null; // <-- Added parent_id link
+  created_at: string;
+  updated_at: string;
+};
+
+export type Subtask = {
+  id: string;
+  task_id: string;
+  name: string;
+  description: string | null;
+  status: TaskStatus;
+  importance: Importance;
+  due_date: string | null;
+  created_at: string;
+};
+
+export type TaskWithRelations = Task & {
+  task_assignees?: { user_id: string; profiles?: Profile | null }[];
+  task_role_assignees?: { role_id: string; team_roles?: TeamRole | null }[];
+  task_parts?: { part_id: string; parts?: Part | null }[];
+  subtasks?: Subtask[];
+  teams?: Pick<Team, "id" | "name" | "team_number"> | null;
+};
+
+export const TASK_COLUMNS: { id: TaskStatus; label: string }[] = [
+  { id: "todo", label: "To Do" },
+  { id: "in_progress", label: "In Progress" },
+  { id: "blocked", label: "Blocked" },
+  { id: "done", label: "Done" },
+];
+
+export const PART_STATUSES = [
+  { value: "PLANNING", label: "Planning" },
+  { value: "DESIGNING", label: "Designing" },
+  { value: "ORDERED", label: "Ordered" },
+  { value: "MANUFACTURING", label: "Manufacturing" },
+  { value: "ASSEMBLING", label: "Assembling" },
+  { value: "TESTING", label: "Testing" },
+  { value: "COMPLETE", label: "Complete" },
+];
+
+export function displayNameFromProfile(
+  profile?: Profile | null,
+  fallback = "Member"
+) {
+  if (!profile) return fallback;
+  const first = profile.first_name?.trim();
+  const last = profile.last_name?.trim();
+  if (first && last) return `${first} ${last}`;
+  if (first) return first;
+  if (profile.username?.trim()) return profile.username.trim();
+  return fallback;
+}
+</file>
+
+<file path="src/app/components/Sidebar.tsx">
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
-import AppShell, {
-  EmptyState,
-  ErrorText,
-  FieldInput,
-  Label,
-  Panel,
-  PrimaryButton,
-  SecondaryButton,
-} from "@/app/components/AppShell";
-import { listAssignableParts } from "@/lib/parts";
-import {
-  listMyTeams,
-  listTeamMembers,
-  listTeamRoles,
-  memberCanManageTasks,
-} from "@/lib/teams";
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import { getUserProfile } from "@/lib/auth";
+import { displayNameFromProfile } from "@/lib/types";
 import { supabase } from "@/lib/supabase";
-import {
-  createSubtask,
-  createTask,
-  deleteTask,
-  listTeamTasks,
-  updateSubtaskStatus,
-  updateTask,
-} from "@/lib/tasks";
-import {
-  TASK_COLUMNS,
-  displayNameFromProfile,
-  type Importance,
-  type Part,
-  type TaskStatus,
-  type TaskWithRelations,
-  type Team,
-  type TeamMember,
-  type TeamRole,
-} from "@/lib/types";
+import { La_Belle_Aurore } from "next/font/google";
 
-export default function TeamTasksClient() {
-  const searchParams = useSearchParams();
-  const [userId, setUserId] = useState<string | null>(null);
-  const [teams, setTeams] = useState<Team[]>([]);
-  const [teamId, setTeamId] = useState<string | null>(null);
-  const [tasks, setTasks] = useState<TaskWithRelations[]>([]);
-  const [members, setMembers] = useState<TeamMember[]>([]);
-  const [roles, setRoles] = useState<TeamRole[]>([]);
-  const [parts, setParts] = useState<Part[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [showForm, setShowForm] = useState(false);
-
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [importance, setImportance] = useState<Importance>("medium");
-  const [category, setCategory] = useState("");
-  const [competitionStatus, setCompetitionStatus] = useState("");
-  const [dueDate, setDueDate] = useState("");
-  const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
-  const [roleIds, setRoleIds] = useState<string[]>([]);
-  const [partIds, setPartIds] = useState<string[]>([]);
-  const [subtaskDrafts, setSubtaskDrafts] = useState<Record<string, string>>({});
-
-  const selectedTeam = teams.find((t) => t.id === teamId) ?? null;
-  const myMembership = members.find((m) => m.user_id === userId) ?? null;
-  const canManage =
-    selectedTeam && userId
-      ? memberCanManageTasks(selectedTeam, userId, myMembership)
-      : false;
-
-  const refresh = useCallback(async (tid: string) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const [t, m, r, p] = await Promise.all([
-        listTeamTasks(tid),
-        listTeamMembers(tid),
-        listTeamRoles(tid),
-        listAssignableParts(tid),
-      ]);
-      setTasks(t);
-      setMembers(m);
-      setRoles(r);
-      setParts(p);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load tasks");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+export default function Sidebar() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const [displayName, setDisplayName] = useState("User");
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
   useEffect(() => {
-    let mounted = true;
-    const init = async () => {
-      try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-        if (!mounted) return;
-        setUserId(user?.id ?? null);
-        const myTeams = await listMyTeams();
-        if (!mounted) return;
-        setTeams(myTeams);
-        const fromQuery = searchParams.get("team");
-        const initial =
-          (fromQuery && myTeams.find((t) => t.id === fromQuery)?.id) ||
-          myTeams[0]?.id ||
-          null;
-        if (!mounted) return;
-        setTeamId(initial);
-      } catch (e) {
-        if (!mounted) return;
-        setError(e instanceof Error ? e.message : "Failed to load");
+    let isMounted = true;
+
+    const loadUser = async () => {
+      const {
+        data: { user },
+        error,
+      } = await supabase.auth.getUser();
+
+      if (!isMounted) return;
+
+      if (error || !user) {
+        router.replace("/login");
+        return;
       }
+
+      const profile = await getUserProfile(user.id);
+
+      if (!isMounted) return;
+
+      setDisplayName(displayNameFromProfile(profile));
+      setAvatarUrl(profile?.avatar_url?.trim() || null);
     };
-    init();
+
+    loadUser();
 
     return () => {
-      mounted = false;
+      isMounted = false;
     };
-  }, [searchParams]);
+  }, [router]);
 
-  useEffect(() => {
-    if (!teamId) return;
-    const handleRefresh = async () => {
-      await refresh(teamId);
-    };
-    handleRefresh();
-  }, [teamId, refresh]);
-
-  const columns = useMemo(() => {
-    return TASK_COLUMNS.map((col) => ({
-      ...col,
-      items: tasks.filter((t) => t.status === col.id),
-    }));
-  }, [tasks]);
-
-  const resetForm = () => {
-    setName("");
-    setDescription("");
-    setImportance("medium");
-    setCategory("");
-    setCompetitionStatus("");
-    setDueDate("");
-    setAssigneeIds([]);
-    setRoleIds([]);
-    setPartIds([]);
-    setShowForm(false);
-  };
-
-  const handleCreate = async () => {
-    if (!userId || !teamId || !name.trim()) return;
-    setBusy(true);
-    setError(null);
-    try {
-      await createTask({
-        name,
-        description,
-        importance,
-        category,
-        competition_status: competitionStatus,
-        due_date: dueDate || null,
-        team_id: teamId,
-        is_personal: false,
-        created_by: userId,
-        assigneeIds,
-        roleIds,
-        partIds,
-      });
-      resetForm();
-      await refresh(teamId);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Create failed");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const toggleId = (list: string[], id: string, set: (v: string[]) => void) => {
-    set(list.includes(id) ? list.filter((x) => x !== id) : [...list, id]);
-  };
+  const navItems = [
+    { label: "Overview", href: "/dashboard" },
+    { label: "Personal Tasks", href: "/personal-tasks" },
+    { label: "Team", href: "/team" },
+    { label: "Team Tasks", href: "/team-tasks" },
+    { label: "Parts", href: "/parts" },
+    { label: "Part Identifier", href: "/parts/identify"},
+    { label: "Settings", href: "/settings" },
+    
+  ];
 
   return (
-    <AppShell
-      eyebrow="Operations"
-      title="Team Tasks"
-      actions={
-        <>
-          <FieldInput
-            as="select"
-            className="w-48"
-            value={teamId ?? ""}
-            onChange={(e) => setTeamId(e.target.value || null)}
-          >
-            {teams.length === 0 ? <option value="">No teams</option> : null}
-            {teams.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
-              </option>
-            ))}
-          </FieldInput>
-          {canManage ? (
-            <PrimaryButton onClick={() => setShowForm((v) => !v)}>
-              {showForm ? "Close" : "New task"}
-            </PrimaryButton>
-          ) : null}
-        </>
-      }
-    >
-      <ErrorText>{error}</ErrorText>
-      {loading ? (
-        <div className="min-h-screen bg-black text-zinc-500 font-mono text-xs flex items-center justify-center">
-          Loading team tasks…
+    <aside className="w-64 border-r border-zinc-900 bg-zinc-950/20 backdrop-blur-md flex flex-col justify-between p-6">
+      <div>
+        {/* Logo */}
+        <div className="mb-10">
+          <span className="text-sm font-semibold tracking-widest uppercase">Vulcan</span>
+          <img
+            src="/logo_transparent.png"
+            alt="Vulcan logo"
+            className="mt-3 h-14 w-auto object-contain"
+          />
         </div>
-      ) : null}
-      {!teamId ? (
-        <Panel>
-          <EmptyState>Create or join a team first, then return here.</EmptyState>
-        </Panel>
-      ) : (
-        <>
-          {showForm && canManage ? (
-            <Panel className="space-y-4">
-              <Label>New team task</Label>
-              <FieldInput
-                placeholder="Task name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-              />
-              <FieldInput
-                as="textarea"
-                placeholder="Description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-              />
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <FieldInput
-                  as="select"
-                  value={importance}
-                  onChange={(e) => setImportance(e.target.value as Importance)}
-                >
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
-                  <option value="critical">Critical</option>
-                </FieldInput>
-                <FieldInput
-                  placeholder="Category"
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                />
-                <FieldInput
-                  type="date"
-                  value={dueDate}
-                  onChange={(e) => setDueDate(e.target.value)}
-                />
-              </div>
-              <FieldInput
-                placeholder="Competition status"
-                value={competitionStatus}
-                onChange={(e) => setCompetitionStatus(e.target.value)}
-              />
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <Label>Assignees</Label>
-                  <div className="mt-2 space-y-1 max-h-32 overflow-y-auto">
-                    {members.map((m) => (
-                      <label key={m.id} className="flex items-center gap-2 text-xs text-zinc-400">
-                        <input
-                          type="checkbox"
-                          checked={assigneeIds.includes(m.user_id)}
-                          onChange={() => toggleId(assigneeIds, m.user_id, setAssigneeIds)}
-                        />
-                        {displayNameFromProfile(m.profiles)}
-                      </label>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <Label>Roles</Label>
-                  <div className="mt-2 space-y-1 max-h-32 overflow-y-auto">
-                    {roles.map((r) => (
-                      <label key={r.id} className="flex items-center gap-2 text-xs text-zinc-400">
-                        <input
-                          type="checkbox"
-                          checked={roleIds.includes(r.id)}
-                          onChange={() => toggleId(roleIds, r.id, setRoleIds)}
-                        />
-                        {r.name}
-                      </label>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <Label>Parts</Label>
-                  <div className="mt-2 space-y-1 max-h-32 overflow-y-auto">
-                    {parts.length === 0 ? (
-                      <EmptyState>No assignable parts</EmptyState>
-                    ) : (
-                      parts.map((p) => {
-                        const catalogName = p.part_catalog?.name ?? "Unnamed Part";
-                        const catalogSku = p.part_catalog?.sku ? ` (${p.part_catalog.sku})` : "";
-                        return (
-                          <label
-                            key={p.id}
-                            className="flex items-center gap-2 text-xs text-zinc-400"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={partIds.includes(p.id)}
-                              onChange={() => toggleId(partIds, p.id, setPartIds)}
-                            />
-                            {catalogName}
-                            {catalogSku}
-                          </label>
-                        );
-                      })
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <PrimaryButton disabled={busy || !name.trim()} onClick={handleCreate}>
-                Create task
-              </PrimaryButton>
-            </Panel>
-          ) : null}
-
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 items-start">
-            {columns.map((col) => (
-              <div key={col.id} className="space-y-3">
-                <div className="flex items-center justify-between px-1">
-                  <Label>{col.label}</Label>
-                  <span className="text-[10px] font-mono text-zinc-600">
-                    {col.items.length}
-                  </span>
-                </div>
-                {col.items.length === 0 ? (
-                  <Panel>
-                    <EmptyState>Empty</EmptyState>
-                  </Panel>
-                ) : (
-                  col.items.map((task) => (
-                    <TaskCard
-                      key={task.id}
-                      task={task}
-                      canManage={canManage}
-                      subtaskDraft={subtaskDrafts[task.id] ?? ""}
-                      onDraftChange={(v) =>
-                        setSubtaskDrafts((prev) => ({ ...prev, [task.id]: v }))}
-                      onStatus={async (status) => {
-                        try {
-                          await updateTask(task.id, { status });
-                          if (teamId) await refresh(teamId);
-                        } catch (e) {
-                          setError(e instanceof Error ? e.message : "Update failed");
-                        }
-                      }}
-                      onDelete={async () => {
-                        try {
-                          await deleteTask(task.id);
-                          if (teamId) await refresh(teamId);
-                        } catch (e) {
-                          setError(e instanceof Error ? e.message : "Delete failed");
-                        }
-                      }}
-                      onAddSubtask={async () => {
-                        const draft = subtaskDrafts[task.id]?.trim();
-                        if (!draft) return;
-                        try {
-                          await createSubtask({ taskId: task.id, name: draft });
-                          setSubtaskDrafts((prev) => ({ ...prev, [task.id]: "" }));
-                          if (teamId) await refresh(teamId);
-                        } catch (e) {
-                          setError(e instanceof Error ? e.message : "Subtask failed");
-                        }
-                      }}
-                      onSubtaskStatus={async (subId, status) => {
-                        try {
-                          await updateSubtaskStatus(subId, status);
-                          if (teamId) await refresh(teamId);
-                        } catch (e) {
-                          setError(
-                            e instanceof Error ? e.message : "Subtask update failed"
-                          );
-                        }
-                      }}
-                    />
-                  ))
-                )}
-              </div>
-            ))}
-          </div>
-        </>
-      )}
-    </AppShell>
-  );
-}
-
-function TaskCard({
-  task,
-  canManage,
-  subtaskDraft,
-  onDraftChange,
-  onStatus,
-  onDelete,
-  onAddSubtask,
-  onSubtaskStatus,
-}: {
-  task: TaskWithRelations;
-  canManage: boolean;
-  subtaskDraft: string;
-  onDraftChange: (v: string) => void;
-  onStatus: (s: TaskStatus) => void;
-  onDelete: () => void;
-  onAddSubtask: () => void;
-  onSubtaskStatus: (id: string, s: TaskStatus) => void;
-}) {
-  return (
-    <Panel className="space-y-3 p-4!">
-      <div className="flex justify-between gap-2">
-        <h3 className="text-sm font-semibold text-zinc-100 leading-snug">{task.name}</h3>
-        <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 shrink-0">{task.importance}</span>
-      </div>
-      {task.description ? (
-        <p className="text-xs text-zinc-500 leading-relaxed">{task.description}</p>
-      ) : null}
-      <div className="flex flex-wrap gap-2">
-        {task.category ? (
-          <span className="text-[10px] font-mono border border-zinc-800 px-2 py-0.5 rounded text-zinc-400">{task.category}</span>
-        ) : null}
-        {task.due_date ? (
-          <span className="text-[10px] font-mono border border-zinc-800 px-2 py-0.5 rounded text-zinc-400">Due {task.due_date}</span>
-        ) : null}
-        {task.competition_status ? (
-          <span className="text-[10px] font-mono border border-zinc-800 px-2 py-0.5 rounded text-zinc-400">{task.competition_status}</span>
-        ) : null}
-      </div>
-      {task.task_assignees?.length || task.task_role_assignees?.length ? (
-        <p className="text-[10px] font-mono text-zinc-600">
-          {[
-            ...(task.task_assignees ?? []).map((a) =>
-              displayNameFromProfile(a.profiles)
-            ),
-            ...(task.task_role_assignees ?? []).map(
-              (r) => r.team_roles?.name ?? "Role"
-            ),
-          ].join(" · ")}
-        </p>
-      ) : null}
-      {task.task_parts?.length ? (
-        <p className="text-[10px] font-mono text-emerald-600/80">
-          Parts: {task.task_parts.map((tp) => tp.parts?.part_catalog?.name ?? "Part").join(", ")}
-        </p>
-      ) : null}
-      {canManage ? (
-        <FieldInput
-          as="select"
-          value={task.status}
-          onChange={(e) => onStatus(e.target.value as TaskStatus)}
-        >
-          {TASK_COLUMNS.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.label}
-            </option>
-          ))}
-        </FieldInput>
-      ) : null}
-      <div className="space-y-2 border-t border-zinc-900 pt-3">
-        <Label>Subtasks</Label>
-        {(task.subtasks ?? []).map((s) => (
-          <div key={s.id} className="flex items-center justify-between gap-2 text-xs">
-            <span className="text-zinc-400">{s.name}</span>
-            {canManage ? (
-              <select
-                className="bg-black border border-zinc-800 rounded text-[10px] font-mono text-zinc-400 px-1 py-0.5"
-                value={s.status}
-                onChange={(e) =>
-                  onSubtaskStatus(s.id, e.target.value as TaskStatus)}
+        {/* Navigation Links */}
+        <nav className="space-y-1">
+          {navItems.map((item) => {
+            const isActive = pathname === item.href;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`flex items-center space-x-3 px-3 py-2 rounded-md text-xs font-mono transition-colors ${
+                  isActive
+                    ? "bg-zinc-900/60 text-white"
+                    : "text-zinc-500 hover:text-zinc-300"
+                }`}
               >
-                {TASK_COLUMNS.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.label}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <span className="text-[10px] font-mono text-zinc-600">{s.status}</span>
-            )}
-          </div>
-        ))}
-        {canManage ? (
-          <div className="flex gap-2">
-            <FieldInput
-              placeholder="Add subtask"
-              value={subtaskDraft}
-              onChange={(e) => onDraftChange(e.target.value)}
-            />
-            <SecondaryButton type="button" onClick={onAddSubtask}>
-              Add
-            </SecondaryButton>
-          </div>
-        ) : null}
+                <span>{item.label}</span>
+              </Link>
+            );
+          })}
+        </nav>
       </div>
-      {canManage ? (
-        <SecondaryButton
-          type="button"
-          onClick={() => {
-            if (window.confirm(`Are you sure you want to delete "${task.name}"?`)) onDelete();
-          }}
-          className="w-full"
-        >
-          Delete
-        </SecondaryButton>
-      ) : null}
-    </Panel>
+
+      {/* User Card at Bottom */}
+      <div className="border-t border-zinc-900 pt-4 flex items-center justify-between">
+        <div className="flex items-center space-x-3">
+          {avatarUrl ? (
+            <img
+              src={avatarUrl}
+              alt={`${displayName} avatar`}
+              className="h-8 w-8 rounded-full border border-zinc-700 object-cover"
+            />
+          ) : (
+            <div className="w-8 h-8 rounded-full bg-zinc-800 border border-zinc-700 flex items-center justify-center text-xs font-mono font-bold">
+              {displayName.charAt(0).toUpperCase() || "V"}
+            </div>
+          )}
+          <div>
+            <p className="text-xs font-semibold text-zinc-300">{displayName}</p>
+            <p className="text-[10px] font-mono text-zinc-600">Active Session</p>
+          </div>
+        </div>
+        <div className="flex flex-col items-end gap-2">
+          <button
+            type="button"
+            onClick={async () => {
+              await supabase.auth.signOut();
+              router.replace("/login");
+            }}
+            className="text-zinc-600 hover:text-white transition-colors text-xs font-mono"
+          >
+            Log out
+          </button>
+          <Link href="/" className="text-zinc-600 hover:text-white transition-colors text-xs font-mono">
+            Exit
+          </Link>
+        </div>
+      </div>
+    </aside>
   );
 }
 </file>
@@ -4831,6 +4504,209 @@ export default function Home() {
           </div>
         </section>
       </div>
+  );
+}
+</file>
+
+<file path="src/app/team-tasks/TeamTasksClient.tsx">
+"use client";
+
+import { useState, useRef } from "react";
+import { createTask } from "@/lib/tasks";
+import type { Task, Profile, Part } from "@/lib/types";
+
+interface TeamTasksClientProps {
+  initialTasks: Task[];
+  teamMembers: Profile[];
+  assignableParts: Part[];
+  teamId: string;
+}
+
+export default function TeamTasksClient({
+  initialTasks,
+  teamMembers,
+  assignableParts,
+  teamId,
+}: TeamTasksClientProps) {
+  const [tasks, setTasks] = useState<Task[]>(initialTasks);
+  const [taskName, setTaskName] = useState("");
+  const [description, setDescription] = useState("");
+  const [selectedParentId, setSelectedParentId] = useState<string>("none");
+  const [selectedAssignees, setSelectedAssignees] = useState<string[]>([]);
+  const [highlightedTaskId, setHighlightedTaskId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const createFormRef = useRef<HTMLDivElement | null>(null);
+
+  // Top-level major tasks (e.g., "Build Robot")
+  const parentTasks = tasks.filter((t) => !t.parent_id);
+
+  const handleCreateTask = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!taskName.trim()) return;
+
+    setLoading(true);
+    try {
+      const newTask = await createTask({
+      team_id: teamId,
+      name: taskName.trim(),
+      description: description.trim() || null,
+      parent_id: selectedParentId === "none" ? null : selectedParentId,
+      assignee_ids: selectedAssignees,
+});
+
+      setTasks((prev) => [newTask, ...prev]);
+      setTaskName("");
+      setDescription("");
+      setSelectedParentId("none");
+      setSelectedAssignees([]);
+    } catch (err: any) {
+      console.error("Failed to create task:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreateChildClick = (parentId: string) => {
+    setSelectedParentId(parentId);
+    createFormRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  const scrollToAndHighlightTask = (taskId: string) => {
+    const element = document.getElementById(`task-card-${taskId}`);
+    if (element) {
+      element.scrollIntoView({ behavior: "smooth", block: "center" });
+      setHighlightedTaskId(taskId);
+      setTimeout(() => setHighlightedTaskId(null), 2500);
+    }
+  };
+
+  return (
+    <div className="space-y-8">
+      {/* Create Task Bar */}
+      <div ref={createFormRef} className="p-6 bg-zinc-950 border border-zinc-900 rounded-xl space-y-4">
+        <h2 className="text-sm font-semibold text-zinc-200 uppercase font-mono tracking-wider">
+          Create Task
+        </h2>
+        
+        <form onSubmit={handleCreateTask} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <input
+              type="text"
+              placeholder="Task name (e.g. Build chassis)"
+              value={taskName}
+              onChange={(e) => setTaskName(e.target.value)}
+              className="bg-black border border-zinc-800 text-xs text-white rounded px-3 py-2 focus:outline-none focus:border-zinc-500"
+            />
+
+            {/* Parent Dropdown */}
+            <select
+              value={selectedParentId}
+              onChange={(e) => setSelectedParentId(e.target.value)}
+              className="bg-black border border-zinc-800 text-xs text-white rounded px-3 py-2 focus:outline-none focus:border-zinc-500"
+            >
+              <option value="none">-- No Parent (Major Task) --</option>
+              {parentTasks.map((t) => (
+                <option key={t.id} value={t.id}>
+                  Parent: {t.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <textarea
+            placeholder="Task description..."
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            className="w-full bg-black border border-zinc-800 text-xs text-white rounded p-3 focus:outline-none focus:border-zinc-500"
+          />
+
+          <button
+            type="submit"
+            disabled={loading || !taskName.trim()}
+            className="px-4 py-2 bg-white text-black text-xs font-semibold rounded hover:bg-zinc-200 transition disabled:opacity-50"
+          >
+            {loading ? "Adding..." : "Add Task"}
+          </button>
+        </form>
+      </div>
+
+      {/* Task List / Cards */}
+      <div className="space-y-4">
+        {tasks.map((task) => {
+          const childTasks = tasks.filter((child) => child.parent_id === task.id);
+          const isHighlighted = highlightedTaskId === task.id;
+
+          return (
+            <div
+              key={task.id}
+              id={`task-card-${task.id}`}
+              className={`p-5 rounded-xl border transition-all duration-300 bg-zinc-950 ${
+                isHighlighted
+                  ? "border-emerald-500 ring-2 ring-emerald-500/20"
+                  : "border-zinc-900"
+              }`}
+            >
+              <div className="flex justify-between items-start">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base font-bold text-white">{task.name}</h3>
+                    {task.parent_id && (
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-800 text-zinc-400">
+                        Subtask
+                      </span>
+                    )}
+                  </div>
+                  {task.description && (
+                    <p className="text-xs text-zinc-400 mt-1">{task.description}</p>
+                  )}
+                </div>
+
+                <span className="text-[10px] font-mono uppercase px-2 py-1 rounded bg-zinc-900 border border-zinc-800 text-zinc-300">
+                  {task.status}
+                </span>
+              </div>
+
+              {/* Child Tasks Section */}
+              <div className="mt-4 pt-4 border-t border-zinc-900 space-y-2">
+                <div className="flex justify-between items-center">
+                  <p className="text-[10px] font-mono text-zinc-500 uppercase tracking-wider">
+                    Subtasks ({childTasks.length})
+                  </p>
+                  <button
+                    onClick={() => handleCreateChildClick(task.id)}
+                    className="text-[11px] font-mono text-emerald-400 hover:underline"
+                  >
+                    + create new child task
+                  </button>
+                </div>
+
+                {childTasks.length > 0 ? (
+                  <ul className="space-y-1">
+                    {childTasks.map((child) => (
+                      <li key={child.id}>
+                        <button
+                          onClick={() => scrollToAndHighlightTask(child.id)}
+                          className="text-xs text-zinc-300 hover:text-white hover:underline flex items-center gap-2"
+                        >
+                          <span className="text-zinc-600">└</span>
+                          <span>{child.name}</span>
+                          <span className="text-[10px] font-mono text-zinc-500">
+                            ({child.status})
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-xs text-zinc-600 italic">No subtasks assigned.</p>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 </file>
