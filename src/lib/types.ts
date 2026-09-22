@@ -92,16 +92,16 @@ export type Part = {
 
 export type Task = {
   id: string;
-  team_id: string | null;
+  team_id: string;
   created_by: string;
   name: string;
-  description: string | null;
-  status: TaskStatus;
-  importance: Importance;
-  category: string | null;
-  competition_status: string | null;
-  due_date: string | null;
+  description?: string | null;
+  status: "todo" | "in_progress" | "done" | "blocked";
+  importance: "low" | "medium" | "high" | "critical";
+  category?: string | null;
+  due_date?: string | null;
   is_personal: boolean;
+  parent_id?: string | null; // <-- Added parent_id link
   created_at: string;
   updated_at: string;
 };

@@ -49,29 +49,58 @@ async function attachRelations(
   }
 }
 
-export async function createTask(input: TaskInput): Promise<Task> {
-  const isPersonal = Boolean(input.is_personal);
-  const { data, error } = await supabase
+export async function createTask(input: {
+  team_id: string;
+  name: string;
+  description?: string;
+  status?: "todo" | "in_progress" | "done" | "blocked";
+  importance?: "low" | "medium" | "high" | "critical";
+  category?: string;
+  due_date?: string;
+  is_personal?: boolean;
+  parent_id?: string | null; // <-- Added parameter
+  assignee_ids?: string[];
+  part_ids?: string[];
+}) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not authenticated");
+
+  const { data: task, error } = await supabase
     .from("tasks")
     .insert({
-      name: input.name.trim(),
-      description: input.description?.trim() || null,
+      team_id: input.team_id,
+      created_by: user.id,
+      name: input.name,
+      description: input.description ?? null,
       status: input.status ?? "todo",
       importance: input.importance ?? "medium",
-      category: input.category?.trim() || null,
-      competition_status: input.competition_status?.trim() || null,
-      due_date: input.due_date || null,
-      team_id: isPersonal ? null : input.team_id,
-      is_personal: isPersonal,
-      created_by: input.created_by,
+      category: input.category ?? null,
+      due_date: input.due_date ?? null,
+      is_personal: input.is_personal ?? false,
+      parent_id: input.parent_id ?? null, // <-- Insert parent_id
     })
-    .select("*")
+    .select()
     .single();
 
-  if (error) throw new Error(error.message);
+  if (error) throw error;
 
-  await attachRelations(data.id, input);
-  return data as Task;
+  if (input.assignee_ids && input.assignee_ids.length > 0) {
+    const assignees = input.assignee_ids.map((id) => ({
+      task_id: task.id,
+      user_id: id,
+    }));
+    await supabase.from("task_assignees").insert(assignees);
+  }
+
+  if (input.part_ids && input.part_ids.length > 0) {
+    const parts = input.part_ids.map((id) => ({
+      task_id: task.id,
+      part_id: id,
+    }));
+    await supabase.from("task_parts").insert(parts);
+  }
+
+  return task;
 }
 
 export async function updateTask(
