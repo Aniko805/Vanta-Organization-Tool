@@ -37,12 +37,12 @@ export default function TeamTasksClient({
     setLoading(true);
     try {
       const newTask = await createTask({
-        team_id: teamId,
-        name: taskName.trim(),
-        description: description.trim() || undefined,
-        parent_id: selectedParentId === "none" ? null : selectedParentId,
-        assignee_ids: selectedAssignees,
-      });
+      team_id: teamId,
+      name: taskName.trim(),
+      description: description.trim() || null,
+      parent_id: selectedParentId === "none" ? null : selectedParentId,
+      assignee_ids: selectedAssignees,
+});
 
       setTasks((prev) => [newTask, ...prev]);
       setTaskName("");

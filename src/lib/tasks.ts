@@ -52,17 +52,19 @@ async function attachRelations(
 export async function createTask(input: {
   team_id: string;
   name: string;
-  description?: string;
+  description?: string | null;
   status?: "todo" | "in_progress" | "done" | "blocked";
   importance?: "low" | "medium" | "high" | "critical";
-  category?: string;
-  due_date?: string;
+  category?: string | null;
+  due_date?: string | null;
   is_personal?: boolean;
-  parent_id?: string | null; // <-- Added parameter
+  parent_id?: string | null;
   assignee_ids?: string[];
   part_ids?: string[];
 }) {
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   if (!user) throw new Error("Not authenticated");
 
   const { data: task, error } = await supabase
@@ -71,13 +73,13 @@ export async function createTask(input: {
       team_id: input.team_id,
       created_by: user.id,
       name: input.name,
-      description: input.description ?? null,
+      description: input.description ? input.description : null,
       status: input.status ?? "todo",
       importance: input.importance ?? "medium",
-      category: input.category ?? null,
-      due_date: input.due_date ?? null,
+      category: input.category ? input.category : null,
+      due_date: input.due_date ? input.due_date : null,
       is_personal: input.is_personal ?? false,
-      parent_id: input.parent_id ?? null, // <-- Insert parent_id
+      parent_id: input.parent_id ? input.parent_id : null,
     })
     .select()
     .single();
