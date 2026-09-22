@@ -50,7 +50,7 @@ async function attachRelations(
 }
 
 export async function createTask(input: {
-  team_id: string;
+  team_id?: string | null;
   name: string;
   description?: string | null;
   status?: "todo" | "in_progress" | "done" | "blocked";
@@ -59,19 +59,22 @@ export async function createTask(input: {
   due_date?: string | null;
   is_personal?: boolean;
   parent_id?: string | null;
+  created_by?: string;
   assignee_ids?: string[];
   part_ids?: string[];
 }) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) throw new Error("Not authenticated");
+
+  const creatorId = input.created_by || user?.id;
+  if (!creatorId) throw new Error("Not authenticated");
 
   const { data: task, error } = await supabase
     .from("tasks")
     .insert({
-      team_id: input.team_id,
-      created_by: user.id,
+      team_id: input.team_id ?? null,
+      created_by: creatorId,
       name: input.name,
       description: input.description ? input.description : null,
       status: input.status ?? "todo",
@@ -104,7 +107,6 @@ export async function createTask(input: {
 
   return task;
 }
-
 export async function updateTask(
   taskId: string,
   updates: Partial<{

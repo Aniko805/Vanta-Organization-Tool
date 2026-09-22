@@ -70,7 +70,7 @@ export default function PersonalTasksPage() {
     try {
       await createTask({
         name,
-        description,
+        description: description.trim() || null,
         importance,
         due_date: dueDate || null,
         is_personal: true,
