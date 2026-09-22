@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { getUserProfile } from "@/lib/auth";
 import { displayNameFromProfile } from "@/lib/types";
 import { supabase } from "@/lib/supabase";
+import { La_Belle_Aurore } from "next/font/google";
 
 export default function Sidebar() {
   const router = useRouter();
@@ -51,7 +52,7 @@ export default function Sidebar() {
     { label: "Team Tasks", href: "/team-tasks" },
     { label: "Parts", href: "/parts" },
     { label: "Settings", href: "/settings" },
-    { name: "Part Identifier", href: "/parts/identify",}
+    { label: "Part Identifier", href: "/parts/identify",}
   ];
 
   return (
