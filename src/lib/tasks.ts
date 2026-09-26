@@ -27,8 +27,8 @@ export async function createTask(input: {
   team_id?: string | null;
   name: string;
   description?: string | null;
-  status?: "todo" | "in_progress" | "done" | "blocked";
-  importance?: "low" | "medium" | "high" | "critical";
+  status?: TaskStatus;
+  importance?: Importance;
   category?: string | null;
   due_date?: string | null;
   is_personal?: boolean;
@@ -36,7 +36,7 @@ export async function createTask(input: {
   created_by?: string;
   assignee_ids?: string[];
   part_ids?: string[];
-}) {
+}): Promise<TaskWithRelations> {
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -44,42 +44,76 @@ export async function createTask(input: {
   const creatorId = input.created_by || user?.id;
   if (!creatorId) throw new Error("Not authenticated");
 
+  // 1. Insert main task record
   const { data: task, error } = await supabase
     .from("tasks")
     .insert({
       team_id: input.team_id ?? null,
       created_by: creatorId,
       name: input.name,
-      description: input.description ? input.description : null,
+      description: input.description || null,
       status: input.status ?? "todo",
       importance: input.importance ?? "medium",
-      category: input.category ? input.category : null,
-      due_date: input.due_date ? input.due_date : null,
+      category: input.category || null,
+      due_date: input.due_date || null,
       is_personal: input.is_personal ?? false,
-      parent_id: input.parent_id ? input.parent_id : null,
+      parent_id: input.parent_id || null,
     })
     .select()
     .single();
 
-  if (error) throw error;
+  if (error || !task) throw error;
 
+  // 2. Insert assignees if provided
   if (input.assignee_ids && input.assignee_ids.length > 0) {
     const assignees = input.assignee_ids.map((id) => ({
       task_id: task.id,
       user_id: id,
     }));
-    await supabase.from("task_assignees").insert(assignees);
+    const { error: assigneeError } = await supabase
+      .from("task_assignees")
+      .insert(assignees);
+    if (assigneeError) console.error("Error linking assignees:", assigneeError);
   }
 
+  // 3. Insert parts if provided
   if (input.part_ids && input.part_ids.length > 0) {
     const parts = input.part_ids.map((id) => ({
       task_id: task.id,
       part_id: id,
     }));
-    await supabase.from("task_parts").insert(parts);
+    const { error: partError } = await supabase
+      .from("task_parts")
+      .insert(parts);
+    if (partError) console.error("Error linking parts:", partError);
   }
 
-  return task;
+  // 4. Return task with relations populated
+  const { data: fullTask, error: fetchError } = await supabase
+    .from("tasks")
+    .select(
+      `
+      *,
+      task_assignees(user_id, profiles(*)),
+      task_role_assignees(role_id, team_roles(*)),
+      task_parts(
+        part_id, 
+        parts(
+          id, 
+          team_id, 
+          part_catalog_id, 
+          part_catalog(id, name, sku, description, manufacturer)
+        )
+      ),
+      subtasks(*)
+    `
+    )
+    .eq("id", task.id)
+    .single();
+
+  if (fetchError || !fullTask) return task as TaskWithRelations;
+
+  return fullTask as TaskWithRelations;
 }
 
 export async function updateTask(

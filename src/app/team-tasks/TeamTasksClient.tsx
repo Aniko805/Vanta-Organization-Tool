@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useMemo } from "react";
+import { useState, useRef, useMemo, useEffect } from "react";
 import AppShell, {
   Panel,
   Label,
@@ -9,7 +9,7 @@ import AppShell, {
   SecondaryButton,
   EmptyState,
 } from "@/app/components/AppShell";
-import { createTask, updateTask } from "@/lib/tasks";
+import { createTask, updateTask, listTeamTasks } from "@/lib/tasks";
 import {
   displayNameFromProfile,
   type TaskStatus,
@@ -43,7 +43,7 @@ export default function TeamTasksClient({
   const [loading, setLoading] = useState(false);
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
 
-  // Form state
+  // Form input states
   const [taskName, setTaskName] = useState("");
   const [description, setDescription] = useState("");
   const [selectedParentId, setSelectedParentId] = useState<string>("none");
@@ -52,6 +52,23 @@ export default function TeamTasksClient({
   const [selectedParts, setSelectedParts] = useState<string[]>([]);
 
   const createFormRef = useRef<HTMLDivElement | null>(null);
+
+  // Sync state if initialTasks changes from server props
+  useEffect(() => {
+    if (initialTasks.length > 0) {
+      setTasks(initialTasks);
+    }
+  }, [initialTasks]);
+
+  // Optionally re-fetch tasks on mount if teamId is available
+  useEffect(() => {
+    if (!teamId) return;
+    listTeamTasks(teamId)
+      .then((data) => {
+        if (data && data.length > 0) setTasks(data);
+      })
+      .catch((err) => console.error("Error fetching team tasks:", err));
+  }, [teamId]);
 
   const parentTasks = useMemo(
     () => tasks.filter((t) => !t.is_personal),
@@ -72,17 +89,16 @@ export default function TeamTasksClient({
 
   const handleCreateTask = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!taskName.trim() || !teamId) return;
+    if (!taskName.trim()) return;
 
     setLoading(true);
-
     const targetStatus = selectedStatus || "todo";
 
-    // Optimistic item creation
+    // 1. Construct temporary optimistic object
     const tempId = `temp-${Date.now()}`;
     const optimisticTask = {
       id: tempId,
-      team_id: teamId,
+      team_id: teamId ?? null,
       name: taskName.trim(),
       description: description.trim() || null,
       status: targetStatus,
@@ -99,9 +115,10 @@ export default function TeamTasksClient({
       subtasks: [],
     } as unknown as TaskWithRelations;
 
+    // 2. Add to UI state immediately
     setTasks((prev) => [optimisticTask, ...prev]);
 
-    // Clear form UI
+    // 3. Reset form fields
     setTaskName("");
     setDescription("");
     setSelectedParentId("none");
@@ -111,8 +128,9 @@ export default function TeamTasksClient({
     setShowForm(false);
 
     try {
+      // 4. Save to Supabase
       const createdTask = await createTask({
-        team_id: teamId,
+        team_id: teamId ?? null,
         name: optimisticTask.name,
         description: optimisticTask.description,
         status: targetStatus,
@@ -122,21 +140,22 @@ export default function TeamTasksClient({
         part_ids: selectedParts,
       });
 
+      // 5. Replace temp item with real DB record
       if (createdTask && createdTask.id) {
         setTasks((prev) =>
-          prev.map((t) => (t.id === tempId ? { ...t, ...createdTask, id: createdTask.id } : t))
+          prev.map((t) => (t.id === tempId ? createdTask : t))
         );
       }
     } catch (err: unknown) {
-      console.error("Failed to save task to Supabase:", err);
-      // Remove optimistic task if insert failed
+      console.error("Failed to persist task in Supabase:", err);
+      // Remove optimistic item if insert fails
       setTasks((prev) => prev.filter((t) => t.id !== tempId));
     } finally {
       setLoading(false);
     }
   };
 
-  // Drag & Drop
+  // Drag and Drop
   const handleDragStart = (taskId: string) => {
     setDraggedTaskId(taskId);
   };
@@ -154,9 +173,11 @@ export default function TeamTasksClient({
       return;
     }
 
-    // Optimistic Column Movement
+    // Move column optimistically
     setTasks((prev) =>
-      prev.map((t) => (t.id === draggedTaskId ? { ...t, status: targetStatus } : t))
+      prev.map((t) =>
+        t.id === draggedTaskId ? { ...t, status: targetStatus } : t
+      )
     );
 
     try {
@@ -165,9 +186,11 @@ export default function TeamTasksClient({
       }
     } catch (err) {
       console.error("Failed to update status in Supabase:", err);
-      // Rollback on error
+      // Rollback UI
       setTasks((prev) =>
-        prev.map((t) => (t.id === draggedTaskId ? { ...t, status: currentTask.status } : t))
+        prev.map((t) =>
+          t.id === draggedTaskId ? { ...t, status: currentTask.status } : t
+        )
       );
     } finally {
       setDraggedTaskId(null);
@@ -185,7 +208,7 @@ export default function TeamTasksClient({
       }
     >
       <div className="space-y-6">
-        {/* Create Task Form */}
+        {/* Creation Form Panel */}
         {showForm && (
           <div ref={createFormRef}>
             <Panel className="space-y-4">
@@ -199,11 +222,13 @@ export default function TeamTasksClient({
                     onChange={(e) => setTaskName(e.target.value)}
                   />
 
-                  {/* Kanban Category Selector */}
+                  {/* Kanban Status / Column Selector */}
                   <FieldInput
                     as="select"
                     value={selectedStatus}
-                    onChange={(e) => setSelectedStatus(e.target.value as TaskStatus)}
+                    onChange={(e) =>
+                      setSelectedStatus(e.target.value as TaskStatus)
+                    }
                   >
                     {KANBAN_COLUMNS.map((col) => (
                       <option key={col.id} value={col.id}>
@@ -285,10 +310,16 @@ export default function TeamTasksClient({
                 </div>
 
                 <div className="flex justify-end gap-2 pt-2">
-                  <SecondaryButton type="button" onClick={() => setShowForm(false)}>
+                  <SecondaryButton
+                    type="button"
+                    onClick={() => setShowForm(false)}
+                  >
                     Cancel
                   </SecondaryButton>
-                  <PrimaryButton type="submit" disabled={loading || !taskName.trim()}>
+                  <PrimaryButton
+                    type="submit"
+                    disabled={loading || !taskName.trim()}
+                  >
                     {loading ? "Adding..." : "Add Task"}
                   </PrimaryButton>
                 </div>
@@ -297,7 +328,7 @@ export default function TeamTasksClient({
           </div>
         )}
 
-        {/* Kanban Board */}
+        {/* Kanban Board Columns */}
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 items-start">
           {KANBAN_COLUMNS.map((col) => {
             const columnTasks = tasks.filter((t) => t.status === col.id);
@@ -307,7 +338,7 @@ export default function TeamTasksClient({
                 key={col.id}
                 onDragOver={handleDragOver}
                 onDrop={() => handleDrop(col.id)}
-                className="bg-zinc-950/60 border border-zinc-900 rounded-xl p-3 space-y-3 min-h-[500px] flex flex-col"
+                className="bg-zinc-950/60 border border-zinc-900 rounded-xl p-3 space-y-3 min-h-125 flex flex-col"
               >
                 <div className="flex items-center justify-between px-1 pb-2 border-b border-zinc-900">
                   <Label>{col.label}</Label>
