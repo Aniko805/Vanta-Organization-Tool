@@ -42,16 +42,17 @@ export async function createTask(input: {
   } = await supabase.auth.getUser();
 
   const creatorId = input.created_by || user?.id;
-  if (!creatorId) throw new Error("Not authenticated");
+  if (!creatorId) throw new Error("Not authenticated: missing user ID");
+  if (!input.team_id) throw new Error("Missing required team_id");
 
-  // 1. Insert main task record
+  // 1. Insert into public.tasks
   const { data: task, error } = await supabase
     .from("tasks")
     .insert({
-      team_id: input.team_id ?? null,
+      team_id: input.team_id,
       created_by: creatorId,
-      name: input.name,
-      description: input.description || null,
+      name: input.name.trim(),
+      description: input.description?.trim() || null,
       status: input.status ?? "todo",
       importance: input.importance ?? "medium",
       category: input.category || null,
@@ -62,58 +63,42 @@ export async function createTask(input: {
     .select()
     .single();
 
-  if (error || !task) throw error;
+  if (error || !task) {
+    console.error("Supabase task insertion error:", error);
+    throw new Error(error?.message || "Failed to insert task record");
+  }
 
-  // 2. Insert assignees if provided
+  // 2. Insert into public.task_assignees
   if (input.assignee_ids && input.assignee_ids.length > 0) {
-    const assignees = input.assignee_ids.map((id) => ({
+    const assignees = input.assignee_ids.map((user_id) => ({
       task_id: task.id,
-      user_id: id,
+      user_id,
     }));
     const { error: assigneeError } = await supabase
       .from("task_assignees")
       .insert(assignees);
-    if (assigneeError) console.error("Error linking assignees:", assigneeError);
+      
+    if (assigneeError) {
+      console.error("Task assignee insertion error:", assigneeError);
+    }
   }
 
-  // 3. Insert parts if provided
+  // 3. Insert into public.task_parts
   if (input.part_ids && input.part_ids.length > 0) {
-    const parts = input.part_ids.map((id) => ({
+    const parts = input.part_ids.map((part_id) => ({
       task_id: task.id,
-      part_id: id,
+      part_id,
     }));
     const { error: partError } = await supabase
       .from("task_parts")
       .insert(parts);
-    if (partError) console.error("Error linking parts:", partError);
+      
+    if (partError) {
+      console.error("Task part insertion error:", partError);
+    }
   }
 
-  // 4. Return task with relations populated
-  const { data: fullTask, error: fetchError } = await supabase
-    .from("tasks")
-    .select(
-      `
-      *,
-      task_assignees(user_id, profiles(*)),
-      task_role_assignees(role_id, team_roles(*)),
-      task_parts(
-        part_id, 
-        parts(
-          id, 
-          team_id, 
-          part_catalog_id, 
-          part_catalog(id, name, sku, description, manufacturer)
-        )
-      ),
-      subtasks(*)
-    `
-    )
-    .eq("id", task.id)
-    .single();
-
-  if (fetchError || !fullTask) return task as TaskWithRelations;
-
-  return fullTask as TaskWithRelations;
+  return task as TaskWithRelations;
 }
 
 export async function updateTask(
