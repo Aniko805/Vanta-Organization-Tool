@@ -41,6 +41,7 @@ export default function TeamTasksClient({
   const [taskName, setTaskName] = useState("");
   const [description, setDescription] = useState("");
   const [selectedParentId, setSelectedParentId] = useState<string>("none");
+  const [selectedStatus, setSelectedStatus] = useState<TaskStatus>("todo");
   const [selectedAssignees, setSelectedAssignees] = useState<string[]>([]);
   const [selectedParts, setSelectedParts] = useState<string[]>([]);
 
@@ -74,7 +75,7 @@ export default function TeamTasksClient({
         team_id: teamId,
         name: taskName.trim(),
         description: description.trim() || null,
-        status: "todo",
+        status: selectedStatus || "todo",
         importance: "medium",
         assignee_ids: selectedAssignees,
         part_ids: selectedParts,
@@ -84,6 +85,7 @@ export default function TeamTasksClient({
       setTaskName("");
       setDescription("");
       setSelectedParentId("none");
+      setSelectedStatus("todo");
       setSelectedAssignees([]);
       setSelectedParts([]);
       setShowForm(false);
@@ -147,7 +149,7 @@ export default function TeamTasksClient({
             <Panel className="space-y-4">
               <Label>Create Task</Label>
               <form onSubmit={handleCreateTask} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <FieldInput
                     type="text"
                     placeholder="Task name (e.g. Assemble Elevator Subsystem)"
@@ -155,6 +157,20 @@ export default function TeamTasksClient({
                     onChange={(e) => setTaskName(e.target.value)}
                   />
 
+                  {/* Column Status Dropdown */}
+                  <FieldInput
+                    as="select"
+                    value={selectedStatus}
+                    onChange={(e) => setSelectedStatus(e.target.value as TaskStatus)}
+                  >
+                    {TASK_COLUMNS.map((col) => (
+                      <option key={col.id} value={col.id}>
+                        Column: {col.label}
+                      </option>
+                    ))}
+                  </FieldInput>
+
+                  {/* Parent Dropdown */}
                   <FieldInput
                     as="select"
                     value={selectedParentId}
