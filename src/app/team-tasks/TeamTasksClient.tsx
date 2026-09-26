@@ -41,6 +41,7 @@ export default function TeamTasksClient({
   const [tasks, setTasks] = useState<TaskWithRelations[]>(initialTasks);
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
 
   // Form input states
@@ -53,21 +54,23 @@ export default function TeamTasksClient({
 
   const createFormRef = useRef<HTMLDivElement | null>(null);
 
-  // Sync state if initialTasks changes from server props
+  // Re-fetch existing tasks on page/component load
   useEffect(() => {
-    if (initialTasks.length > 0) {
-      setTasks(initialTasks);
+    let isMounted = true;
+    if (teamId) {
+      listTeamTasks(teamId)
+        .then((fetchedTasks) => {
+          if (isMounted && fetchedTasks) {
+            setTasks(fetchedTasks);
+          }
+        })
+        .catch((err) => {
+          console.error("Error loading team tasks:", err);
+        });
     }
-  }, [initialTasks]);
-
-  // Optionally re-fetch tasks on mount if teamId is available
-  useEffect(() => {
-    if (!teamId) return;
-    listTeamTasks(teamId)
-      .then((data) => {
-        if (data && data.length > 0) setTasks(data);
-      })
-      .catch((err) => console.error("Error fetching team tasks:", err));
+    return () => {
+      isMounted = false;
+    };
   }, [teamId]);
 
   const parentTasks = useMemo(
@@ -92,10 +95,12 @@ export default function TeamTasksClient({
     if (!taskName.trim()) return;
 
     setLoading(true);
-    const targetStatus = selectedStatus || "todo";
+    setErrorMessage(null);
 
-    // 1. Construct temporary optimistic object
+    const targetStatus = selectedStatus || "todo";
     const tempId = `temp-${Date.now()}`;
+
+    // 1. Optimistic task entry
     const optimisticTask = {
       id: tempId,
       team_id: teamId ?? null,
@@ -118,17 +123,8 @@ export default function TeamTasksClient({
     // 2. Add to UI state immediately
     setTasks((prev) => [optimisticTask, ...prev]);
 
-    // 3. Reset form fields
-    setTaskName("");
-    setDescription("");
-    setSelectedParentId("none");
-    setSelectedStatus("todo");
-    setSelectedAssignees([]);
-    setSelectedParts([]);
-    setShowForm(false);
-
     try {
-      // 4. Save to Supabase
+      // 3. Persist to Supabase
       const createdTask = await createTask({
         team_id: teamId ?? null,
         name: optimisticTask.name,
@@ -140,22 +136,34 @@ export default function TeamTasksClient({
         part_ids: selectedParts,
       });
 
-      // 5. Replace temp item with real DB record
+      // 4. Update state with real Supabase task record
       if (createdTask && createdTask.id) {
         setTasks((prev) =>
           prev.map((t) => (t.id === tempId ? createdTask : t))
         );
       }
+
+      // Clear form inputs on success
+      setTaskName("");
+      setDescription("");
+      setSelectedParentId("none");
+      setSelectedStatus("todo");
+      setSelectedAssignees([]);
+      setSelectedParts([]);
+      setShowForm(false);
     } catch (err: unknown) {
-      console.error("Failed to persist task in Supabase:", err);
-      // Remove optimistic item if insert fails
-      setTasks((prev) => prev.filter((t) => t.id !== tempId));
+      const errorStr =
+        err instanceof Error ? err.message : "Failed to create task in database";
+      console.error("Supabase creation error:", err);
+      setErrorMessage(errorStr);
+
+      // Keep task visible in UI with alert indicator rather than removing it instantly
     } finally {
       setLoading(false);
     }
   };
 
-  // Drag and Drop
+  // Drag and Drop implementation
   const handleDragStart = (taskId: string) => {
     setDraggedTaskId(taskId);
   };
@@ -173,7 +181,6 @@ export default function TeamTasksClient({
       return;
     }
 
-    // Move column optimistically
     setTasks((prev) =>
       prev.map((t) =>
         t.id === draggedTaskId ? { ...t, status: targetStatus } : t
@@ -186,7 +193,6 @@ export default function TeamTasksClient({
       }
     } catch (err) {
       console.error("Failed to update status in Supabase:", err);
-      // Rollback UI
       setTasks((prev) =>
         prev.map((t) =>
           t.id === draggedTaskId ? { ...t, status: currentTask.status } : t
@@ -208,6 +214,12 @@ export default function TeamTasksClient({
       }
     >
       <div className="space-y-6">
+        {errorMessage && (
+          <div className="p-3 bg-red-950/80 border border-red-800 rounded-lg text-xs text-red-200">
+            <strong>Supabase Error:</strong> {errorMessage}
+          </div>
+        )}
+
         {/* Creation Form Panel */}
         {showForm && (
           <div ref={createFormRef}>
@@ -217,12 +229,11 @@ export default function TeamTasksClient({
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <FieldInput
                     type="text"
-                    placeholder="Task name (e.g. Assemble Elevator Subsystem)"
+                    placeholder="Task name (e.g. Assemble Subsystem)"
                     value={taskName}
                     onChange={(e) => setTaskName(e.target.value)}
                   />
 
-                  {/* Kanban Status / Column Selector */}
                   <FieldInput
                     as="select"
                     value={selectedStatus}
@@ -237,7 +248,6 @@ export default function TeamTasksClient({
                     ))}
                   </FieldInput>
 
-                  {/* Parent Task Selector */}
                   <FieldInput
                     as="select"
                     value={selectedParentId}
@@ -364,9 +374,9 @@ export default function TeamTasksClient({
                           <h3 className="text-xs font-semibold text-zinc-100 leading-snug">
                             {task.name}
                           </h3>
-                          {task.importance && (
-                            <span className="text-[9px] font-mono uppercase tracking-wider text-zinc-500 px-1.5 py-0.5 border border-zinc-800 rounded">
-                              {task.importance}
+                          {task.id.startsWith("temp-") && (
+                            <span className="text-[9px] font-mono text-amber-400 bg-amber-950/50 px-1.5 py-0.5 border border-amber-800 rounded">
+                              Saving...
                             </span>
                           )}
                         </div>
@@ -402,31 +412,6 @@ export default function TeamTasksClient({
                                 {p.parts?.part_catalog?.name ?? "Part"}
                               </span>
                             ))}
-                          </div>
-                        )}
-
-                        {/* Subtasks */}
-                        {task.subtasks && task.subtasks.length > 0 && (
-                          <div className="border-t border-zinc-900/80 pt-2 space-y-1">
-                            <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-wider">
-                              Subtasks ({task.subtasks.filter((s) => s.status === "done").length}/
-                              {task.subtasks.length})
-                            </span>
-                            <div className="space-y-1">
-                              {task.subtasks.map((st) => (
-                                <div
-                                  key={st.id}
-                                  className="flex items-center justify-between text-[11px] text-zinc-400"
-                                >
-                                  <span className={st.status === "done" ? "line-through text-zinc-600" : ""}>
-                                    └ {st.name}
-                                  </span>
-                                  <span className="text-[9px] font-mono text-zinc-600">
-                                    {st.status}
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
                           </div>
                         )}
                       </div>
