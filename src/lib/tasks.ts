@@ -23,32 +23,6 @@ export type TaskInput = {
   partIds?: string[];
 };
 
-async function attachRelations(
-  taskId: string,
-  input: Pick<TaskInput, "assigneeIds" | "roleIds" | "partIds">
-) {
-  if (input.assigneeIds?.length) {
-    const { error } = await supabase.from("task_assignees").insert(
-      input.assigneeIds.map((user_id) => ({ task_id: taskId, user_id }))
-    );
-    if (error) throw new Error(error.message);
-  }
-
-  if (input.roleIds?.length) {
-    const { error } = await supabase.from("task_role_assignees").insert(
-      input.roleIds.map((role_id) => ({ task_id: taskId, role_id }))
-    );
-    if (error) throw new Error(error.message);
-  }
-
-  if (input.partIds?.length) {
-    const { error } = await supabase.from("task_parts").insert(
-      input.partIds.map((part_id) => ({ task_id: taskId, part_id }))
-    );
-    if (error) throw new Error(error.message);
-  }
-}
-
 export async function createTask(input: {
   team_id?: string | null;
   name: string;
@@ -107,6 +81,7 @@ export async function createTask(input: {
 
   return task;
 }
+
 export async function updateTask(
   taskId: string,
   updates: Partial<{

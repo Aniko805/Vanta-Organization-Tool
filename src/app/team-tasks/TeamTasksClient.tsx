@@ -36,14 +36,14 @@ export default function TeamTasksClient({
   initialTasks = [],
   teamMembers = [],
   assignableParts = [],
-  teamId = "default-team",
+  teamId,
 }: TeamTasksClientProps) {
   const [tasks, setTasks] = useState<TaskWithRelations[]>(initialTasks);
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(false);
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
 
-  // Form states
+  // Form state
   const [taskName, setTaskName] = useState("");
   const [description, setDescription] = useState("");
   const [selectedParentId, setSelectedParentId] = useState<string>("none");
@@ -72,22 +72,22 @@ export default function TeamTasksClient({
 
   const handleCreateTask = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!taskName.trim()) return;
+    if (!taskName.trim() || !teamId) return;
 
     setLoading(true);
 
     const targetStatus = selectedStatus || "todo";
-    const currentTeamId = teamId || "active-team";
 
-    // Create optimistic task object cast as TaskWithRelations
+    // Optimistic item creation
     const tempId = `temp-${Date.now()}`;
     const optimisticTask = {
       id: tempId,
-      team_id: currentTeamId,
+      team_id: teamId,
       name: taskName.trim(),
       description: description.trim() || null,
       status: targetStatus,
       importance: "medium",
+      parent_id: selectedParentId === "none" ? null : selectedParentId,
       task_assignees: selectedAssignees.map((id) => {
         const profile = teamMembers.find((m) => m.id === id);
         return { user_id: id, profiles: profile ?? null };
@@ -99,10 +99,9 @@ export default function TeamTasksClient({
       subtasks: [],
     } as unknown as TaskWithRelations;
 
-    // Immediately push to state
     setTasks((prev) => [optimisticTask, ...prev]);
 
-    // Reset Form
+    // Clear form UI
     setTaskName("");
     setDescription("");
     setSelectedParentId("none");
@@ -113,29 +112,31 @@ export default function TeamTasksClient({
 
     try {
       const createdTask = await createTask({
-        team_id: currentTeamId,
+        team_id: teamId,
         name: optimisticTask.name,
         description: optimisticTask.description,
         status: targetStatus,
         importance: "medium",
+        parent_id: optimisticTask.parent_id,
         assignee_ids: selectedAssignees,
         part_ids: selectedParts,
       });
 
       if (createdTask && createdTask.id) {
-        // Swap temp task with real backend task
         setTasks((prev) =>
-          prev.map((t) => (t.id === tempId ? { ...createdTask, status: targetStatus } : t))
+          prev.map((t) => (t.id === tempId ? { ...t, ...createdTask, id: createdTask.id } : t))
         );
       }
     } catch (err: unknown) {
-      console.error("Failed to create task on backend:", err);
+      console.error("Failed to save task to Supabase:", err);
+      // Remove optimistic task if insert failed
+      setTasks((prev) => prev.filter((t) => t.id !== tempId));
     } finally {
       setLoading(false);
     }
   };
 
-  // Drag and Drop Handlers
+  // Drag & Drop
   const handleDragStart = (taskId: string) => {
     setDraggedTaskId(taskId);
   };
@@ -153,7 +154,7 @@ export default function TeamTasksClient({
       return;
     }
 
-    // Move task to target column
+    // Optimistic Column Movement
     setTasks((prev) =>
       prev.map((t) => (t.id === draggedTaskId ? { ...t, status: targetStatus } : t))
     );
@@ -163,8 +164,8 @@ export default function TeamTasksClient({
         await updateTask(draggedTaskId, { status: targetStatus });
       }
     } catch (err) {
-      console.error("Failed to update task status:", err);
-      // Rollback on server error
+      console.error("Failed to update status in Supabase:", err);
+      // Rollback on error
       setTasks((prev) =>
         prev.map((t) => (t.id === draggedTaskId ? { ...t, status: currentTask.status } : t))
       );
@@ -184,7 +185,7 @@ export default function TeamTasksClient({
       }
     >
       <div className="space-y-6">
-        {/* Create Task Panel */}
+        {/* Create Task Form */}
         {showForm && (
           <div ref={createFormRef}>
             <Panel className="space-y-4">
@@ -198,7 +199,7 @@ export default function TeamTasksClient({
                     onChange={(e) => setTaskName(e.target.value)}
                   />
 
-                  {/* Category / Kanban Column Selector */}
+                  {/* Kanban Category Selector */}
                   <FieldInput
                     as="select"
                     value={selectedStatus}
@@ -211,7 +212,7 @@ export default function TeamTasksClient({
                     ))}
                   </FieldInput>
 
-                  {/* Parent Dropdown */}
+                  {/* Parent Task Selector */}
                   <FieldInput
                     as="select"
                     value={selectedParentId}
@@ -296,7 +297,7 @@ export default function TeamTasksClient({
           </div>
         )}
 
-        {/* Draggable Kanban Board */}
+        {/* Kanban Board */}
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 items-start">
           {KANBAN_COLUMNS.map((col) => {
             const columnTasks = tasks.filter((t) => t.status === col.id);
@@ -306,9 +307,8 @@ export default function TeamTasksClient({
                 key={col.id}
                 onDragOver={handleDragOver}
                 onDrop={() => handleDrop(col.id)}
-                className="bg-zinc-950/60 border border-zinc-900 rounded-xl p-3 space-y-3 min-h-125 flex flex-col"
+                className="bg-zinc-950/60 border border-zinc-900 rounded-xl p-3 space-y-3 min-h-[500px] flex flex-col"
               >
-                {/* Column Header */}
                 <div className="flex items-center justify-between px-1 pb-2 border-b border-zinc-900">
                   <Label>{col.label}</Label>
                   <span className="text-[10px] font-mono text-zinc-500 bg-zinc-900 px-2 py-0.5 rounded">
@@ -316,7 +316,6 @@ export default function TeamTasksClient({
                   </span>
                 </div>
 
-                {/* Task Drop Zone */}
                 <div className="flex-1 space-y-3">
                   {columnTasks.length === 0 ? (
                     <div className="h-32 flex items-center justify-center border border-dashed border-zinc-900 rounded-lg">
