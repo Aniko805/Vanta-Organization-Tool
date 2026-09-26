@@ -11,13 +11,19 @@ import AppShell, {
 } from "@/app/components/AppShell";
 import { createTask, updateTask } from "@/lib/tasks";
 import {
-  TASK_COLUMNS,
   displayNameFromProfile,
   type TaskStatus,
   type TaskWithRelations,
   type Profile,
   type Part,
 } from "@/lib/types";
+
+const KANBAN_COLUMNS: { id: TaskStatus; label: string }[] = [
+  { id: "todo", label: "TO DO" },
+  { id: "in_progress", label: "IN PROGRESS" },
+  { id: "blocked", label: "BLOCKED" },
+  { id: "done", label: "DONE" },
+];
 
 export interface TeamTasksClientProps {
   initialTasks?: TaskWithRelations[];
@@ -30,7 +36,7 @@ export default function TeamTasksClient({
   initialTasks = [],
   teamMembers = [],
   assignableParts = [],
-  teamId,
+  teamId = "default-team",
 }: TeamTasksClientProps) {
   const [tasks, setTasks] = useState<TaskWithRelations[]>(initialTasks);
   const [showForm, setShowForm] = useState(false);
@@ -47,7 +53,6 @@ export default function TeamTasksClient({
 
   const createFormRef = useRef<HTMLDivElement | null>(null);
 
-  // Filter top-level tasks for the Parent Task selector dropdown
   const parentTasks = useMemo(
     () => tasks.filter((t) => !t.is_personal),
     [tasks]
@@ -67,30 +72,64 @@ export default function TeamTasksClient({
 
   const handleCreateTask = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!taskName.trim() || !teamId) return;
+    if (!taskName.trim()) return;
 
     setLoading(true);
+
+    const targetStatus = selectedStatus || "todo";
+    const currentTeamId = teamId || "active-team";
+
+    // Create optimistic task object cast as TaskWithRelations
+    const tempId = `temp-${Date.now()}`;
+    const optimisticTask = {
+      id: tempId,
+      team_id: currentTeamId,
+      name: taskName.trim(),
+      description: description.trim() || null,
+      status: targetStatus,
+      importance: "medium",
+      task_assignees: selectedAssignees.map((id) => {
+        const profile = teamMembers.find((m) => m.id === id);
+        return { user_id: id, profiles: profile ?? null };
+      }),
+      task_parts: selectedParts.map((id) => {
+        const part = assignableParts.find((p) => p.id === id);
+        return { part_id: id, parts: part ?? null };
+      }),
+      subtasks: [],
+    } as TaskWithRelations;
+
+    // Immediately push to state
+    setTasks((prev) => [optimisticTask, ...prev]);
+
+    // Reset Form
+    setTaskName("");
+    setDescription("");
+    setSelectedParentId("none");
+    setSelectedStatus("todo");
+    setSelectedAssignees([]);
+    setSelectedParts([]);
+    setShowForm(false);
+
     try {
-      const newTask = await createTask({
-        team_id: teamId,
-        name: taskName.trim(),
-        description: description.trim() || null,
-        status: selectedStatus || "todo",
+      const createdTask = await createTask({
+        team_id: currentTeamId,
+        name: optimisticTask.name,
+        description: optimisticTask.description,
+        status: targetStatus,
         importance: "medium",
         assignee_ids: selectedAssignees,
         part_ids: selectedParts,
       });
 
-      setTasks((prev) => [newTask, ...prev]);
-      setTaskName("");
-      setDescription("");
-      setSelectedParentId("none");
-      setSelectedStatus("todo");
-      setSelectedAssignees([]);
-      setSelectedParts([]);
-      setShowForm(false);
+      if (createdTask && createdTask.id) {
+        // Swap temp task with real backend task
+        setTasks((prev) =>
+          prev.map((t) => (t.id === tempId ? { ...createdTask, status: targetStatus } : t))
+        );
+      }
     } catch (err: unknown) {
-      console.error("Failed to create task:", err);
+      console.error("Failed to create task on backend:", err);
     } finally {
       setLoading(false);
     }
@@ -114,16 +153,18 @@ export default function TeamTasksClient({
       return;
     }
 
-    // Optimistic UI update
+    // Move task to target column
     setTasks((prev) =>
       prev.map((t) => (t.id === draggedTaskId ? { ...t, status: targetStatus } : t))
     );
 
     try {
-      await updateTask(draggedTaskId, { status: targetStatus });
+      if (!draggedTaskId.startsWith("temp-")) {
+        await updateTask(draggedTaskId, { status: targetStatus });
+      }
     } catch (err) {
       console.error("Failed to update task status:", err);
-      // Rollback on error
+      // Rollback on server error
       setTasks((prev) =>
         prev.map((t) => (t.id === draggedTaskId ? { ...t, status: currentTask.status } : t))
       );
@@ -143,7 +184,7 @@ export default function TeamTasksClient({
       }
     >
       <div className="space-y-6">
-        {/* Create Task Panel Wrapper */}
+        {/* Create Task Panel */}
         {showForm && (
           <div ref={createFormRef}>
             <Panel className="space-y-4">
@@ -157,13 +198,13 @@ export default function TeamTasksClient({
                     onChange={(e) => setTaskName(e.target.value)}
                   />
 
-                  {/* Column Status Dropdown */}
+                  {/* Category / Kanban Column Selector */}
                   <FieldInput
                     as="select"
                     value={selectedStatus}
                     onChange={(e) => setSelectedStatus(e.target.value as TaskStatus)}
                   >
-                    {TASK_COLUMNS.map((col) => (
+                    {KANBAN_COLUMNS.map((col) => (
                       <option key={col.id} value={col.id}>
                         Column: {col.label}
                       </option>
@@ -196,20 +237,24 @@ export default function TeamTasksClient({
                   <div>
                     <Label>Assign Team Members</Label>
                     <div className="mt-2 space-y-1 max-h-36 overflow-y-auto pr-2">
-                      {teamMembers.map((m) => (
-                        <label
-                          key={m.id}
-                          className="flex items-center gap-2 text-xs text-zinc-400 cursor-pointer hover:text-white"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={selectedAssignees.includes(m.id)}
-                            onChange={() => toggleAssignee(m.id)}
-                            className="accent-white"
-                          />
-                          {displayNameFromProfile(m)}
-                        </label>
-                      ))}
+                      {teamMembers.length === 0 ? (
+                        <EmptyState>No members available</EmptyState>
+                      ) : (
+                        teamMembers.map((m) => (
+                          <label
+                            key={m.id}
+                            className="flex items-center gap-2 text-xs text-zinc-400 cursor-pointer hover:text-white"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selectedAssignees.includes(m.id)}
+                              onChange={() => toggleAssignee(m.id)}
+                              className="accent-white"
+                            />
+                            {displayNameFromProfile(m)}
+                          </label>
+                        ))
+                      )}
                     </div>
                   </div>
 
@@ -251,9 +296,9 @@ export default function TeamTasksClient({
           </div>
         )}
 
-        {/* Kanban Board Layout */}
+        {/* Draggable Kanban Board */}
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 items-start">
-          {TASK_COLUMNS.map((col) => {
+          {KANBAN_COLUMNS.map((col) => {
             const columnTasks = tasks.filter((t) => t.status === col.id);
 
             return (
@@ -261,7 +306,7 @@ export default function TeamTasksClient({
                 key={col.id}
                 onDragOver={handleDragOver}
                 onDrop={() => handleDrop(col.id)}
-                className="bg-zinc-950/60 border border-zinc-900 rounded-xl p-3 space-y-3 min-h-[500px] flex flex-col"
+                className="bg-zinc-950/60 border border-zinc-900 rounded-xl p-3 space-y-3 min-h-125 flex flex-col"
               >
                 {/* Column Header */}
                 <div className="flex items-center justify-between px-1 pb-2 border-b border-zinc-900">
@@ -271,7 +316,7 @@ export default function TeamTasksClient({
                   </span>
                 </div>
 
-                {/* Task Cards Container */}
+                {/* Task Drop Zone */}
                 <div className="flex-1 space-y-3">
                   {columnTasks.length === 0 ? (
                     <div className="h-32 flex items-center justify-center border border-dashed border-zinc-900 rounded-lg">
@@ -316,7 +361,21 @@ export default function TeamTasksClient({
                           </div>
                         )}
 
-                        {/* Subtasks Summary */}
+                        {/* Attached Parts */}
+                        {task.task_parts && task.task_parts.length > 0 && (
+                          <div className="flex flex-wrap gap-1 pt-1">
+                            {task.task_parts.map((p, i) => (
+                              <span
+                                key={i}
+                                className="text-[10px] font-mono text-emerald-400/80 bg-zinc-900 px-2 py-0.5 rounded border border-zinc-800"
+                              >
+                                {p.parts?.part_catalog?.name ?? "Part"}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Subtasks */}
                         {task.subtasks && task.subtasks.length > 0 && (
                           <div className="border-t border-zinc-900/80 pt-2 space-y-1">
                             <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-wider">
