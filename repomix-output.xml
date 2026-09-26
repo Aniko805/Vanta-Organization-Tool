@@ -4508,209 +4508,6 @@ export default function Home() {
 }
 </file>
 
-<file path="src/app/team-tasks/TeamTasksClient.tsx">
-"use client";
-
-import { useState, useRef } from "react";
-import { createTask } from "@/lib/tasks";
-import type { Task, Profile, Part } from "@/lib/types";
-
-interface TeamTasksClientProps {
-  initialTasks: Task[];
-  teamMembers: Profile[];
-  assignableParts: Part[];
-  teamId: string;
-}
-
-export default function TeamTasksClient({
-  initialTasks,
-  teamMembers,
-  assignableParts,
-  teamId,
-}: TeamTasksClientProps) {
-  const [tasks, setTasks] = useState<Task[]>(initialTasks);
-  const [taskName, setTaskName] = useState("");
-  const [description, setDescription] = useState("");
-  const [selectedParentId, setSelectedParentId] = useState<string>("none");
-  const [selectedAssignees, setSelectedAssignees] = useState<string[]>([]);
-  const [highlightedTaskId, setHighlightedTaskId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  const createFormRef = useRef<HTMLDivElement | null>(null);
-
-  // Top-level major tasks (e.g., "Build Robot")
-  const parentTasks = tasks.filter((t) => !t.parent_id);
-
-  const handleCreateTask = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!taskName.trim()) return;
-
-    setLoading(true);
-    try {
-      const newTask = await createTask({
-      team_id: teamId,
-      name: taskName.trim(),
-      description: description.trim() || null,
-      parent_id: selectedParentId === "none" ? null : selectedParentId,
-      assignee_ids: selectedAssignees,
-});
-
-      setTasks((prev) => [newTask, ...prev]);
-      setTaskName("");
-      setDescription("");
-      setSelectedParentId("none");
-      setSelectedAssignees([]);
-    } catch (err: any) {
-      console.error("Failed to create task:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleCreateChildClick = (parentId: string) => {
-    setSelectedParentId(parentId);
-    createFormRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-
-  const scrollToAndHighlightTask = (taskId: string) => {
-    const element = document.getElementById(`task-card-${taskId}`);
-    if (element) {
-      element.scrollIntoView({ behavior: "smooth", block: "center" });
-      setHighlightedTaskId(taskId);
-      setTimeout(() => setHighlightedTaskId(null), 2500);
-    }
-  };
-
-  return (
-    <div className="space-y-8">
-      {/* Create Task Bar */}
-      <div ref={createFormRef} className="p-6 bg-zinc-950 border border-zinc-900 rounded-xl space-y-4">
-        <h2 className="text-sm font-semibold text-zinc-200 uppercase font-mono tracking-wider">
-          Create Task
-        </h2>
-        
-        <form onSubmit={handleCreateTask} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <input
-              type="text"
-              placeholder="Task name (e.g. Build chassis)"
-              value={taskName}
-              onChange={(e) => setTaskName(e.target.value)}
-              className="bg-black border border-zinc-800 text-xs text-white rounded px-3 py-2 focus:outline-none focus:border-zinc-500"
-            />
-
-            {/* Parent Dropdown */}
-            <select
-              value={selectedParentId}
-              onChange={(e) => setSelectedParentId(e.target.value)}
-              className="bg-black border border-zinc-800 text-xs text-white rounded px-3 py-2 focus:outline-none focus:border-zinc-500"
-            >
-              <option value="none">-- No Parent (Major Task) --</option>
-              {parentTasks.map((t) => (
-                <option key={t.id} value={t.id}>
-                  Parent: {t.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <textarea
-            placeholder="Task description..."
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            className="w-full bg-black border border-zinc-800 text-xs text-white rounded p-3 focus:outline-none focus:border-zinc-500"
-          />
-
-          <button
-            type="submit"
-            disabled={loading || !taskName.trim()}
-            className="px-4 py-2 bg-white text-black text-xs font-semibold rounded hover:bg-zinc-200 transition disabled:opacity-50"
-          >
-            {loading ? "Adding..." : "Add Task"}
-          </button>
-        </form>
-      </div>
-
-      {/* Task List / Cards */}
-      <div className="space-y-4">
-        {tasks.map((task) => {
-          const childTasks = tasks.filter((child) => child.parent_id === task.id);
-          const isHighlighted = highlightedTaskId === task.id;
-
-          return (
-            <div
-              key={task.id}
-              id={`task-card-${task.id}`}
-              className={`p-5 rounded-xl border transition-all duration-300 bg-zinc-950 ${
-                isHighlighted
-                  ? "border-emerald-500 ring-2 ring-emerald-500/20"
-                  : "border-zinc-900"
-              }`}
-            >
-              <div className="flex justify-between items-start">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-base font-bold text-white">{task.name}</h3>
-                    {task.parent_id && (
-                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-800 text-zinc-400">
-                        Subtask
-                      </span>
-                    )}
-                  </div>
-                  {task.description && (
-                    <p className="text-xs text-zinc-400 mt-1">{task.description}</p>
-                  )}
-                </div>
-
-                <span className="text-[10px] font-mono uppercase px-2 py-1 rounded bg-zinc-900 border border-zinc-800 text-zinc-300">
-                  {task.status}
-                </span>
-              </div>
-
-              {/* Child Tasks Section */}
-              <div className="mt-4 pt-4 border-t border-zinc-900 space-y-2">
-                <div className="flex justify-between items-center">
-                  <p className="text-[10px] font-mono text-zinc-500 uppercase tracking-wider">
-                    Subtasks ({childTasks.length})
-                  </p>
-                  <button
-                    onClick={() => handleCreateChildClick(task.id)}
-                    className="text-[11px] font-mono text-emerald-400 hover:underline"
-                  >
-                    + create new child task
-                  </button>
-                </div>
-
-                {childTasks.length > 0 ? (
-                  <ul className="space-y-1">
-                    {childTasks.map((child) => (
-                      <li key={child.id}>
-                        <button
-                          onClick={() => scrollToAndHighlightTask(child.id)}
-                          className="text-xs text-zinc-300 hover:text-white hover:underline flex items-center gap-2"
-                        >
-                          <span className="text-zinc-600">└</span>
-                          <span>{child.name}</span>
-                          <span className="text-[10px] font-mono text-zinc-500">
-                            ({child.status})
-                          </span>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-xs text-zinc-600 italic">No subtasks assigned.</p>
-                )}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-</file>
-
 <file path="src/app/login/page.tsx">
 "use client";
 
@@ -4912,6 +4709,544 @@ export default function LoginPage() {
         </p>
       </div>
     </div>
+  );
+}
+</file>
+
+<file path="src/app/team-tasks/TeamTasksClient.tsx">
+"use client";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import AppShell, {
+  EmptyState,
+  ErrorText,
+  FieldInput,
+  Label,
+  Panel,
+  PrimaryButton,
+  SecondaryButton,
+} from "@/app/components/AppShell";
+import { listAssignableParts } from "@/lib/parts";
+import {
+  listMyTeams,
+  listTeamMembers,
+  listTeamRoles,
+  memberCanManageTasks,
+} from "@/lib/teams";
+import { supabase } from "@/lib/supabase";
+import {
+  createSubtask,
+  createTask,
+  deleteTask,
+  listTeamTasks,
+  updateSubtaskStatus,
+  updateTask,
+} from "@/lib/tasks";
+import {
+  TASK_COLUMNS,
+  displayNameFromProfile,
+  type Importance,
+  type Part,
+  type TaskStatus,
+  type TaskWithRelations,
+  type Team,
+  type TeamMember,
+  type TeamRole,
+} from "@/lib/types";
+
+export interface TeamTasksClientProps {
+  initialTasks?: TaskWithRelations[];
+  teamMembers?: TeamMember[];
+  assignableParts?: Part[];
+  teamId?: string | null;
+}
+
+export default function TeamTasksClient({
+  initialTasks,
+  teamMembers,
+  assignableParts,
+  teamId: propTeamId,
+}: TeamTasksClientProps) {
+  const searchParams = useSearchParams();
+  const [userId, setUserId] = useState<string | null>(null);
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [teamId, setTeamId] = useState<string | null>(propTeamId ?? null);
+  const [tasks, setTasks] = useState<TaskWithRelations[]>(initialTasks ?? []);
+  const [members, setMembers] = useState<TeamMember[]>(teamMembers ?? []);
+  const [roles, setRoles] = useState<TeamRole[]>([]);
+  const [parts, setParts] = useState<Part[]>(assignableParts ?? []);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [showForm, setShowForm] = useState(false);
+
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [importance, setImportance] = useState<Importance>("medium");
+  const [category, setCategory] = useState("");
+  const [competitionStatus, setCompetitionStatus] = useState("");
+  const [dueDate, setDueDate] = useState("");
+  const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
+  const [roleIds, setRoleIds] = useState<string[]>([]);
+  const [partIds, setPartIds] = useState<string[]>([]);
+  const [subtaskDrafts, setSubtaskDrafts] = useState<Record<string, string>>({});
+
+  const selectedTeam = teams.find((t) => t.id === teamId) ?? null;
+  const myMembership = members.find((m) => m.user_id === userId) ?? null;
+  const canManage =
+    selectedTeam && userId
+      ? memberCanManageTasks(selectedTeam, userId, myMembership)
+      : false;
+
+  const refresh = useCallback(async (tid: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [t, m, r, p] = await Promise.all([
+        listTeamTasks(tid),
+        listTeamMembers(tid),
+        listTeamRoles(tid),
+        listAssignableParts(tid),
+      ]);
+      setTasks(t);
+      setMembers(m);
+      setRoles(r);
+      setParts(p);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load tasks");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    const init = async () => {
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (!mounted) return;
+        setUserId(user?.id ?? null);
+        const myTeams = await listMyTeams();
+        if (!mounted) return;
+        setTeams(myTeams);
+        const fromQuery = searchParams.get("team");
+        const initial =
+          propTeamId ||
+          (fromQuery && myTeams.find((t) => t.id === fromQuery)?.id) ||
+          myTeams[0]?.id ||
+          null;
+        if (!mounted) return;
+        setTeamId(initial);
+      } catch (e) {
+        if (!mounted) return;
+        setError(e instanceof Error ? e.message : "Failed to load");
+      }
+    };
+    init();
+
+    return () => {
+      mounted = false;
+    };
+  }, [searchParams, propTeamId]);
+
+  useEffect(() => {
+    if (!teamId) return;
+    const handleRefresh = async () => {
+      await refresh(teamId);
+    };
+    handleRefresh();
+  }, [teamId, refresh]);
+
+  const columns = useMemo(() => {
+    return TASK_COLUMNS.map((col) => ({
+      ...col,
+      items: tasks.filter((t) => t.status === col.id),
+    }));
+  }, [tasks]);
+
+  const resetForm = () => {
+    setName("");
+    setDescription("");
+    setImportance("medium");
+    setCategory("");
+    setCompetitionStatus("");
+    setDueDate("");
+    setAssigneeIds([]);
+    setRoleIds([]);
+    setPartIds([]);
+    setShowForm(false);
+  };
+
+  const handleCreate = async () => {
+    if (!userId || !teamId || !name.trim()) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await createTask({
+        name,
+        description,
+        importance,
+        category,
+        competition_status: competitionStatus,
+        due_date: dueDate || null,
+        team_id: teamId,
+        is_personal: false,
+        created_by: userId,
+        assigneeIds,
+        roleIds,
+        partIds,
+      });
+      resetForm();
+      await refresh(teamId);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Create failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const toggleId = (list: string[], id: string, set: (v: string[]) => void) => {
+    set(list.includes(id) ? list.filter((x) => x !== id) : [...list, id]);
+  };
+
+  return (
+    <AppShell
+      eyebrow="Operations"
+      title="Team Tasks"
+      actions={
+        <>
+          <FieldInput
+            as="select"
+            className="w-48"
+            value={teamId ?? ""}
+            onChange={(e) => setTeamId(e.target.value || null)}
+          >
+            {teams.length === 0 ? <option value="">No teams</option> : null}
+            {teams.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
+          </FieldInput>
+          {canManage ? (
+            <PrimaryButton onClick={() => setShowForm((v) => !v)}>
+              {showForm ? "Close" : "New task"}
+            </PrimaryButton>
+          ) : null}
+        </>
+      }
+    >
+      <ErrorText>{error}</ErrorText>
+      {loading ? (
+        <div className="min-h-screen bg-black text-zinc-500 font-mono text-xs flex items-center justify-center">
+          Loading team tasks…
+        </div>
+      ) : null}
+      {!teamId ? (
+        <Panel>
+          <EmptyState>Create or join a team first, then return here.</EmptyState>
+        </Panel>
+      ) : (
+        <>
+          {showForm && canManage ? (
+            <Panel className="space-y-4">
+              <Label>New team task</Label>
+              <FieldInput
+                placeholder="Task name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
+              <FieldInput
+                as="textarea"
+                placeholder="Description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+              />
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <FieldInput
+                  as="select"
+                  value={importance}
+                  onChange={(e) => setImportance(e.target.value as Importance)}
+                >
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                  <option value="critical">Critical</option>
+                </FieldInput>
+                <FieldInput
+                  placeholder="Category"
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value)}
+                />
+                <FieldInput
+                  type="date"
+                  value={dueDate}
+                  onChange={(e) => setDueDate(e.target.value)}
+                />
+              </div>
+              <FieldInput
+                placeholder="Competition status"
+                value={competitionStatus}
+                onChange={(e) => setCompetitionStatus(e.target.value)}
+              />
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <Label>Assignees</Label>
+                  <div className="mt-2 space-y-1 max-h-32 overflow-y-auto">
+                    {members.map((m) => (
+                      <label key={m.id} className="flex items-center gap-2 text-xs text-zinc-400">
+                        <input
+                          type="checkbox"
+                          checked={assigneeIds.includes(m.user_id)}
+                          onChange={() => toggleId(assigneeIds, m.user_id, setAssigneeIds)}
+                        />
+                        {displayNameFromProfile(m.profiles)}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <Label>Roles</Label>
+                  <div className="mt-2 space-y-1 max-h-32 overflow-y-auto">
+                    {roles.map((r) => (
+                      <label key={r.id} className="flex items-center gap-2 text-xs text-zinc-400">
+                        <input
+                          type="checkbox"
+                          checked={roleIds.includes(r.id)}
+                          onChange={() => toggleId(roleIds, r.id, setRoleIds)}
+                        />
+                        {r.name}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <Label>Parts</Label>
+                  <div className="mt-2 space-y-1 max-h-32 overflow-y-auto">
+                    {parts.length === 0 ? (
+                      <EmptyState>No assignable parts</EmptyState>
+                    ) : (
+                      parts.map((p) => {
+                        const catalogName = p.part_catalog?.name ?? "Unnamed Part";
+                        const catalogSku = p.part_catalog?.sku ? ` (${p.part_catalog.sku})` : "";
+                        return (
+                          <label
+                            key={p.id}
+                            className="flex items-center gap-2 text-xs text-zinc-400"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={partIds.includes(p.id)}
+                              onChange={() => toggleId(partIds, p.id, setPartIds)}
+                            />
+                            {catalogName}
+                            {catalogSku}
+                          </label>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <PrimaryButton disabled={busy || !name.trim()} onClick={handleCreate}>
+                Create task
+              </PrimaryButton>
+            </Panel>
+          ) : null}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 items-start">
+            {columns.map((col) => (
+              <div key={col.id} className="space-y-3">
+                <div className="flex items-center justify-between px-1">
+                  <Label>{col.label}</Label>
+                  <span className="text-[10px] font-mono text-zinc-600">
+                    {col.items.length}
+                  </span>
+                </div>
+                {col.items.length === 0 ? (
+                  <Panel>
+                    <EmptyState>Empty</EmptyState>
+                  </Panel>
+                ) : (
+                  col.items.map((task) => (
+                    <TaskCard
+                      key={task.id}
+                      task={task}
+                      canManage={canManage}
+                      subtaskDraft={subtaskDrafts[task.id] ?? ""}
+                      onDraftChange={(v) =>
+                        setSubtaskDrafts((prev) => ({ ...prev, [task.id]: v }))}
+                      onStatus={async (status) => {
+                        try {
+                          await updateTask(task.id, { status });
+                          if (teamId) await refresh(teamId);
+                        } catch (e) {
+                          setError(e instanceof Error ? e.message : "Update failed");
+                        }
+                      }}
+                      onDelete={async () => {
+                        try {
+                          await deleteTask(task.id);
+                          if (teamId) await refresh(teamId);
+                        } catch (e) {
+                          setError(e instanceof Error ? e.message : "Delete failed");
+                        }
+                      }}
+                      onAddSubtask={async () => {
+                        const draft = subtaskDrafts[task.id]?.trim();
+                        if (!draft) return;
+                        try {
+                          await createSubtask(task.id, draft);
+                          setSubtaskDrafts((prev) => ({ ...prev, [task.id]: "" }));
+                          if (teamId) await refresh(teamId);
+                        } catch (e) {
+                          setError(e instanceof Error ? e.message : "Subtask failed");
+                        }
+                      }}
+                      onSubtaskStatus={async (subId, status) => {
+                        try {
+                          await updateSubtaskStatus(subId, status);
+                          if (teamId) await refresh(teamId);
+                        } catch (e) {
+                          setError(
+                            e instanceof Error ? e.message : "Subtask update failed"
+                          );
+                        }
+                      }}
+                    />
+                  ))
+                )}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </AppShell>
+  );
+}
+
+function TaskCard({
+  task,
+  canManage,
+  subtaskDraft,
+  onDraftChange,
+  onStatus,
+  onDelete,
+  onAddSubtask,
+  onSubtaskStatus,
+}: {
+  task: TaskWithRelations;
+  canManage: boolean;
+  subtaskDraft: string;
+  onDraftChange: (v: string) => void;
+  onStatus: (s: TaskStatus) => void;
+  onDelete: () => void;
+  onAddSubtask: () => void;
+  onSubtaskStatus: (id: string, s: TaskStatus) => void;
+}) {
+  return (
+    <Panel className="space-y-3 p-4!">
+      <div className="flex justify-between gap-2">
+        <h3 className="text-sm font-semibold text-zinc-100 leading-snug">{task.name}</h3>
+        <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500 shrink-0">{task.importance}</span>
+      </div>
+      {task.description ? (
+        <p className="text-xs text-zinc-500 leading-relaxed">{task.description}</p>
+      ) : null}
+      <div className="flex flex-wrap gap-2">
+        {task.category ? (
+          <span className="text-[10px] font-mono border border-zinc-800 px-2 py-0.5 rounded text-zinc-400">{task.category}</span>
+        ) : null}
+        {task.due_date ? (
+          <span className="text-[10px] font-mono border border-zinc-800 px-2 py-0.5 rounded text-zinc-400">Due {task.due_date}</span>
+        ) : null}
+        {task.competition_status ? (
+          <span className="text-[10px] font-mono border border-zinc-800 px-2 py-0.5 rounded text-zinc-400">{task.competition_status}</span>
+        ) : null}
+      </div>
+      {task.task_assignees?.length || task.task_role_assignees?.length ? (
+        <p className="text-[10px] font-mono text-zinc-600">
+          {[
+            ...(task.task_assignees ?? []).map((a) =>
+              displayNameFromProfile(a.profiles)
+            ),
+            ...(task.task_role_assignees ?? []).map(
+              (r) => r.team_roles?.name ?? "Role"
+            ),
+          ].join(" · ")}
+        </p>
+      ) : null}
+      {task.task_parts?.length ? (
+        <p className="text-[10px] font-mono text-emerald-600/80">
+          Parts: {task.task_parts.map((tp) => tp.parts?.part_catalog?.name ?? "Part").join(", ")}
+        </p>
+      ) : null}
+      {canManage ? (
+        <FieldInput
+          as="select"
+          value={task.status}
+          onChange={(e) => onStatus(e.target.value as TaskStatus)}
+        >
+          {TASK_COLUMNS.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.label}
+            </option>
+          ))}
+        </FieldInput>
+      ) : null}
+      <div className="space-y-2 border-t border-zinc-900 pt-3">
+        <Label>Subtasks</Label>
+        {(task.subtasks ?? []).map((s) => (
+          <div key={s.id} className="flex items-center justify-between gap-2 text-xs">
+            <span className="text-zinc-400">{s.name}</span>
+            {canManage ? (
+              <select
+                className="bg-black border border-zinc-800 rounded text-[10px] font-mono text-zinc-400 px-1 py-0.5"
+                value={s.status}
+                onChange={(e) =>
+                  onSubtaskStatus(s.id, e.target.value as TaskStatus)}
+              >
+                {TASK_COLUMNS.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.label}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <span className="text-[10px] font-mono text-zinc-600">{s.status}</span>
+            )}
+          </div>
+        ))}
+        {canManage ? (
+          <div className="flex gap-2">
+            <FieldInput
+              placeholder="Add subtask"
+              value={subtaskDraft}
+              onChange={(e) => onDraftChange(e.target.value)}
+            />
+            <SecondaryButton type="button" onClick={onAddSubtask}>
+              Add
+            </SecondaryButton>
+          </div>
+        ) : null}
+      </div>
+      {canManage ? (
+        <SecondaryButton
+          type="button"
+          onClick={() => {
+            if (window.confirm(`Are you sure you want to delete "${task.name}"?`)) onDelete();
+          }}
+          className="w-full"
+        >
+          Delete
+        </SecondaryButton>
+      ) : null}
+    </Panel>
   );
 }
 </file>

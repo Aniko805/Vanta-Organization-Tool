@@ -1,38 +1,72 @@
 "use client";
 
-import { useState, useRef } from "react";
-import { createTask } from "@/lib/tasks";
-import type { Task, Profile, Part } from "@/lib/types";
+import { useState, useRef, useMemo } from "react";
+import AppShell, {
+  Panel,
+  Label,
+  FieldInput,
+  PrimaryButton,
+  SecondaryButton,
+  EmptyState,
+} from "@/app/components/AppShell";
+import { createTask, updateTask } from "@/lib/tasks";
+import {
+  TASK_COLUMNS,
+  displayNameFromProfile,
+  type TaskStatus,
+  type TaskWithRelations,
+  type Profile,
+  type Part,
+} from "@/lib/types";
 
-interface TeamTasksClientProps {
-  initialTasks: Task[];
-  teamMembers: Profile[];
-  assignableParts: Part[];
-  teamId: string;
+export interface TeamTasksClientProps {
+  initialTasks?: TaskWithRelations[];
+  teamMembers?: Profile[];
+  assignableParts?: Part[];
+  teamId?: string | null;
 }
 
 export default function TeamTasksClient({
-  initialTasks,
-  teamMembers,
-  assignableParts,
+  initialTasks = [],
+  teamMembers = [],
+  assignableParts = [],
   teamId,
 }: TeamTasksClientProps) {
-  const [tasks, setTasks] = useState<Task[]>(initialTasks);
+  const [tasks, setTasks] = useState<TaskWithRelations[]>(initialTasks);
+  const [showForm, setShowForm] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
+
+  // Form states
   const [taskName, setTaskName] = useState("");
   const [description, setDescription] = useState("");
   const [selectedParentId, setSelectedParentId] = useState<string>("none");
   const [selectedAssignees, setSelectedAssignees] = useState<string[]>([]);
-  const [highlightedTaskId, setHighlightedTaskId] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [selectedParts, setSelectedParts] = useState<string[]>([]);
 
   const createFormRef = useRef<HTMLDivElement | null>(null);
 
-  // Top-level major tasks (e.g., "Build Robot")
-  const parentTasks = tasks.filter((t) => !t.parent_id);
+  // Filter top-level tasks for the Parent Task selector dropdown
+  const parentTasks = useMemo(
+    () => tasks.filter((t) => !t.is_personal),
+    [tasks]
+  );
+
+  const toggleAssignee = (id: string) => {
+    setSelectedAssignees((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  };
+
+  const togglePart = (id: string) => {
+    setSelectedParts((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  };
 
   const handleCreateTask = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!taskName.trim()) return;
+    if (!taskName.trim() || !teamId) return;
 
     setLoading(true);
     try {
@@ -40,8 +74,10 @@ export default function TeamTasksClient({
         team_id: teamId,
         name: taskName.trim(),
         description: description.trim() || null,
-        parent_id: selectedParentId === "none" ? null : selectedParentId,
+        status: "todo",
+        importance: "medium",
         assignee_ids: selectedAssignees,
+        part_ids: selectedParts,
       });
 
       setTasks((prev) => [newTask, ...prev]);
@@ -49,6 +85,8 @@ export default function TeamTasksClient({
       setDescription("");
       setSelectedParentId("none");
       setSelectedAssignees([]);
+      setSelectedParts([]);
+      setShowForm(false);
     } catch (err: unknown) {
       console.error("Failed to create task:", err);
     } finally {
@@ -56,145 +94,245 @@ export default function TeamTasksClient({
     }
   };
 
-  const handleCreateChildClick = (parentId: string) => {
-    setSelectedParentId(parentId);
-    createFormRef.current?.scrollIntoView({ behavior: "smooth" });
+  // Drag and Drop Handlers
+  const handleDragStart = (taskId: string) => {
+    setDraggedTaskId(taskId);
   };
 
-  const scrollToAndHighlightTask = (taskId: string) => {
-    const element = document.getElementById(`task-card-${taskId}`);
-    if (element) {
-      element.scrollIntoView({ behavior: "smooth", block: "center" });
-      setHighlightedTaskId(taskId);
-      setTimeout(() => setHighlightedTaskId(null), 2500);
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+  };
+
+  const handleDrop = async (targetStatus: TaskStatus) => {
+    if (!draggedTaskId) return;
+
+    const currentTask = tasks.find((t) => t.id === draggedTaskId);
+    if (!currentTask || currentTask.status === targetStatus) {
+      setDraggedTaskId(null);
+      return;
+    }
+
+    // Optimistic UI update
+    setTasks((prev) =>
+      prev.map((t) => (t.id === draggedTaskId ? { ...t, status: targetStatus } : t))
+    );
+
+    try {
+      await updateTask(draggedTaskId, { status: targetStatus });
+    } catch (err) {
+      console.error("Failed to update task status:", err);
+      // Rollback on error
+      setTasks((prev) =>
+        prev.map((t) => (t.id === draggedTaskId ? { ...t, status: currentTask.status } : t))
+      );
+    } finally {
+      setDraggedTaskId(null);
     }
   };
 
   return (
-    <div className="space-y-8">
-      {/* Create Task Bar */}
-      <div ref={createFormRef} className="p-6 bg-zinc-950 border border-zinc-900 rounded-xl space-y-4">
-        <h2 className="text-sm font-semibold text-zinc-200 uppercase font-mono tracking-wider">
-          Create Task
-        </h2>
-        
-        <form onSubmit={handleCreateTask} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <input
-              type="text"
-              placeholder="Task name (e.g. Build chassis)"
-              value={taskName}
-              onChange={(e) => setTaskName(e.target.value)}
-              className="bg-black border border-zinc-800 text-xs text-white rounded px-3 py-2 focus:outline-none focus:border-zinc-500"
-            />
+    <AppShell
+      eyebrow="Operations"
+      title="Team Tasks"
+      actions={
+        <PrimaryButton onClick={() => setShowForm((v) => !v)}>
+          {showForm ? "Close Form" : "New Task"}
+        </PrimaryButton>
+      }
+    >
+      <div className="space-y-6">
+        {/* Create Task Panel Wrapper */}
+        {showForm && (
+          <div ref={createFormRef}>
+            <Panel className="space-y-4">
+              <Label>Create Task</Label>
+              <form onSubmit={handleCreateTask} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FieldInput
+                    type="text"
+                    placeholder="Task name (e.g. Assemble Elevator Subsystem)"
+                    value={taskName}
+                    onChange={(e) => setTaskName(e.target.value)}
+                  />
 
-            {/* Parent Dropdown */}
-            <select
-              value={selectedParentId}
-              onChange={(e) => setSelectedParentId(e.target.value)}
-              className="bg-black border border-zinc-800 text-xs text-white rounded px-3 py-2 focus:outline-none focus:border-zinc-500"
-            >
-              <option value="none">-- No Parent (Major Task) --</option>
-              {parentTasks.map((t) => (
-                <option key={t.id} value={t.id}>
-                  Parent: {t.name}
-                </option>
-              ))}
-            </select>
-          </div>
+                  <FieldInput
+                    as="select"
+                    value={selectedParentId}
+                    onChange={(e) => setSelectedParentId(e.target.value)}
+                  >
+                    <option value="none">-- Major Task (No Parent) --</option>
+                    {parentTasks.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        Parent: {t.name}
+                      </option>
+                    ))}
+                  </FieldInput>
+                </div>
 
-          <textarea
-            placeholder="Task description..."
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            className="w-full bg-black border border-zinc-800 text-xs text-white rounded p-3 focus:outline-none focus:border-zinc-500"
-          />
+                <FieldInput
+                  as="textarea"
+                  placeholder="Description / Requirements..."
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                />
 
-          <button
-            type="submit"
-            disabled={loading || !taskName.trim()}
-            className="px-4 py-2 bg-white text-black text-xs font-semibold rounded hover:bg-zinc-200 transition disabled:opacity-50"
-          >
-            {loading ? "Adding..." : "Add Task"}
-          </button>
-        </form>
-      </div>
-
-      {/* Task List / Cards */}
-      <div className="space-y-4">
-        {tasks.map((task) => {
-          const childTasks = tasks.filter((child) => child.parent_id === task.id);
-          const isHighlighted = highlightedTaskId === task.id;
-
-          return (
-            <div
-              key={task.id}
-              id={`task-card-${task.id}`}
-              className={`p-5 rounded-xl border transition-all duration-300 bg-zinc-950 ${
-                isHighlighted
-                  ? "border-emerald-500 ring-2 ring-emerald-500/20"
-                  : "border-zinc-900"
-              }`}
-            >
-              <div className="flex justify-between items-start">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-base font-bold text-white">{task.name}</h3>
-                    {task.parent_id && (
-                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-800 text-zinc-400">
-                        Subtask
-                      </span>
-                    )}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                  <div>
+                    <Label>Assign Team Members</Label>
+                    <div className="mt-2 space-y-1 max-h-36 overflow-y-auto pr-2">
+                      {teamMembers.map((m) => (
+                        <label
+                          key={m.id}
+                          className="flex items-center gap-2 text-xs text-zinc-400 cursor-pointer hover:text-white"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedAssignees.includes(m.id)}
+                            onChange={() => toggleAssignee(m.id)}
+                            className="accent-white"
+                          />
+                          {displayNameFromProfile(m)}
+                        </label>
+                      ))}
+                    </div>
                   </div>
-                  {task.description && (
-                    <p className="text-xs text-zinc-400 mt-1">{task.description}</p>
+
+                  <div>
+                    <Label>Attach Parts</Label>
+                    <div className="mt-2 space-y-1 max-h-36 overflow-y-auto pr-2">
+                      {assignableParts.length === 0 ? (
+                        <EmptyState>No assignable parts</EmptyState>
+                      ) : (
+                        assignableParts.map((p) => (
+                          <label
+                            key={p.id}
+                            className="flex items-center gap-2 text-xs text-zinc-400 cursor-pointer hover:text-white"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selectedParts.includes(p.id)}
+                              onChange={() => togglePart(p.id)}
+                              className="accent-white"
+                            />
+                            {p.part_catalog?.name ?? "Unnamed Part"}
+                          </label>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2">
+                  <SecondaryButton type="button" onClick={() => setShowForm(false)}>
+                    Cancel
+                  </SecondaryButton>
+                  <PrimaryButton type="submit" disabled={loading || !taskName.trim()}>
+                    {loading ? "Adding..." : "Add Task"}
+                  </PrimaryButton>
+                </div>
+              </form>
+            </Panel>
+          </div>
+        )}
+
+        {/* Kanban Board Layout */}
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 items-start">
+          {TASK_COLUMNS.map((col) => {
+            const columnTasks = tasks.filter((t) => t.status === col.id);
+
+            return (
+              <div
+                key={col.id}
+                onDragOver={handleDragOver}
+                onDrop={() => handleDrop(col.id)}
+                className="bg-zinc-950/60 border border-zinc-900 rounded-xl p-3 space-y-3 min-h-[500px] flex flex-col"
+              >
+                {/* Column Header */}
+                <div className="flex items-center justify-between px-1 pb-2 border-b border-zinc-900">
+                  <Label>{col.label}</Label>
+                  <span className="text-[10px] font-mono text-zinc-500 bg-zinc-900 px-2 py-0.5 rounded">
+                    {columnTasks.length}
+                  </span>
+                </div>
+
+                {/* Task Cards Container */}
+                <div className="flex-1 space-y-3">
+                  {columnTasks.length === 0 ? (
+                    <div className="h-32 flex items-center justify-center border border-dashed border-zinc-900 rounded-lg">
+                      <EmptyState>Drop here</EmptyState>
+                    </div>
+                  ) : (
+                    columnTasks.map((task) => (
+                      <div
+                        key={task.id}
+                        draggable
+                        onDragStart={() => handleDragStart(task.id)}
+                        className="group bg-black border border-zinc-800 hover:border-zinc-700 p-4 rounded-lg space-y-3 cursor-grab active:cursor-grabbing transition-all shadow-sm hover:shadow-md"
+                      >
+                        <div className="flex justify-between items-start gap-2">
+                          <h3 className="text-xs font-semibold text-zinc-100 leading-snug">
+                            {task.name}
+                          </h3>
+                          {task.importance && (
+                            <span className="text-[9px] font-mono uppercase tracking-wider text-zinc-500 px-1.5 py-0.5 border border-zinc-800 rounded">
+                              {task.importance}
+                            </span>
+                          )}
+                        </div>
+
+                        {task.description && (
+                          <p className="text-xs text-zinc-500 leading-relaxed line-clamp-2">
+                            {task.description}
+                          </p>
+                        )}
+
+                        {/* Assignees */}
+                        {task.task_assignees && task.task_assignees.length > 0 && (
+                          <div className="flex flex-wrap gap-1 pt-1">
+                            {task.task_assignees.map((a, i) => (
+                              <span
+                                key={i}
+                                className="text-[10px] font-mono text-zinc-400 bg-zinc-900 px-2 py-0.5 rounded border border-zinc-800"
+                              >
+                                {displayNameFromProfile(a.profiles)}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Subtasks Summary */}
+                        {task.subtasks && task.subtasks.length > 0 && (
+                          <div className="border-t border-zinc-900/80 pt-2 space-y-1">
+                            <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-wider">
+                              Subtasks ({task.subtasks.filter((s) => s.status === "done").length}/
+                              {task.subtasks.length})
+                            </span>
+                            <div className="space-y-1">
+                              {task.subtasks.map((st) => (
+                                <div
+                                  key={st.id}
+                                  className="flex items-center justify-between text-[11px] text-zinc-400"
+                                >
+                                  <span className={st.status === "done" ? "line-through text-zinc-600" : ""}>
+                                    └ {st.name}
+                                  </span>
+                                  <span className="text-[9px] font-mono text-zinc-600">
+                                    {st.status}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))
                   )}
                 </div>
-
-                <span className="text-[10px] font-mono uppercase px-2 py-1 rounded bg-zinc-900 border border-zinc-800 text-zinc-300">
-                  {task.status}
-                </span>
               </div>
-
-              {/* Child Tasks Section */}
-              <div className="mt-4 pt-4 border-t border-zinc-900 space-y-2">
-                <div className="flex justify-between items-center">
-                  <p className="text-[10px] font-mono text-zinc-500 uppercase tracking-wider">
-                    Subtasks ({childTasks.length})
-                  </p>
-                  <button
-                    onClick={() => handleCreateChildClick(task.id)}
-                    className="text-[11px] font-mono text-emerald-400 hover:underline"
-                  >
-                    + create new child task
-                  </button>
-                </div>
-
-                {childTasks.length > 0 ? (
-                  <ul className="space-y-1">
-                    {childTasks.map((child) => (
-                      <li key={child.id}>
-                        <button
-                          onClick={() => scrollToAndHighlightTask(child.id)}
-                          className="text-xs text-zinc-300 hover:text-white hover:underline flex items-center gap-2"
-                        >
-                          <span className="text-zinc-600">└</span>
-                          <span>{child.name}</span>
-                          <span className="text-[10px] font-mono text-zinc-500">
-                            ({child.status})
-                          </span>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-xs text-zinc-600 italic">No subtasks assigned.</p>
-                )}
-              </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
-    </div>
+    </AppShell>
   );
 }
