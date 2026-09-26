@@ -97,7 +97,7 @@ export default function TeamTasksClient({
         return { part_id: id, parts: part ?? null };
       }),
       subtasks: [],
-    } as TaskWithRelations;
+    } as unknown as TaskWithRelations;
 
     // Immediately push to state
     setTasks((prev) => [optimisticTask, ...prev]);
