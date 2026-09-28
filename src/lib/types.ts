@@ -24,7 +24,7 @@ export type Team = {
 
 export type TeamRole = {
   id: string;
-  team_id: string | null;
+  team_id: string;
   name: string | null;
   is_admin: boolean;
   can_manage_members: boolean;
@@ -37,7 +37,6 @@ export type TeamMember = {
   id: string;
   team_id: string;
   user_id: string;
-  role_id?: string | null;
   role_ids?: string[];
   joined_at?: string;
   profiles?: Profile | null;

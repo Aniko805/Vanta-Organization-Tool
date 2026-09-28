@@ -47,7 +47,7 @@ Ordered delivery phases for Vulcan. Each phase should be small enough for one fo
 - **Depends on:** Phase 1
 - **Deliverables:**
   - [x] `/team` create / join / members / roles / invite code
-  - [x] Default roles seeded (Captain, Software, Hardware, Member)
+  - [x] Default roles seeded (Captain, Business, Hardware, Software)
   - [x] Admin role assignment + remove member
 - **Validation gate:** Two accounts can form a team via invite code and assign roles.
 

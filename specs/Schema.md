@@ -26,7 +26,7 @@ CREATE TABLE public.teams (
 );
 CREATE TABLE public.team_roles (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
-  team_id uuid,
+  team_id uuid NOT NULL,
   name text,
   is_admin boolean NOT NULL DEFAULT false,
   can_manage_members boolean NOT NULL DEFAULT false,
