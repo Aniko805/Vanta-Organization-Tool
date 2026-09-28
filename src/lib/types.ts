@@ -92,7 +92,7 @@ export type Part = {
 
 export type Task = {
   id: string;
-  team_id: string;
+  team_id: string | null;
   created_by: string;
   name: string;
   description?: string | null;
