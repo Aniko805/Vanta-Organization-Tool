@@ -3,30 +3,43 @@ import TeamTasksClient from "./TeamTasksClient";
 import { supabase } from "@/lib/supabase";
 
 async function TeamTasksContent() {
-  // Fetch tasks
-  const { data: tasks } = await supabase
-    .from("tasks")
-    .select("*")
-    .not("team_id", "is", null)
-    .eq("is_personal", false)
-    .order("created_at", { ascending: false });
+  // 1. Get current authenticated user
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  // Fetch profiles for team members
-  const { data: profiles } = await supabase
-    .from("profiles")
-    .select("*");
+  let teamId: string | null = null;
 
-  // Fetch parts catalog/parts
-  const { data: parts } = await supabase
-    .from("parts")
-    .select("*");
+  // 2. Fetch user's team ID from team_members
+  if (user) {
+    const { data: member } = await supabase
+      .from("team_members")
+      .select("team_id")
+      .eq("user_id", user.id)
+      .maybeSingle();
 
-  // Get current user's team or active team (fallback to default string if not found)
-  const teamId = tasks?.[0]?.team_id || "";
+    teamId = member?.team_id || null;
+  }
+
+  // 3. Fetch tasks for the team
+  let tasks = [];
+  if (teamId) {
+    const { data } = await supabase
+      .from("tasks")
+      .select("*")
+      .eq("team_id", teamId)
+      .eq("is_personal", false)
+      .order("created_at", { ascending: false });
+    tasks = data || [];
+  }
+
+  // Fetch profiles and parts catalog
+  const { data: profiles } = await supabase.from("profiles").select("*");
+  const { data: parts } = await supabase.from("parts").select("*");
 
   return (
     <TeamTasksClient
-      initialTasks={tasks || []}
+      initialTasks={tasks}
       teamMembers={profiles || []}
       assignableParts={parts || []}
       teamId={teamId}

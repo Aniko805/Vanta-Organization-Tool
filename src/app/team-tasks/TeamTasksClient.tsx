@@ -10,6 +10,7 @@ import AppShell, {
   EmptyState,
 } from "@/app/components/AppShell";
 import { createTask, updateTask, listTeamTasks } from "@/lib/tasks";
+import { supabase } from "@/lib/supabase";
 import {
   displayNameFromProfile,
   type TaskStatus,
@@ -54,24 +55,50 @@ export default function TeamTasksClient({
 
   const createFormRef = useRef<HTMLDivElement | null>(null);
 
-  // Re-fetch existing tasks on page/component load
-  useEffect(() => {
-    let isMounted = true;
-    if (teamId) {
-      listTeamTasks(teamId)
-        .then((fetchedTasks) => {
-          if (isMounted && fetchedTasks) {
-            setTasks(fetchedTasks);
-          }
-        })
-        .catch((err) => {
-          console.error("Error loading team tasks:", err);
-        });
+  const [activeTeamId, setActiveTeamId] = useState<string | null>(teamId ?? null);
+
+useEffect(() => {
+  let isMounted = true;
+
+  async function initTeamAndTasks() {
+    let currentTeamId = activeTeamId;
+
+    // Fetch teamId on client if missing
+    if (!currentTeamId) {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: member } = await supabase
+          .from("team_members")
+          .select("team_id")
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        if (member?.team_id && isMounted) {
+          currentTeamId = member.team_id;
+          setActiveTeamId(member.team_id);
+        }
+      }
     }
-    return () => {
-      isMounted = false;
-    };
-  }, [teamId]);
+
+    // Fetch tasks once we have a valid team ID
+    if (currentTeamId) {
+      try {
+        const fetchedTasks = await listTeamTasks(currentTeamId);
+        if (isMounted && fetchedTasks) {
+          setTasks(fetchedTasks);
+        }
+      } catch (err) {
+        console.error("Error loading team tasks:", err);
+      }
+    }
+  }
+
+  initTeamAndTasks();
+
+  return () => {
+    isMounted = false;
+  };
+}, [teamId]);
 
   const parentTasks = useMemo(
     () => tasks.filter((t) => !t.is_personal),
@@ -126,15 +153,15 @@ export default function TeamTasksClient({
     try {
       // 3. Persist to Supabase
       const createdTask = await createTask({
-        team_id: teamId ?? null,
-        name: optimisticTask.name,
-        description: optimisticTask.description,
-        status: targetStatus,
-        importance: "medium",
-        parent_id: optimisticTask.parent_id,
-        assignee_ids: selectedAssignees,
-        part_ids: selectedParts,
-      });
+  team_id: activeTeamId, // Pass activeTeamId instead of teamId
+  name: optimisticTask.name,
+  description: optimisticTask.description,
+  status: targetStatus,
+  importance: "medium",
+  parent_id: optimisticTask.parent_id,
+  assignee_ids: selectedAssignees,
+  part_ids: selectedParts,
+});
 
       // 4. Update state with real Supabase task record
       if (createdTask && createdTask.id) {
