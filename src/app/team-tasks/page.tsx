@@ -7,6 +7,8 @@ async function TeamTasksContent() {
   const { data: tasks } = await supabase
     .from("tasks")
     .select("*")
+    .not("team_id", "is", null)
+    .eq("is_personal", false)
     .order("created_at", { ascending: false });
 
   // Fetch profiles for team members

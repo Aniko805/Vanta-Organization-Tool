@@ -113,20 +113,23 @@ export async function listTeamMembers(teamId: string): Promise<TeamMember[]> {
 
   // Fetch multi-role assignments from member_roles join table
   const memberIds = rawMembers.map((m) => m.id);
-  const { data: roleLinks } = await supabase
+  const { data: roleLinks, error: roleLinksError } = await supabase
     .from("member_roles")
     .select("member_id, role_id")
     .in("member_id", memberIds);
 
+  if (roleLinksError) throw new Error(roleLinksError.message);
+
   const rolesByMemberId = new Map<string, string[]>();
   (roleLinks ?? []).forEach((link) => {
+    if (!roleById.has(link.role_id)) return;
     const list = rolesByMemberId.get(link.member_id) ?? [];
     list.push(link.role_id);
     rolesByMemberId.set(link.member_id, list);
   });
 
   return rawMembers.map((m) => {
-    const assignedIds = rolesByMemberId.get(m.id) ?? (m.role_id ? [m.role_id] : []);
+    const assignedIds = rolesByMemberId.get(m.id) ?? [];
     const assignedRoles = assignedIds
       .map((id) => roleById.get(id))
       .filter((r): r is TeamRole => Boolean(r));
@@ -135,7 +138,7 @@ export async function listTeamMembers(teamId: string): Promise<TeamMember[]> {
       ...m,
       role_ids: assignedIds,
       team_roles_list: assignedRoles,
-      team_roles: assignedRoles[0] ?? (m.role_id ? roleById.get(m.role_id) ?? null : null),
+      team_roles: assignedRoles[0] ?? null,
     };
   }) as TeamMember[];
 }
@@ -151,23 +154,36 @@ export async function listTeamRoles(teamId: string): Promise<TeamRole[]> {
   return (data ?? []) as TeamRole[];
 }
 
-/** Legacy single-role updater for backward compatibility */
-export async function updateMemberRole(
-  memberId: string,
-  roleId: string | null
-): Promise<void> {
-  if (roleId) {
-    await updateMemberRoles(memberId, [roleId]);
-  } else {
-    await updateMemberRoles(memberId, []);
-  }
-}
-
-/** Updated multi-role updater */
 export async function updateMemberRoles(
   memberId: string,
-  roleIds: string[]
+  roleIds: string[],
+  teamId: string
 ): Promise<void> {
+  const uniqueRoleIds = Array.from(new Set(roleIds));
+  const { data: member, error: memberError } = await supabase
+    .from("team_members")
+    .select("team_id")
+    .eq("id", memberId)
+    .single();
+
+  if (memberError) throw new Error(memberError.message);
+  if (member.team_id !== teamId) {
+    throw new Error("Member does not belong to the selected team");
+  }
+
+  if (uniqueRoleIds.length > 0) {
+    const { data: validRoles, error: rolesError } = await supabase
+      .from("team_roles")
+      .select("id")
+      .eq("team_id", teamId)
+      .in("id", uniqueRoleIds);
+
+    if (rolesError) throw new Error(rolesError.message);
+    if ((validRoles ?? []).length !== uniqueRoleIds.length) {
+      throw new Error("One or more roles do not belong to the selected team");
+    }
+  }
+
   // 1. Clear existing roles in junction table
   const { error: deleteError } = await supabase
     .from("member_roles")
@@ -177,8 +193,8 @@ export async function updateMemberRoles(
   if (deleteError) throw new Error(deleteError.message);
 
   // 2. Insert new assigned roles
-  if (roleIds.length > 0) {
-    const inserts = roleIds.map((roleId) => ({
+  if (uniqueRoleIds.length > 0) {
+    const inserts = uniqueRoleIds.map((roleId) => ({
       member_id: memberId,
       role_id: roleId,
     }));
@@ -188,12 +204,6 @@ export async function updateMemberRoles(
 
     if (insertError) throw new Error(insertError.message);
   }
-
-  // 3. Keep legacy role_id column synced with primary role
-  await supabase
-    .from("team_members")
-    .update({ role_id: roleIds[0] ?? null })
-    .eq("id", memberId);
 }
 
 export async function removeMember(memberId: string): Promise<void> {
@@ -275,6 +285,5 @@ export function memberCanManageInventory(
     return true;
   }
   const role = membership?.team_roles;
-  if (!membership?.role_id && !membership?.role_ids?.length) return true;
   return Boolean(role?.is_admin || role?.can_manage_inventory);
 }

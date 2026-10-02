@@ -33,7 +33,6 @@ export async function createTask(input: {
   due_date?: string | null;
   is_personal?: boolean;
   parent_id?: string | null;
-  created_by?: string;
   assignee_ids?: string[];
   part_ids?: string[];
 }): Promise<TaskWithRelations> {
@@ -41,15 +40,18 @@ export async function createTask(input: {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const creatorId = input.created_by || user?.id;
+  const creatorId = user?.id;
   if (!creatorId) throw new Error("Not authenticated: missing user ID");
-  if (!input.team_id) throw new Error("Missing required team_id");
+  const isPersonal = input.is_personal ?? false;
+  if (!isPersonal && !input.team_id) {
+    throw new Error("Missing required team_id");
+  }
 
   // 1. Insert into public.tasks
   const { data: task, error } = await supabase
     .from("tasks")
     .insert({
-      team_id: input.team_id,
+      team_id: isPersonal ? null : input.team_id,
       created_by: creatorId,
       name: input.name.trim(),
       description: input.description?.trim() || null,
@@ -57,7 +59,7 @@ export async function createTask(input: {
       importance: input.importance ?? "medium",
       category: input.category || null,
       due_date: input.due_date || null,
-      is_personal: input.is_personal ?? false,
+      is_personal: isPersonal,
       parent_id: input.parent_id || null,
     })
     .select()
@@ -145,8 +147,7 @@ export async function listTeamTasks(teamId: string): Promise<TaskWithRelations[]
           part_catalog_id, 
           part_catalog(id, name, sku, description, manufacturer)
         )
-      ),
-      subtasks(*)
+      )
     `
     )
     .eq("team_id", teamId)
@@ -182,7 +183,6 @@ export async function listPersonalAndAssignedTasks(
         part_catalog(id, name, sku, description, manufacturer)
       )
     ),
-    subtasks(*),
     teams(id, name, team_number)
   `;
 
@@ -201,6 +201,7 @@ export async function listPersonalAndAssignedTasks(
       .from("tasks")
       .select(queryWithRelations)
       .in("id", assignedIds)
+      .eq("is_personal", false)
       .order("created_at", { ascending: false });
 
     if (error) throw new Error(error.message);

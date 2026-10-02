@@ -196,7 +196,7 @@ export default function TeamPage() {
 
       // Deduplicate role IDs
       const uniqueRoleIds = Array.from(new Set(updated.filter(Boolean)));
-      await updateMemberRoles(memberId, uniqueRoleIds);
+      await updateMemberRoles(memberId, uniqueRoleIds, selected.id);
       await refreshSelected(selected.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Role update failed");
@@ -210,13 +210,16 @@ export default function TeamPage() {
     if (!selected) return;
 
     // Pick the first available role not yet assigned
-    const availableRole = roles.find((r) => !currentRoleIds.includes(r.id));
+    const availableRole = roles.find(
+      (role) =>
+        role.team_id === selected.id && !currentRoleIds.includes(role.id)
+    );
     if (!availableRole) return;
 
     try {
       setUpdatingMemberId(memberId);
       const updated = [...currentRoleIds, availableRole.id];
-      await updateMemberRoles(memberId, updated);
+      await updateMemberRoles(memberId, updated, selected.id);
       await refreshSelected(selected.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Role update failed");
@@ -238,7 +241,7 @@ export default function TeamPage() {
       const updated = [...currentRoleIds];
       updated.splice(indexToRemove, 1);
 
-      await updateMemberRoles(memberId, updated);
+      await updateMemberRoles(memberId, updated, selected.id);
       await refreshSelected(selected.id);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Role update failed");
@@ -384,14 +387,13 @@ export default function TeamPage() {
                 <Label>Members</Label>
                 <div className="mt-3 divide-y divide-zinc-900 border border-zinc-900 rounded-lg overflow-hidden">
                   {members.map((member) => {
-                    const assignedRoleIds =
-                      member.role_ids && member.role_ids.length > 0
-                        ? member.role_ids
-                        : member.role_id
-                        ? [member.role_id]
-                        : [];
+                    const assignedRoleIds = member.role_ids ?? [];
+                    const selectedTeamRoles = roles.filter(
+                      (role) => role.team_id === selected.id
+                    );
 
-                    const hasAvailableRoles = assignedRoleIds.length < roles.length;
+                    const hasAvailableRoles =
+                      assignedRoleIds.length < selectedTeamRoles.length;
 
                     return (
                       <div
@@ -455,7 +457,7 @@ export default function TeamPage() {
                                     }
                                   >
                                     <option value="">No role</option>
-                                    {roles.map((role) => (
+                                    {selectedTeamRoles.map((role) => (
                                       <option key={role.id} value={role.id}>
                                         {role.name}
                                       </option>
@@ -479,7 +481,7 @@ export default function TeamPage() {
                                         }
                                       >
                                         <option value="">No role</option>
-                                        {roles.map((role) => (
+                                        {selectedTeamRoles.map((role) => (
                                           <option key={role.id} value={role.id}>
                                             {role.name}
                                           </option>
