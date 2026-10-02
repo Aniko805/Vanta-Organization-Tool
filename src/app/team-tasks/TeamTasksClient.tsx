@@ -27,11 +27,18 @@ const KANBAN_COLUMNS: { id: TaskStatus; label: string }[] = [
   { id: "done", label: "DONE" },
 ];
 
+export interface TeamInfo {
+  id: string;
+  name?: string;
+  team_number?: string | number;
+}
+
 export interface TeamTasksClientProps {
   initialTasks?: TaskWithRelations[];
   teamMembers?: Profile[];
   assignableParts?: Part[];
   teamId?: string | null;
+  activeTeamInfo?: TeamInfo | null;
 }
 
 export default function TeamTasksClient({
@@ -39,12 +46,14 @@ export default function TeamTasksClient({
   teamMembers = [],
   assignableParts = [],
   teamId,
+  activeTeamInfo,
 }: TeamTasksClientProps) {
   const searchParams = useSearchParams();
   const urlTeamId = searchParams.get("team");
 
+  const [activeTeam, setActiveTeam] = useState<TeamInfo | null>(activeTeamInfo || null);
   const [activeTeamId, setActiveTeamId] = useState<string | null>(
-    urlTeamId || teamId || null
+    urlTeamId || teamId || activeTeamInfo?.id || null
   );
 
   const [tasks, setTasks] = useState<TaskWithRelations[]>(initialTasks);
@@ -63,13 +72,14 @@ export default function TeamTasksClient({
 
   const createFormRef = useRef<HTMLDivElement | null>(null);
 
-  // Sync activeTeamId and load team tasks
+  // Fetch team details and tasks when page mounts or team changes
   useEffect(() => {
     let isMounted = true;
 
     async function initTeamAndTasks() {
       let currentTeamId = urlTeamId || activeTeamId || teamId;
 
+      // Fallback: look up team from current logged-in user if teamId missing
       if (!currentTeamId) {
         const {
           data: { user },
@@ -78,12 +88,14 @@ export default function TeamTasksClient({
         if (user) {
           const { data: member } = await supabase
             .from("team_members")
-            .select("team_id")
+            .select("team_id, teams ( id, name, team_number )")
             .eq("user_id", user.id)
             .maybeSingle();
 
           if (member?.team_id && isMounted) {
             currentTeamId = member.team_id;
+            const tData = member.teams as unknown as TeamInfo;
+            if (tData) setActiveTeam(tData);
           }
         }
       }
@@ -130,10 +142,12 @@ export default function TeamTasksClient({
     e.preventDefault();
     if (!taskName.trim()) return;
 
-    const resolvedTeamId = activeTeamId || urlTeamId || teamId;
+    const resolvedTeamId = activeTeamId || urlTeamId || teamId || activeTeam?.id;
 
     if (!resolvedTeamId) {
-      setErrorMessage("No active team ID found. Please refresh or select a team.");
+      setErrorMessage(
+        "No active team found for your user profile. Make sure you are added to a team in the team_members database."
+      );
       return;
     }
 
@@ -255,6 +269,22 @@ export default function TeamTasksClient({
       }
     >
       <div className="space-y-6">
+        {/* Active Team Info Header Badge */}
+        <div className="flex items-center justify-between bg-zinc-950 border border-zinc-900 rounded-lg px-4 py-2 text-xs">
+          <div className="flex items-center gap-2">
+            <span className="text-zinc-500 font-mono">ACTIVE TEAM:</span>
+            {activeTeam ? (
+              <span className="font-semibold text-white font-mono">
+                {activeTeam.team_number ? `#${activeTeam.team_number}` : ""} {activeTeam.name || "Unnamed Team"}
+              </span>
+            ) : activeTeamId ? (
+              <span className="font-mono text-zinc-400">{activeTeamId}</span>
+            ) : (
+              <span className="text-amber-500 font-mono">No team assigned</span>
+            )}
+          </div>
+        </div>
+
         {errorMessage && (
           <div className="p-3 bg-red-950/80 border border-red-800 rounded-lg text-xs text-red-200">
             <strong>Supabase Error:</strong> {errorMessage}
