@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useMemo, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import AppShell, {
   Panel,
   Label,
@@ -39,6 +40,13 @@ export default function TeamTasksClient({
   assignableParts = [],
   teamId,
 }: TeamTasksClientProps) {
+  const searchParams = useSearchParams();
+  const urlTeamId = searchParams.get("team");
+
+  const [activeTeamId, setActiveTeamId] = useState<string | null>(
+    urlTeamId || teamId || null
+  );
+
   const [tasks, setTasks] = useState<TaskWithRelations[]>(initialTasks);
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -55,50 +63,51 @@ export default function TeamTasksClient({
 
   const createFormRef = useRef<HTMLDivElement | null>(null);
 
-  const [activeTeamId, setActiveTeamId] = useState<string | null>(teamId ?? null);
+  // Sync activeTeamId and load team tasks
+  useEffect(() => {
+    let isMounted = true;
 
-useEffect(() => {
-  let isMounted = true;
+    async function initTeamAndTasks() {
+      let currentTeamId = urlTeamId || activeTeamId || teamId;
 
-  async function initTeamAndTasks() {
-    let currentTeamId = activeTeamId;
+      if (!currentTeamId) {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
 
-    // Fetch teamId on client if missing
-    if (!currentTeamId) {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data: member } = await supabase
-          .from("team_members")
-          .select("team_id")
-          .eq("user_id", user.id)
-          .maybeSingle();
+        if (user) {
+          const { data: member } = await supabase
+            .from("team_members")
+            .select("team_id")
+            .eq("user_id", user.id)
+            .maybeSingle();
 
-        if (member?.team_id && isMounted) {
-          currentTeamId = member.team_id;
-          setActiveTeamId(member.team_id);
+          if (member?.team_id && isMounted) {
+            currentTeamId = member.team_id;
+          }
+        }
+      }
+
+      if (currentTeamId && isMounted) {
+        setActiveTeamId(currentTeamId);
+
+        try {
+          const fetchedTasks = await listTeamTasks(currentTeamId);
+          if (isMounted && fetchedTasks) {
+            setTasks(fetchedTasks);
+          }
+        } catch (err) {
+          console.error("Error loading team tasks:", err);
         }
       }
     }
 
-    // Fetch tasks once we have a valid team ID
-    if (currentTeamId) {
-      try {
-        const fetchedTasks = await listTeamTasks(currentTeamId);
-        if (isMounted && fetchedTasks) {
-          setTasks(fetchedTasks);
-        }
-      } catch (err) {
-        console.error("Error loading team tasks:", err);
-      }
-    }
-  }
+    initTeamAndTasks();
 
-  initTeamAndTasks();
-
-  return () => {
-    isMounted = false;
-  };
-}, [teamId]);
+    return () => {
+      isMounted = false;
+    };
+  }, [urlTeamId, teamId]);
 
   const parentTasks = useMemo(
     () => tasks.filter((t) => !t.is_personal),
@@ -121,6 +130,13 @@ useEffect(() => {
     e.preventDefault();
     if (!taskName.trim()) return;
 
+    const resolvedTeamId = activeTeamId || urlTeamId || teamId;
+
+    if (!resolvedTeamId) {
+      setErrorMessage("No active team ID found. Please refresh or select a team.");
+      return;
+    }
+
     setLoading(true);
     setErrorMessage(null);
 
@@ -130,7 +146,7 @@ useEffect(() => {
     // 1. Optimistic task entry
     const optimisticTask = {
       id: tempId,
-      team_id: teamId ?? null,
+      team_id: resolvedTeamId,
       name: taskName.trim(),
       description: description.trim() || null,
       status: targetStatus,
@@ -153,15 +169,15 @@ useEffect(() => {
     try {
       // 3. Persist to Supabase
       const createdTask = await createTask({
-  team_id: activeTeamId, // Pass activeTeamId instead of teamId
-  name: optimisticTask.name,
-  description: optimisticTask.description,
-  status: targetStatus,
-  importance: "medium",
-  parent_id: optimisticTask.parent_id,
-  assignee_ids: selectedAssignees,
-  part_ids: selectedParts,
-});
+        team_id: resolvedTeamId,
+        name: optimisticTask.name,
+        description: optimisticTask.description,
+        status: targetStatus,
+        importance: "medium",
+        parent_id: optimisticTask.parent_id,
+        assignee_ids: selectedAssignees,
+        part_ids: selectedParts,
+      });
 
       // 4. Update state with real Supabase task record
       if (createdTask && createdTask.id) {
@@ -183,8 +199,6 @@ useEffect(() => {
         err instanceof Error ? err.message : "Failed to create task in database";
       console.error("Supabase creation error:", err);
       setErrorMessage(errorStr);
-
-      // Keep task visible in UI with alert indicator rather than removing it instantly
     } finally {
       setLoading(false);
     }

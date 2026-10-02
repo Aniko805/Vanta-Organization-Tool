@@ -2,16 +2,18 @@ import { Suspense } from "react";
 import TeamTasksClient from "./TeamTasksClient";
 import { supabase } from "@/lib/supabase";
 
-async function TeamTasksContent() {
-  // 1. Get current authenticated user
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+interface PageProps {
+  searchParams: Promise<{ team?: string }>;
+}
 
-  let teamId: string | null = null;
+async function TeamTasksContent({ searchParams }: PageProps) {
+  const resolvedParams = await searchParams;
+  const { data: { user } } = await supabase.auth.getUser();
 
-  // 2. Fetch user's team ID from team_members
-  if (user) {
+  let teamId = resolvedParams.team || null;
+
+  // Fallback to team_members if not present in searchParams URL
+  if (!teamId && user) {
     const { data: member } = await supabase
       .from("team_members")
       .select("team_id")
@@ -21,7 +23,7 @@ async function TeamTasksContent() {
     teamId = member?.team_id || null;
   }
 
-  // 3. Fetch tasks for the team
+  // Fetch tasks for this team
   let tasks = [];
   if (teamId) {
     const { data } = await supabase
@@ -47,7 +49,7 @@ async function TeamTasksContent() {
   );
 }
 
-export default function Page() {
+export default function Page({ searchParams }: PageProps) {
   return (
     <Suspense
       fallback={
@@ -56,7 +58,7 @@ export default function Page() {
         </div>
       }
     >
-      <TeamTasksContent />
+      <TeamTasksContent searchParams={searchParams} />
     </Suspense>
   );
 }
