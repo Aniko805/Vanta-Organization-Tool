@@ -6,7 +6,7 @@ export type Profile = {
   username: string;
   first_name: string | null;
   last_name: string | null;
-  avatar_url: string | null;
+  avatar_image: string | null;
   bio: string | null;
   created_at?: string;
   updated_at?: string;
