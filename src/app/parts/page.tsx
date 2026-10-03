@@ -24,7 +24,7 @@ import {
   memberCanManageInventory,
 } from "@/lib/teams";
 import { type Part, type StatusList, type Team, type TeamMember } from "@/lib/types";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export default function PartsPage() {
   const [userId, setUserId] = useState<string | null>(null);
@@ -42,6 +42,7 @@ export default function PartsPage() {
   const [sku, setSku] = useState("");
   const [notes, setNotes] = useState("");
   const [quantity, setQuantity] = useState<number>(1);
+  const refreshGeneration = useRef(0);
 
   const selectedTeam = teams.find((t) => t.id === teamId) ?? null;
   const myMembership = members.find((m) => m.user_id === userId) ?? null;
@@ -51,20 +52,27 @@ export default function PartsPage() {
       : false;
 
   const refresh = useCallback(async (tid: string) => {
+    const generation = ++refreshGeneration.current;
     setLoading(true);
+    setError(null);
     try {
       const [p, m, s] = await Promise.all([
         listParts(tid),
         listTeamMembers(tid),
         listPartStatuses(tid),
       ]);
+      if (generation !== refreshGeneration.current) return;
       setParts(p);
       setMembers(m);
       setStatuses(s);
     } catch (e) {
+      if (generation !== refreshGeneration.current) return;
+      setParts([]);
+      setMembers([]);
+      setStatuses([]);
       setError(e instanceof Error ? e.message : "Failed to load parts");
     } finally {
-      setLoading(false);
+      if (generation === refreshGeneration.current) setLoading(false);
     }
   }, []);
 
@@ -127,8 +135,8 @@ export default function PartsPage() {
     setError(null);
     try {
       const initialStatus =
-        statuses.find((status) => status.is_default) ??
         statuses.find((status) => status.name === "PLANNING") ??
+        statuses.find((status) => status.is_default) ??
         statuses[0];
 
       if (!initialStatus) {
@@ -189,7 +197,17 @@ export default function PartsPage() {
           as="select"
           className="w-48"
           value={teamId ?? ""}
-          onChange={(e) => setTeamId(e.target.value || null)}
+          onChange={(e) => {
+            const nextTeamId = e.target.value || null;
+            refreshGeneration.current += 1;
+            setFilter("all");
+            setParts([]);
+            setMembers([]);
+            setStatuses([]);
+            setError(null);
+            setLoading(Boolean(nextTeamId));
+            setTeamId(nextTeamId);
+          }}
         >
           {teams.length === 0 ? <option value="">No teams</option> : null}
           {teams.map((t) => (
@@ -235,7 +253,10 @@ export default function PartsPage() {
                   onChange={(e) => setQuantity(parseInt(e.target.value, 10) || 1)}
                 />
               </div>
-              <PrimaryButton disabled={busy || !name.trim()} onClick={handleCreate}>
+              <PrimaryButton
+                disabled={busy || !name.trim() || statuses.length === 0}
+                onClick={handleCreate}
+              >
                 Add to inventory
               </PrimaryButton>
             </Panel>
@@ -273,6 +294,15 @@ export default function PartsPage() {
             })}
           </div>
 
+          {!loading && statuses.length === 0 ? (
+            <Panel>
+              <EmptyState>
+                No inventory statuses are available. Confirm that global default
+                statuses exist and apply the inventory access migration.
+              </EmptyState>
+            </Panel>
+          ) : null}
+
           <div className="space-y-2">
             {loading ? (
               <Panel>
@@ -308,7 +338,7 @@ export default function PartsPage() {
                     </div>
 
                     <div className="flex items-center gap-3">
-                      {canManage && statusRecord ? (
+                      {canManage && statusRecord && statuses.length > 0 ? (
                         <div className="flex items-center gap-1">
                           <button
                             type="button"
