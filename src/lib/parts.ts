@@ -128,6 +128,13 @@ export async function deletePart(partId: string): Promise<void> {
   if (error) throw new Error(error.message);
 }
 
+export async function deletePartStatusListing(partStatusId: string): Promise<void> {
+  const { error } = await supabase.rpc("delete_part_status_listing", {
+    p_part_status_id: partStatusId,
+  });
+  if (error) throw new Error(error.message);
+}
+
 export async function updatePartQuantity(
   partStatusId: string,
   quantity: number

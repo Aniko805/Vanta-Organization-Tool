@@ -12,6 +12,7 @@ import AppShell, {
 import {
   addPartToInventory,
   deletePart,
+  deletePartStatusListing,
   listPartCatalog,
   listPartStatuses,
   listParts,
@@ -512,12 +513,18 @@ export default function PartsPage() {
                           onClick={async () => {
                             if (
                               !window.confirm(
-                                `Are you sure you want to delete "${catalog?.name ?? "this part"}"? This cannot be undone.`
+                                statusRecord
+                                  ? `Delete the ${currentStatusName} listing for "${catalog?.name ?? "this part"}"? Other status listings will remain.`
+                                  : `Delete "${catalog?.name ?? "this part"}"? This cannot be undone.`
                               )
                             )
                               return;
                             try {
-                              await deletePart(part.id);
+                              if (statusRecord) {
+                                await deletePartStatusListing(statusRecord.id);
+                              } else {
+                                await deletePart(part.id);
+                              }
                               if (teamId) await refresh(teamId);
                             } catch (err) {
                               setError(

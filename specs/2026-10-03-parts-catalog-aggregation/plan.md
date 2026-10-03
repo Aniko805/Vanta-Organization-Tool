@@ -27,6 +27,12 @@
 - [x] Add a permission-checked transactional delete RPC that removes dependent rows first.
 - [x] Validate the UI and database helper changes.
 
+### 5. Listing-specific deletion
+
+- [x] Send the selected `part_status.id` from the delete action.
+- [x] Preserve sibling status rows and remove the parent only after its last status is deleted.
+- [x] Validate the listing-delete helper and build.
+
 ## Notes
 
 - Sum quantities on repeated add and on status merge.
