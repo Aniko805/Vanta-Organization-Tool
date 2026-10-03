@@ -74,52 +74,62 @@ export default function TeamTasksClient({
 
   // Fetch team details and tasks when page mounts or team changes
   useEffect(() => {
-    let isMounted = true;
+  let isMounted = true;
 
-    async function initTeamAndTasks() {
-      let currentTeamId = urlTeamId || activeTeamId || teamId;
+  async function initTeamAndTasks() {
+    let currentTeamId = urlTeamId || activeTeamInfo?.id || teamId;
 
-      // Fallback: look up team from current logged-in user if teamId missing
-      if (!currentTeamId) {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
+    if (!currentTeamId) {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
-        if (user) {
-          const { data: member } = await supabase
-            .from("team_members")
-            .select("team_id, teams ( id, name, team_number )")
-            .eq("user_id", user.id)
+      if (user) {
+        // Step 1: Find user's team ID
+        const { data: member } = await supabase
+          .from("team_members")
+          .select("team_id")
+          .eq("user_id", user.id)
+          .limit(1)
+          .maybeSingle();
+
+        if (member?.team_id) {
+          currentTeamId = member.team_id;
+
+          // Step 2: Fetch team metadata (number/name)
+          const { data: teamData } = await supabase
+            .from("teams")
+            .select("id, name, team_number")
+            .eq("id", member.team_id)
             .maybeSingle();
 
-          if (member?.team_id && isMounted) {
-            currentTeamId = member.team_id;
-            const tData = member.teams as unknown as TeamInfo;
-            if (tData) setActiveTeam(tData);
+          if (teamData && isMounted) {
+            setActiveTeam(teamData);
           }
-        }
-      }
-
-      if (currentTeamId && isMounted) {
-        setActiveTeamId(currentTeamId);
-
-        try {
-          const fetchedTasks = await listTeamTasks(currentTeamId);
-          if (isMounted && fetchedTasks) {
-            setTasks(fetchedTasks);
-          }
-        } catch (err) {
-          console.error("Error loading team tasks:", err);
         }
       }
     }
 
-    initTeamAndTasks();
+    if (currentTeamId && isMounted) {
+      setActiveTeamId(currentTeamId);
 
-    return () => {
-      isMounted = false;
-    };
-  }, [urlTeamId, teamId]);
+      try {
+        const fetchedTasks = await listTeamTasks(currentTeamId);
+        if (isMounted && fetchedTasks) {
+          setTasks(fetchedTasks);
+        }
+      } catch (err) {
+        console.error("Error loading team tasks:", err);
+      }
+    }
+  }
+
+  initTeamAndTasks();
+
+  return () => {
+    isMounted = false;
+  };
+}, [urlTeamId, teamId, activeTeamInfo]);
 
   const parentTasks = useMemo(
     () => tasks.filter((t) => !t.is_personal),

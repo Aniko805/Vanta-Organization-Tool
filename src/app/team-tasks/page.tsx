@@ -9,7 +9,6 @@ interface PageProps {
 async function TeamTasksContent({ searchParams }: PageProps) {
   const resolvedParams = await searchParams;
 
-  // 1. Get current authenticated user
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -18,25 +17,33 @@ async function TeamTasksContent({ searchParams }: PageProps) {
   let teamId = resolvedParams.team || null;
 
   if (user) {
-    // Query team_members joined with teams table
+    // Fetch membership entry first
     const { data: member } = await supabase
       .from("team_members")
-      .select("team_id, teams ( id, name, team_number )")
+      .select("team_id")
       .eq("user_id", user.id)
+      .limit(1)
       .maybeSingle();
 
-    if (member) {
-      const teamData = member.teams as unknown as { id: string; name?: string; team_number?: string | number };
-      if (!teamId && member.team_id) {
-        teamId = member.team_id;
-      }
+    const resolvedTeamId = teamId || member?.team_id;
+
+    if (resolvedTeamId) {
+      teamId = resolvedTeamId;
+      
+      // Query team details directly from 'teams'
+      const { data: teamData } = await supabase
+        .from("teams")
+        .select("id, name, team_number")
+        .eq("id", resolvedTeamId)
+        .maybeSingle();
+
       if (teamData) {
         activeTeam = teamData;
       }
     }
   }
 
-  // 2. Fetch tasks for the active team
+  // Fetch tasks
   let tasks = [];
   if (teamId) {
     const { data } = await supabase
@@ -48,7 +55,6 @@ async function TeamTasksContent({ searchParams }: PageProps) {
     tasks = data || [];
   }
 
-  // 3. Fetch profiles for team members & parts catalog
   const { data: profiles } = await supabase.from("profiles").select("*");
   const { data: parts } = await supabase.from("parts").select("*");
 
