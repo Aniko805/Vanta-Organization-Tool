@@ -68,8 +68,6 @@ export type StatusList = {
 
 export type PartStatus = {
   id: string;
-  name: string;
-  description: string | null;
   status_id: string | null;
   part_id: string | null;
   quantity: number;

@@ -1,4 +1,10 @@
 -- Keep one catalog identity within a team and within the global official catalog.
+begin;
+
+alter table public.part_status
+  drop constraint if exists part_status_unique;
+drop index if exists public.part_status_part_status_uidx;
+
 with ranked_catalog as (
   select
     id,
@@ -115,10 +121,8 @@ with ranked_statuses as (
   where part_id is not null and status_id is not null
 )
 update public.part_status as ps
-set quantity = ranked_statuses.total_quantity,
-    name = coalesce(sl.name, ps.name)
+set quantity = ranked_statuses.total_quantity
 from ranked_statuses
-left join public.status_list as sl on sl.id = ranked_statuses.status_id
 where ps.id = ranked_statuses.keeper_id
   and ranked_statuses.row_number = 1;
 
@@ -140,6 +144,9 @@ delete from public.part_status as ps
 using ranked_statuses
 where ps.id = ranked_statuses.id
   and ranked_statuses.row_number > 1;
+
+alter table public.part_status
+  add constraint part_status_unique unique (part_id, status_id);
 
 with ranked_parts as (
   select
@@ -199,13 +206,9 @@ create unique index if not exists part_catalog_official_identity_uidx
   )
   where team_id is null and is_official;
 
-create unique index if not exists parts_team_catalog_uidx
-  on public.parts (team_id, part_catalog_id)
-  where part_catalog_id is not null;
-
-create unique index if not exists part_status_part_status_uidx
-  on public.part_status (part_id, status_id)
-  where part_id is not null and status_id is not null;
+drop index if exists public.parts_team_catalog_uidx;
+create unique index parts_team_catalog_uidx
+  on public.parts (team_id, part_catalog_id);
 
 create or replace function public.add_part_to_inventory(
   p_team_id uuid,
@@ -224,7 +227,6 @@ as $$
 declare
   v_catalog_id uuid;
   v_part_id uuid;
-  v_status_name text;
   v_name text := btrim(coalesce(p_name, ''));
   v_sku text := nullif(btrim(coalesce(p_sku, '')), '');
   v_description text := nullif(btrim(coalesce(p_description, '')), '');
@@ -239,8 +241,7 @@ begin
     raise exception 'Quantity must be greater than zero';
   end if;
 
-  select sl.name
-  into v_status_name
+  perform 1
   from public.status_list as sl
   where sl.id = p_status_id
     and (
@@ -320,29 +321,24 @@ begin
 
   insert into public.parts (team_id, part_catalog_id, created_by)
   values (p_team_id, v_catalog_id, auth.uid())
-  on conflict (team_id, part_catalog_id) where part_catalog_id is not null
+  on conflict (team_id, part_catalog_id)
   do update set updated_at = now()
   returning id into v_part_id;
 
-  insert into public.part_status (
+  insert into public.part_status as existing_status (
     part_id,
     status_id,
-    name,
     quantity,
     created_by
   )
   values (
     v_part_id,
     p_status_id,
-    v_status_name,
     p_quantity,
     auth.uid()
   )
   on conflict (part_id, status_id)
-    where part_id is not null and status_id is not null
-  do update set
-    quantity = public.part_status.quantity + excluded.quantity,
-    name = excluded.name;
+  do update set quantity = existing_status.quantity + excluded.quantity;
 
   return v_part_id;
 end;
@@ -362,7 +358,6 @@ declare
   v_team_id uuid;
   v_source_status_id uuid;
   v_source_quantity integer;
-  v_status_name text;
   v_target_id uuid;
 begin
   if auth.uid() is null then
@@ -382,8 +377,7 @@ begin
     raise exception 'You do not have permission to manage this inventory';
   end if;
 
-  select sl.name
-  into v_status_name
+  perform 1
   from public.status_list as sl
   where sl.id = p_status_id
     and (
@@ -401,9 +395,6 @@ begin
   for update;
 
   if v_source_status_id is not distinct from p_status_id then
-    update public.part_status
-    set name = v_status_name
-    where id = p_part_status_id;
     return;
   end if;
 
@@ -416,13 +407,11 @@ begin
 
   if v_target_id is null then
     update public.part_status
-    set status_id = p_status_id,
-        name = v_status_name
+    set status_id = p_status_id
     where id = p_part_status_id;
   else
     update public.part_status
-    set quantity = quantity + v_source_quantity,
-        name = v_status_name
+    set quantity = quantity + v_source_quantity
     where id = v_target_id;
     delete from public.part_status
     where id = p_part_status_id;
@@ -438,3 +427,5 @@ revoke all on function public.merge_part_status(uuid, uuid)
   from public, anon, authenticated;
 grant execute on function public.merge_part_status(uuid, uuid)
   to authenticated;
+
+commit;

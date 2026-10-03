@@ -122,7 +122,9 @@ export async function addPartToInventory(input: {
 }
 
 export async function deletePart(partId: string): Promise<void> {
-  const { error } = await supabase.from("parts").delete().eq("id", partId);
+  const { error } = await supabase.rpc("delete_part_from_inventory", {
+    p_part_id: partId,
+  });
   if (error) throw new Error(error.message);
 }
 
@@ -155,14 +157,17 @@ export async function countPartsByStatus(
 ): Promise<Record<string, number>> {
   const { data, error } = await supabase
     .from("part_status")
-    .select("name, status_id, part!inner(team_id)")
+    .select("status_id, part!inner(team_id)")
     .eq("part.team_id", teamId);
 
   if (error) throw new Error(error.message);
 
+  const statuses = await listPartStatuses(teamId);
+  const statusNames = new Map(statuses.map((status) => [status.id, status.name]));
+
   const counts: Record<string, number> = {};
   (data ?? []).forEach((row) => {
-    const key = row.name || "Unknown";
+    const key = statusNames.get(row.status_id ?? "") || "Unknown";
     counts[key] = (counts[key] || 0) + 1;
   });
 

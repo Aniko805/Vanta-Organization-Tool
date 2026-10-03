@@ -16,8 +16,10 @@ Adding a part currently creates a fresh catalog item, team inventory row, and st
 - Reuse catalog entries based on trimmed name, SKU, and description within the current team or global official catalog.
 - Offer catalog selection and status selection when adding an inventory item.
 - Maintain one team inventory row per catalog item and one status row per part/status pair.
+- Display one inventory listing per `(part_id, status_id)` so the same part can appear independently under multiple statuses.
 - Sum quantities when an existing matching status is added or when a status change targets an existing status row.
 - Consolidate historical duplicate rows while preserving task links.
+- Delete inventory rows together with their dependent statuses and task-part links.
 
 ### Out of scope
 
@@ -44,6 +46,7 @@ Adding a part currently creates a fresh catalog item, team inventory row, and st
 - Changing to an already-present status merges quantities and removes the duplicate row.
 - Historical deduplication preserves `task_parts` associations and quantities.
 - Inventory creation validates selected catalog/team/status IDs and the authenticated inventory-manager permission server-side.
+- Inventory deletion validates the authenticated inventory-manager permission server-side and removes dependent rows transactionally.
 
 ## UX / routes
 

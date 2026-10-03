@@ -20,10 +20,18 @@
 - [x] Review migration backfill, uniqueness, authorization, and transaction behavior.
 - [x] Document live Supabase validation steps.
 
+### 4. Status listings and deletion
+
+- [x] Render and filter each part/status row as an independent inventory listing.
+- [x] Update optimistic quantity edits to target the selected status row.
+- [x] Add a permission-checked transactional delete RPC that removes dependent rows first.
+- [x] Validate the UI and database helper changes.
+
 ## Notes
 
 - Sum quantities on repeated add and on status merge.
 - Match official catalog items and current-team items only, using trimmed name/SKU/description.
 - Preserve `task_parts` references when old duplicate team part rows are consolidated.
+- Current `part_status` rows store `status_id` and quantity only; status labels come from `status_list`.
 - Live database testing requires applying the migration.
 - `psql` and Supabase CLI are unavailable in the workspace, so SQL runtime validation remains pending.

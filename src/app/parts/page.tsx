@@ -27,6 +27,7 @@ import {
 import {
   type Part,
   type PartCatalog,
+  type PartStatus,
   type StatusList,
   type Team,
   type TeamMember,
@@ -142,17 +143,20 @@ export default function PartsPage() {
     loadData();
   }, [teamId, refresh]);
 
+  const listings = parts.flatMap<{ part: Part; statusRecord: PartStatus | null }>((part) => {
+    const partStatuses = part.part_status ?? [];
+    return partStatuses.length > 0
+      ? partStatuses.map((statusRecord) => ({ part, statusRecord }))
+      : [{ part, statusRecord: null }];
+  });
   const visible =
     filter === "all"
-      ? parts
-      : parts.filter((p) =>
-          p.part_status?.some(
-            (ps) =>
-              ps.status_id === filter ||
-              ps.status_list?.id === filter ||
-              ps.status_list?.name === filter ||
-              ps.name === filter
-          )
+      ? listings
+      : listings.filter(
+          ({ statusRecord }) =>
+            statusRecord?.status_id === filter ||
+            statusRecord?.status_list?.id === filter ||
+            statusRecord?.status_list?.name === filter
         );
 
   const handleCreate = async () => {
@@ -328,17 +332,14 @@ export default function PartsPage() {
             <FilterChip
               active={filter === "all"}
               onClick={() => setFilter("all")}
-              label={`All (${parts.length})`}
+              label={`All (${listings.length})`}
             />
             {statuses.map((status) => {
-              const count = parts.filter((p) =>
-                p.part_status?.some(
-                  (ps) =>
-                    ps.status_id === status.id ||
-                    ps.status_list?.id === status.id ||
-                    ps.status_list?.name === status.name ||
-                    ps.name === status.name
-                )
+              const count = listings.filter(
+                ({ statusRecord }) =>
+                  statusRecord?.status_id === status.id ||
+                  statusRecord?.status_list?.id === status.id ||
+                  statusRecord?.status_list?.name === status.name
               ).length;
 
               return (
@@ -371,20 +372,18 @@ export default function PartsPage() {
                 <EmptyState>No parts in this filter.</EmptyState>
               </Panel>
             ) : (
-              visible.map((part) => {
+              visible.map(({ part, statusRecord }) => {
                 const catalog = part.part_catalog;
-                const statusRecord = part.part_status?.[0];
                 const currentQty = statusRecord?.quantity ?? 1;
+                const currentStatus =
+                  statuses.find((status) => status.id === statusRecord?.status_id) ??
+                  statusRecord?.status_list;
                 const currentStatusId =
-                  statusRecord?.status_list?.id ??
-                  statuses.find((status) => status.id === statusRecord?.status_id)?.id ??
-                  statuses.find((status) => status.name === statusRecord?.name)?.id ??
-                  "";
-                const currentStatusName =
-                  statusRecord?.status_list?.name ?? statusRecord?.name ?? "Unknown";
+                  currentStatus?.id ?? "";
+                const currentStatusName = currentStatus?.name ?? "Unknown";
 
                 return (
-                  <Panel key={part.id} className="!p-4 flex flex-wrap items-center justify-between gap-4">
+                  <Panel key={`${part.id}-${statusRecord?.id ?? "no-status"}`} className="!p-4 flex flex-wrap items-center justify-between gap-4">
                     <div>
                       <p className="text-sm font-semibold text-zinc-100">
                         {catalog?.name ?? "Unnamed Part"}
@@ -407,10 +406,11 @@ export default function PartsPage() {
                                   p.id === part.id && p.part_status?.[0]
                                     ? {
                                         ...p,
-                                        part_status: [
-                                          { ...p.part_status[0], quantity: newQty },
-                                          ...p.part_status.slice(1),
-                                        ],
+                                        part_status: p.part_status?.map((status) =>
+                                          status.id === statusRecord.id
+                                            ? { ...status, quantity: newQty }
+                                            : status
+                                        ),
                                       }
                                     : p
                                 )
@@ -434,10 +434,11 @@ export default function PartsPage() {
                                   p.id === part.id && p.part_status?.[0]
                                     ? {
                                         ...p,
-                                        part_status: [
-                                          { ...p.part_status[0], quantity: next },
-                                          ...p.part_status.slice(1),
-                                        ],
+                                        part_status: p.part_status?.map((status) =>
+                                          status.id === statusRecord.id
+                                            ? { ...status, quantity: next }
+                                            : status
+                                        ),
                                       }
                                     : p
                                 )
@@ -456,10 +457,11 @@ export default function PartsPage() {
                                   p.id === part.id && p.part_status?.[0]
                                     ? {
                                         ...p,
-                                        part_status: [
-                                          { ...p.part_status[0], quantity: newQty },
-                                          ...p.part_status.slice(1),
-                                        ],
+                                        part_status: p.part_status?.map((status) =>
+                                          status.id === statusRecord.id
+                                            ? { ...status, quantity: newQty }
+                                            : status
+                                        ),
                                       }
                                     : p
                                 )
