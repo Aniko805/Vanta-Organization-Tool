@@ -10,8 +10,9 @@ import AppShell, {
   SecondaryButton,
 } from "@/app/components/AppShell";
 import {
-  createPart,
+  addPartToInventory,
   deletePart,
+  listPartCatalog,
   listPartStatuses,
   listParts,
   updatePartQuantity,
@@ -23,7 +24,13 @@ import {
   listTeamMembers,
   memberCanManageInventory,
 } from "@/lib/teams";
-import { type Part, type StatusList, type Team, type TeamMember } from "@/lib/types";
+import {
+  type Part,
+  type PartCatalog,
+  type StatusList,
+  type Team,
+  type TeamMember,
+} from "@/lib/types";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 export default function PartsPage() {
@@ -32,7 +39,10 @@ export default function PartsPage() {
   const [teamId, setTeamId] = useState<string | null>(null);
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [parts, setParts] = useState<Part[]>([]);
+  const [catalog, setCatalog] = useState<PartCatalog[]>([]);
   const [statuses, setStatuses] = useState<StatusList[]>([]);
+  const [selectedCatalogId, setSelectedCatalogId] = useState("new");
+  const [selectedStatusId, setSelectedStatusId] = useState("");
   const [filter, setFilter] = useState<string>("all");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -50,26 +60,42 @@ export default function PartsPage() {
     selectedTeam && userId
       ? memberCanManageInventory(selectedTeam, userId, myMembership)
       : false;
+  const selectedCatalog = catalog.find((item) => item.id === selectedCatalogId);
+  const hasValidCatalogSelection =
+    selectedCatalogId === "new" ? Boolean(name.trim()) : Boolean(selectedCatalog);
 
   const refresh = useCallback(async (tid: string) => {
     const generation = ++refreshGeneration.current;
     setLoading(true);
     setError(null);
     try {
-      const [p, m, s] = await Promise.all([
+      const [p, m, s, c] = await Promise.all([
         listParts(tid),
         listTeamMembers(tid),
         listPartStatuses(tid),
+        listPartCatalog(tid),
       ]);
       if (generation !== refreshGeneration.current) return;
       setParts(p);
       setMembers(m);
       setStatuses(s);
+      setCatalog(c);
+      setSelectedStatusId((current) => {
+        if (s.some((status) => status.id === current)) return current;
+        return (
+          s.find((status) => status.name === "PLANNING")?.id ??
+          s.find((status) => status.is_default)?.id ??
+          s[0]?.id ??
+          ""
+        );
+      });
     } catch (e) {
       if (generation !== refreshGeneration.current) return;
       setParts([]);
       setMembers([]);
       setStatuses([]);
+      setCatalog([]);
+      setSelectedStatusId("");
       setError(e instanceof Error ? e.message : "Failed to load parts");
     } finally {
       if (generation === refreshGeneration.current) setLoading(false);
@@ -130,52 +156,21 @@ export default function PartsPage() {
         );
 
   const handleCreate = async () => {
-    if (!userId || !teamId || !name.trim()) return;
+    if (!userId || !teamId || !hasValidCatalogSelection || !selectedStatusId) return;
     setBusy(true);
     setError(null);
     try {
-      const initialStatus =
-        statuses.find((status) => status.name === "PLANNING") ??
-        statuses.find((status) => status.is_default) ??
-        statuses[0];
-
-      if (!initialStatus) {
-        throw new Error("No inventory statuses are configured for this team.");
-      }
-
-      // 1. Insert into part_catalog
-      const { data: catalogData, error: catalogError } = await supabase
-        .from("part_catalog")
-        .insert({
-          name,
-          sku: sku || null,
-          description: notes || null,
-          team_id: teamId,
-          created_by: userId,
-        })
-        .select()
-        .single();
-
-      if (catalogError) throw new Error(catalogError.message);
-
-      // 2. Create actual Part relation
-      const part = await createPart({
+      await addPartToInventory({
         teamId,
-        catalogId: catalogData.id,
-        createdBy: userId,
-      });
-
-      // 3. Insert initial status tracking entry
-      const { error: statusError } = await supabase.from("part_status").insert({
-        part_id: part.id,
-        status_id: initialStatus.id,
-        name: initialStatus.name,
+        catalogId: selectedCatalog?.id ?? null,
+        name: selectedCatalog?.name ?? name.trim(),
+        sku: selectedCatalog?.sku ?? sku.trim(),
+        description: selectedCatalog?.description ?? notes.trim(),
+        statusId: selectedStatusId,
         quantity,
-        created_by: userId,
       });
 
-      if (statusError) throw new Error(statusError.message);
-
+      setSelectedCatalogId("new");
       setName("");
       setSku("");
       setNotes("");
@@ -203,7 +198,10 @@ export default function PartsPage() {
             setFilter("all");
             setParts([]);
             setMembers([]);
+            setCatalog([]);
             setStatuses([]);
+            setSelectedCatalogId("new");
+            setSelectedStatusId("");
             setError(null);
             setLoading(Boolean(nextTeamId));
             setTeamId(nextTeamId);
@@ -231,20 +229,52 @@ export default function PartsPage() {
               <Label>Add part</Label>
               <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                 <FieldInput
-                  placeholder="Part name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                />
+                  as="select"
+                  aria-label="Catalog part"
+                  className="md:col-span-2"
+                  value={selectedCatalogId}
+                  onChange={(e) => setSelectedCatalogId(e.target.value)}
+                >
+                  <option value="new">Create a new catalog item</option>
+                  {catalog.some((item) => item.is_official) ? (
+                    <optgroup label="Official parts">
+                      {catalog
+                        .filter((item) => item.is_official)
+                        .map((item) => (
+                          <option key={item.id} value={item.id}>
+                            {item.name}{item.sku ? ` · ${item.sku}` : ""}
+                          </option>
+                        ))}
+                    </optgroup>
+                  ) : null}
+                  {catalog.some((item) => item.team_id === teamId) ? (
+                    <optgroup label="Team parts">
+                      {catalog
+                        .filter((item) => item.team_id === teamId)
+                        .map((item) => (
+                          <option key={item.id} value={item.id}>
+                            {item.name}{item.sku ? ` · ${item.sku}` : ""}
+                          </option>
+                        ))}
+                    </optgroup>
+                  ) : null}
+                </FieldInput>
                 <FieldInput
-                  placeholder="SKU / type"
-                  value={sku}
-                  onChange={(e) => setSku(e.target.value)}
-                />
-                <FieldInput
-                  placeholder="Notes"
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                />
+                  as="select"
+                  aria-label="Initial part status"
+                  value={selectedStatusId}
+                  disabled={statuses.length === 0}
+                  onChange={(e) => setSelectedStatusId(e.target.value)}
+                >
+                  {statuses.length === 0 ? (
+                    <option value="">No statuses available</option>
+                  ) : null}
+                  {statuses.map((status) => (
+                    <option key={status.id} value={status.id}>
+                      {status.name}
+                    </option>
+                  ))}
+                </FieldInput>
                 <FieldInput
                   type="number"
                   min="1"
@@ -252,9 +282,37 @@ export default function PartsPage() {
                   value={quantity}
                   onChange={(e) => setQuantity(parseInt(e.target.value, 10) || 1)}
                 />
+                {selectedCatalogId === "new" ? (
+                  <>
+                    <FieldInput
+                      placeholder="Part name"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                    />
+                    <FieldInput
+                      placeholder="SKU / type"
+                      value={sku}
+                      onChange={(e) => setSku(e.target.value)}
+                    />
+                    <FieldInput
+                      placeholder="Description"
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
+                    />
+                  </>
+                ) : (
+                  <p className="md:col-span-4 text-xs text-zinc-500">
+                    {selectedCatalog?.description || "No description"}
+                  </p>
+                )}
               </div>
               <PrimaryButton
-                disabled={busy || !name.trim() || statuses.length === 0}
+                disabled={
+                  busy ||
+                  !hasValidCatalogSelection ||
+                  !selectedStatusId ||
+                  statuses.length === 0
+                }
                 onClick={handleCreate}
               >
                 Add to inventory
@@ -419,7 +477,7 @@ export default function PartsPage() {
                         </span>
                       )}
 
-                      {canManage && statusRecord ? (
+                      {canManage && statusRecord && statuses.length > 0 ? (
                         <FieldInput
                           as="select"
                           className="w-40"

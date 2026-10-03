@@ -8,7 +8,7 @@ CREATE TABLE public.profiles (
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp without time zone DEFAULT now(),
   username text NOT NULL UNIQUE,
-  avatar_url text,
+  avatar_image text,
   bio text,
   CONSTRAINT profiles_pkey PRIMARY KEY (id),
   CONSTRAINT profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id)
@@ -134,8 +134,6 @@ CREATE TABLE public.status_list (
 );
 CREATE TABLE public.part_status (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
-  name text NOT NULL,
-  description text,
   status_id uuid,
   part_id uuid,
   quantity integer NOT NULL DEFAULT 0 CHECK (quantity >= 0),
