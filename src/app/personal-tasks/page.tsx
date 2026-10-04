@@ -9,6 +9,7 @@ import AppShell, {
   PrimaryButton,
   SecondaryButton,
 } from "@/app/components/AppShell";
+import TaskCard from "@/app/components/TaskCard";
 import { supabase } from "@/lib/supabase";
 import {
   createTask,
@@ -22,9 +23,27 @@ import {
   type TaskStatus,
   type TaskWithRelations,
 } from "@/lib/types";
-import { useCallback, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useCallback, useEffect, useState } from "react";
 
 export default function PersonalTasksPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-black text-zinc-500 font-mono text-xs flex items-center justify-center">
+          Loading personal tasks…
+        </div>
+      }
+    >
+      <PersonalTasksContent />
+    </Suspense>
+  );
+}
+
+function PersonalTasksContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const queryString = searchParams.toString();
   const [userId, setUserId] = useState<string | null>(null);
   const [tasks, setTasks] = useState<TaskWithRelations[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -70,6 +89,35 @@ export default function PersonalTasksPage() {
       mounted = false;
     };
   }, [refresh]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(queryString);
+    if (params.get("new") !== "1") return;
+
+    setShowForm(true);
+    const parentId = params.get("parent");
+    if (!parentId) {
+      router.replace("/personal-tasks");
+      return;
+    }
+    if (loading) return;
+
+    const parentTask = tasks.find((task) => task.id === parentId);
+    if (parentTask?.is_personal) {
+      setSelectedParentId(parentTask.id);
+    } else {
+      setError("The selected personal parent task is unavailable.");
+    }
+    router.replace("/personal-tasks");
+  }, [loading, queryString, router, tasks]);
+
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (!hash.startsWith("#task-")) return;
+    document.getElementById(decodeURIComponent(hash.slice(1)))?.scrollIntoView({
+      block: "center",
+    });
+  }, [tasks]);
 
   const handleCreate = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -130,7 +178,11 @@ export default function PersonalTasksPage() {
   };
 
   const handleDelete = async (task: TaskWithRelations) => {
-    if (!window.confirm(`Are you sure you want to delete "${task.name}"?`)) {
+    if (
+      !window.confirm(
+        `Delete "${task.name}" and all of its child tasks? This cannot be undone.`
+      )
+    ) {
       return;
     }
     setError(null);
@@ -159,88 +211,92 @@ export default function PersonalTasksPage() {
         <ErrorText>{error}</ErrorText>
 
         {showForm && (
-          <Panel className="space-y-4">
-            <Label>New personal task</Label>
-            <form onSubmit={handleCreate} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
-                <FieldInput
-                  placeholder="Task name"
-                  value={taskName}
-                  onChange={(event) => setTaskName(event.target.value)}
-                  required
-                />
-                <FieldInput
-                  as="select"
-                  value={selectedStatus}
-                  onChange={(event) =>
-                    setSelectedStatus(event.target.value as TaskStatus)
-                  }
-                  aria-label="Initial status"
-                >
-                  {TASK_COLUMNS.map((column) => (
-                    <option key={column.id} value={column.id}>
-                      Status: {column.label}
-                    </option>
-                  ))}
-                </FieldInput>
-                <FieldInput
-                  as="select"
-                  value={importance}
-                  onChange={(event) =>
-                    setImportance(event.target.value as Importance)
-                  }
-                  aria-label="Importance"
-                >
-                  <option value="low">Importance: Low</option>
-                  <option value="medium">Importance: Medium</option>
-                  <option value="high">Importance: High</option>
-                  <option value="critical">Importance: Critical</option>
-                </FieldInput>
-                <FieldInput
-                  as="select"
-                  value={selectedParentId}
-                  onChange={(event) => setSelectedParentId(event.target.value)}
-                  aria-label="Parent task"
-                >
-                  <option value="none">No parent task</option>
-                  {tasks.map((task) => (
-                    <option key={task.id} value={task.id}>
-                      {task.is_personal ? "Personal" : "Team"}: {task.name}
-                    </option>
-                  ))}
-                </FieldInput>
-              </div>
-              <FieldInput
-                as="textarea"
-                placeholder="Description"
-                value={description}
-                onChange={(event) => setDescription(event.target.value)}
-              />
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <FieldInput
-                  type="date"
-                  value={dueDate}
-                  onChange={(event) => setDueDate(event.target.value)}
-                  aria-label="Due date"
-                  className="md:max-w-56"
-                />
-                <div className="flex gap-2">
-                  <SecondaryButton
-                    type="button"
-                    onClick={() => setShowForm(false)}
+          <div id="task-form">
+            <Panel className="space-y-4">
+              <Label>New personal task</Label>
+              <form onSubmit={handleCreate} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+                  <FieldInput
+                    placeholder="Task name"
+                    value={taskName}
+                    onChange={(event) => setTaskName(event.target.value)}
+                    required
+                  />
+                  <FieldInput
+                    as="select"
+                    value={selectedStatus}
+                    onChange={(event) =>
+                      setSelectedStatus(event.target.value as TaskStatus)
+                    }
+                    aria-label="Initial status"
                   >
-                    Cancel
-                  </SecondaryButton>
-                  <PrimaryButton
-                    type="submit"
-                    disabled={busy || !taskName.trim()}
+                    {TASK_COLUMNS.map((column) => (
+                      <option key={column.id} value={column.id}>
+                        Status: {column.label}
+                      </option>
+                    ))}
+                  </FieldInput>
+                  <FieldInput
+                    as="select"
+                    value={importance}
+                    onChange={(event) =>
+                      setImportance(event.target.value as Importance)
+                    }
+                    aria-label="Importance"
                   >
-                    {busy ? "Adding..." : "Add personal task"}
-                  </PrimaryButton>
+                    <option value="low">Importance: Low</option>
+                    <option value="medium">Importance: Medium</option>
+                    <option value="high">Importance: High</option>
+                    <option value="critical">Importance: Critical</option>
+                  </FieldInput>
+                  <FieldInput
+                    as="select"
+                    value={selectedParentId}
+                    onChange={(event) => setSelectedParentId(event.target.value)}
+                    aria-label="Parent task"
+                  >
+                    <option value="none">No parent task</option>
+                    {tasks
+                      .filter((task) => task.is_personal)
+                      .map((task) => (
+                        <option key={task.id} value={task.id}>
+                          {task.name}
+                        </option>
+                      ))}
+                  </FieldInput>
                 </div>
-              </div>
-            </form>
-          </Panel>
+                <FieldInput
+                  as="textarea"
+                  placeholder="Description"
+                  value={description}
+                  onChange={(event) => setDescription(event.target.value)}
+                />
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <FieldInput
+                    type="date"
+                    value={dueDate}
+                    onChange={(event) => setDueDate(event.target.value)}
+                    aria-label="Due date"
+                    className="md:max-w-56"
+                  />
+                  <div className="flex gap-2">
+                    <SecondaryButton
+                      type="button"
+                      onClick={() => setShowForm(false)}
+                    >
+                      Cancel
+                    </SecondaryButton>
+                    <PrimaryButton
+                      type="submit"
+                      disabled={busy || !taskName.trim()}
+                    >
+                      {busy ? "Adding..." : "Add personal task"}
+                    </PrimaryButton>
+                  </div>
+                </div>
+              </form>
+            </Panel>
+          </div>
         )}
 
         {loading ? (
@@ -281,22 +337,28 @@ export default function PersonalTasksPage() {
                         const parentTask = tasks.find(
                           (candidate) => candidate.id === task.parent_id
                         );
-                        const childCount = tasks.filter(
-                          (candidate) => candidate.parent_id === task.id
-                        ).length;
                         return (
                           <TaskCard
                             key={task.id}
                             task={task}
                             parentTask={parentTask}
-                            childCount={childCount}
+                            childTasks={
+                              task.child_tasks ??
+                              tasks.filter(
+                                (candidate) => candidate.parent_id === task.id
+                              )
+                            }
                             isDragging={draggedTaskId === task.id}
                             onDragStart={() => setDraggedTaskId(task.id)}
                             onDragEnd={() => setDraggedTaskId(null)}
                             onStatusChange={(status) =>
                               void handleStatusChange(task.id, status)
                             }
-                            onDelete={() => void handleDelete(task)}
+                            onDelete={
+                              task.is_personal
+                                ? () => void handleDelete(task)
+                                : undefined
+                            }
                           />
                         );
                       })
@@ -309,104 +371,5 @@ export default function PersonalTasksPage() {
         )}
       </div>
     </AppShell>
-  );
-}
-
-function TaskCard({
-  task,
-  parentTask,
-  childCount,
-  isDragging,
-  onDragStart,
-  onDragEnd,
-  onStatusChange,
-  onDelete,
-}: {
-  task: TaskWithRelations;
-  parentTask?: TaskWithRelations;
-  childCount: number;
-  isDragging: boolean;
-  onDragStart: () => void;
-  onDragEnd: () => void;
-  onStatusChange: (status: TaskStatus) => void;
-  onDelete: () => void;
-}) {
-  const isTeamTask = !task.is_personal;
-  const sourceLabel = isTeamTask
-    ? task.teams
-      ? `${task.teams.name}${task.teams.team_number ? ` #${task.teams.team_number}` : ""}`
-      : "Team task"
-    : "Personal task";
-
-  return (
-    <article
-      draggable
-      onDragStart={onDragStart}
-      onDragEnd={onDragEnd}
-      className={`space-y-3 p-4 rounded-lg cursor-grab active:cursor-grabbing transition-colors ${
-        isTeamTask
-          ? "bg-emerald-950/30 border border-emerald-900 hover:border-emerald-700"
-          : "bg-black border border-zinc-800 hover:border-zinc-700"
-      } ${isDragging ? "opacity-50" : ""}`}
-    >
-      <div className="flex justify-between items-start gap-3">
-        <div className="min-w-0 space-y-1">
-          <span
-            className={`text-[9px] font-mono uppercase ${
-              isTeamTask ? "text-emerald-300" : "text-zinc-500"
-            }`}
-          >
-            {isTeamTask ? "Team" : "Personal"} / {sourceLabel}
-          </span>
-          <h3 className="text-xs font-semibold text-zinc-100 leading-snug break-words">
-            {task.name}
-          </h3>
-        </div>
-        <span className="shrink-0 text-[10px] font-mono uppercase text-zinc-500">
-          {task.importance}
-        </span>
-      </div>
-
-      {task.description ? (
-        <p className="text-xs text-zinc-500 leading-relaxed line-clamp-3">
-          {task.description}
-        </p>
-      ) : null}
-
-      {task.parent_id ? (
-        <p className="text-[10px] font-mono text-zinc-400 break-words">
-          Child of: {parentTask?.name ?? "Linked task"}
-        </p>
-      ) : null}
-      {childCount > 0 ? (
-        <p className="text-[10px] font-mono text-zinc-500">
-          {childCount} child {childCount === 1 ? "task" : "tasks"}
-        </p>
-      ) : null}
-      {task.due_date ? (
-        <p className="text-[10px] font-mono text-zinc-500">
-          Due {task.due_date}
-        </p>
-      ) : null}
-
-      <FieldInput
-        as="select"
-        value={task.status}
-        onChange={(event) => onStatusChange(event.target.value as TaskStatus)}
-        aria-label={`Move ${task.name} to status`}
-      >
-        {TASK_COLUMNS.map((column) => (
-          <option key={column.id} value={column.id}>
-            {column.label}
-          </option>
-        ))}
-      </FieldInput>
-
-      {task.is_personal ? (
-        <SecondaryButton type="button" onClick={onDelete}>
-          Delete
-        </SecondaryButton>
-      ) : null}
-    </article>
   );
 }

@@ -3,6 +3,7 @@ import type {
   Importance,
   Subtask,
   Task,
+  TaskLink,
   TaskStatus,
   TaskWithRelations,
 } from "./types";
@@ -127,7 +128,9 @@ export async function updateTask(
 }
 
 export async function deleteTask(taskId: string): Promise<void> {
-  const { error } = await supabase.from("tasks").delete().eq("id", taskId);
+  const { error } = await supabase.rpc("delete_task_tree", {
+    p_task_id: taskId,
+  });
   if (error) throw new Error(error.message);
 }
 
@@ -212,7 +215,59 @@ export async function listPersonalAndAssignedTasks(
   for (const task of [...(personal ?? []), ...assigned] as TaskWithRelations[]) {
     byId.set(task.id, task);
   }
-  return [...byId.values()];
+
+  const visibleTasks = [...byId.values()];
+  const childrenByParent = new Map<string, TaskLink[]>();
+  const personalParentIds = visibleTasks
+    .filter((task) => task.is_personal)
+    .map((task) => task.id);
+
+  if (personalParentIds.length > 0) {
+    const { data, error } = await supabase
+      .from("tasks")
+      .select("id, name, team_id, is_personal, parent_id")
+      .in("parent_id", personalParentIds)
+      .eq("is_personal", true)
+      .eq("created_by", userId);
+
+    if (error) throw new Error(error.message);
+    for (const child of (data ?? []) as TaskLink[]) {
+      if (!child.parent_id) continue;
+      const siblings = childrenByParent.get(child.parent_id) ?? [];
+      siblings.push(child);
+      childrenByParent.set(child.parent_id, siblings);
+    }
+  }
+
+  const teamParentsById = new Map<string, string[]>();
+  for (const task of visibleTasks) {
+    if (task.is_personal || !task.team_id) continue;
+    const parentIds = teamParentsById.get(task.team_id) ?? [];
+    parentIds.push(task.id);
+    teamParentsById.set(task.team_id, parentIds);
+  }
+
+  for (const [teamId, parentIds] of teamParentsById) {
+    const { data, error } = await supabase
+      .from("tasks")
+      .select("id, name, team_id, is_personal, parent_id")
+      .eq("team_id", teamId)
+      .eq("is_personal", false)
+      .in("parent_id", parentIds);
+
+    if (error) throw new Error(error.message);
+    for (const child of (data ?? []) as TaskLink[]) {
+      if (!child.parent_id) continue;
+      const siblings = childrenByParent.get(child.parent_id) ?? [];
+      siblings.push(child);
+      childrenByParent.set(child.parent_id, siblings);
+    }
+  }
+
+  return visibleTasks.map((task) => ({
+    ...task,
+    child_tasks: childrenByParent.get(task.id) ?? [],
+  }));
 }
 
 export async function createSubtask(input: {

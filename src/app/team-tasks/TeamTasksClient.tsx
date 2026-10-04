@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useRef, useMemo, useEffect } from "react";
-import { useSearchParams } from "next/navigation";
+import { useState, useMemo, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import AppShell, {
   Panel,
   Label,
@@ -10,13 +10,16 @@ import AppShell, {
   SecondaryButton,
   EmptyState,
 } from "@/app/components/AppShell";
-import { createTask, updateTask, listTeamTasks } from "@/lib/tasks";
+import TaskCard from "@/app/components/TaskCard";
+import { createTask, deleteTask, updateTask, listTeamTasks } from "@/lib/tasks";
+import { listAssignableParts } from "@/lib/parts";
+import { getTeam, listTeamMembers, memberCanManageTasks } from "@/lib/teams";
 import { supabase } from "@/lib/supabase";
 import {
   displayNameFromProfile,
   type TaskStatus,
   type TaskWithRelations,
-  type Profile,
+  type TeamMember,
   type Part,
 } from "@/lib/types";
 
@@ -30,26 +33,24 @@ const KANBAN_COLUMNS: { id: TaskStatus; label: string }[] = [
 export interface TeamInfo {
   id: string;
   name?: string;
-  team_number?: string | number;
+  team_number?: string | number | null;
 }
 
 export interface TeamTasksClientProps {
   initialTasks?: TaskWithRelations[];
-  teamMembers?: Profile[];
-  assignableParts?: Part[];
   teamId?: string | null;
   activeTeamInfo?: TeamInfo | null;
 }
 
 export default function TeamTasksClient({
   initialTasks = [],
-  teamMembers = [],
-  assignableParts = [],
   teamId,
   activeTeamInfo,
 }: TeamTasksClientProps) {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const urlTeamId = searchParams.get("team");
+  const queryString = searchParams.toString();
 
   const [activeTeam, setActiveTeam] = useState<TeamInfo | null>(activeTeamInfo || null);
   const [activeTeamId, setActiveTeamId] = useState<string | null>(
@@ -57,8 +58,14 @@ export default function TeamTasksClient({
   );
 
   const [tasks, setTasks] = useState<TaskWithRelations[]>(initialTasks);
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [assignableParts, setAssignableParts] = useState<Part[]>([]);
+  const [canManageTasks, setCanManageTasks] = useState(false);
+  const [boardReady, setBoardReady] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [loadingOptions, setLoadingOptions] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
 
@@ -70,66 +77,126 @@ export default function TeamTasksClient({
   const [selectedAssignees, setSelectedAssignees] = useState<string[]>([]);
   const [selectedParts, setSelectedParts] = useState<string[]>([]);
 
-  const createFormRef = useRef<HTMLDivElement | null>(null);
-
   // Fetch team details and tasks when page mounts or team changes
   useEffect(() => {
-  let isMounted = true;
+    let isMounted = true;
 
-  async function initTeamAndTasks() {
-    let currentTeamId = urlTeamId || activeTeamInfo?.id || teamId;
-
-    if (!currentTeamId) {
+    async function initTeamAndTasks() {
       const {
         data: { user },
       } = await supabase.auth.getUser();
+      let currentTeamId = urlTeamId || activeTeamInfo?.id || teamId || null;
 
-      if (user) {
-        // Step 1: Find user's team ID
+      if (!currentTeamId && user) {
         const { data: member } = await supabase
           .from("team_members")
           .select("team_id")
           .eq("user_id", user.id)
           .limit(1)
           .maybeSingle();
-
-        if (member?.team_id) {
-          currentTeamId = member.team_id;
-
-          // Step 2: Fetch team metadata (number/name)
-          const { data: teamData } = await supabase
-            .from("teams")
-            .select("id, name, team_number")
-            .eq("id", member.team_id)
-            .maybeSingle();
-
-          if (teamData && isMounted) {
-            setActiveTeam(teamData);
-          }
-        }
+        currentTeamId = member?.team_id ?? null;
       }
-    }
 
-    if (currentTeamId && isMounted) {
+      if (!currentTeamId || !isMounted) {
+        setActiveTeamId(null);
+        setActiveTeam(null);
+        setTasks([]);
+        setTeamMembers([]);
+        setAssignableParts([]);
+        setCanManageTasks(false);
+        setLoadingOptions(false);
+        setBoardReady(true);
+        return;
+      }
+
       setActiveTeamId(currentTeamId);
+      setBoardReady(false);
+      setLoadingOptions(true);
+      setLoadError(null);
+      setTasks([]);
+      setTeamMembers([]);
+      setAssignableParts([]);
+      setCanManageTasks(false);
 
       try {
-        const fetchedTasks = await listTeamTasks(currentTeamId);
-        if (isMounted && fetchedTasks) {
+        const [teamData, fetchedTasks, members, parts] = await Promise.all([
+          getTeam(currentTeamId),
+          listTeamTasks(currentTeamId),
+          listTeamMembers(currentTeamId),
+          listAssignableParts(currentTeamId),
+        ]);
+        if (isMounted) {
+          setActiveTeam(teamData);
           setTasks(fetchedTasks);
+          setTeamMembers(members);
+          setAssignableParts(parts);
+          setCanManageTasks(
+            Boolean(
+              user &&
+                teamData &&
+                memberCanManageTasks(
+                  teamData,
+                  user.id,
+                  members.find((member) => member.user_id === user.id)
+                )
+            )
+          );
         }
       } catch (err) {
-        console.error("Error loading team tasks:", err);
+        if (isMounted) {
+          setLoadError(
+            err instanceof Error ? err.message : "Failed to load team data"
+          );
+        }
+      } finally {
+        if (isMounted) {
+          setLoadingOptions(false);
+          setBoardReady(true);
+        }
       }
     }
-  }
 
-  initTeamAndTasks();
+    void initTeamAndTasks();
 
-  return () => {
-    isMounted = false;
-  };
-}, [urlTeamId, teamId, activeTeamInfo]);
+    return () => {
+      isMounted = false;
+    };
+  }, [urlTeamId, teamId, activeTeamInfo]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(queryString);
+    if (params.get("new") !== "1" || !boardReady) return;
+
+    setShowForm(true);
+    const parentId = params.get("parent");
+    const parentTask = parentId
+      ? tasks.find(
+          (task) =>
+            task.id === parentId &&
+            !task.is_personal &&
+            task.team_id === activeTeamId
+        )
+      : undefined;
+
+    if (parentTask) {
+      setSelectedParentId(parentTask.id);
+    } else if (parentId) {
+      setErrorMessage("The selected team parent task is unavailable.");
+    }
+
+    const teamQuery = activeTeamId
+      ? `?team=${encodeURIComponent(activeTeamId)}`
+      : "";
+    router.replace(`/team-tasks${teamQuery}`);
+  }, [activeTeamId, boardReady, queryString, router, tasks]);
+
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (!hash.startsWith("#task-")) return;
+    document.getElementById(decodeURIComponent(hash.slice(1)))?.scrollIntoView({
+      block: "center",
+    });
+  }, [tasks]);
 
   const parentTasks = useMemo(
     () => tasks.filter((t) => !t.is_personal),
@@ -177,8 +244,8 @@ export default function TeamTasksClient({
       importance: "medium",
       parent_id: selectedParentId === "none" ? null : selectedParentId,
       task_assignees: selectedAssignees.map((id) => {
-        const profile = teamMembers.find((m) => m.id === id);
-        return { user_id: id, profiles: profile ?? null };
+        const member = teamMembers.find((m) => m.user_id === id);
+        return { user_id: id, profiles: member?.profiles ?? null };
       }),
       task_parts: selectedParts.map((id) => {
         const part = assignableParts.find((p) => p.id === id);
@@ -206,7 +273,11 @@ export default function TeamTasksClient({
       // 4. Update state with real Supabase task record
       if (createdTask && createdTask.id) {
         setTasks((prev) =>
-          prev.map((t) => (t.id === tempId ? createdTask : t))
+          prev.map((task) =>
+            task.id === tempId
+              ? { ...optimisticTask, ...createdTask }
+              : task
+          )
         );
       }
 
@@ -268,6 +339,46 @@ export default function TeamTasksClient({
     }
   };
 
+  const handleStatusChange = async (taskId: string, status: TaskStatus) => {
+    const currentTask = tasks.find((task) => task.id === taskId);
+    if (!currentTask || currentTask.status === status) return;
+
+    setTasks((current) =>
+      current.map((task) => (task.id === taskId ? { ...task, status } : task))
+    );
+    try {
+      if (!taskId.startsWith("temp-")) {
+        await updateTask(taskId, { status });
+      }
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : "Update failed");
+      setTasks((current) =>
+        current.map((task) =>
+          task.id === taskId ? { ...task, status: currentTask.status } : task
+        )
+      );
+    }
+  };
+
+  const handleDelete = async (task: TaskWithRelations) => {
+    if (
+      !window.confirm(
+        `Delete "${task.name}" and all of its child tasks? This cannot be undone.`
+      )
+    ) {
+      return;
+    }
+    if (!activeTeamId) return;
+
+    setErrorMessage(null);
+    try {
+      await deleteTask(task.id);
+      setTasks(await listTeamTasks(activeTeamId));
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : "Delete failed");
+    }
+  };
+
   return (
     <AppShell
       eyebrow="Operations"
@@ -295,6 +406,12 @@ export default function TeamTasksClient({
           </div>
         </div>
 
+        {loadError && (
+          <div className="p-3 bg-red-950/80 border border-red-800 rounded-lg text-xs text-red-200">
+            <strong>Loading Error:</strong> {loadError}
+          </div>
+        )}
+
         {errorMessage && (
           <div className="p-3 bg-red-950/80 border border-red-800 rounded-lg text-xs text-red-200">
             <strong>Supabase Error:</strong> {errorMessage}
@@ -303,7 +420,7 @@ export default function TeamTasksClient({
 
         {/* Creation Form Panel */}
         {showForm && (
-          <div ref={createFormRef}>
+          <div id="task-form">
             <Panel className="space-y-4">
               <Label>Create Task</Label>
               <form onSubmit={handleCreateTask} className="space-y-4">
@@ -354,21 +471,25 @@ export default function TeamTasksClient({
                   <div>
                     <Label>Assign Team Members</Label>
                     <div className="mt-2 space-y-1 max-h-36 overflow-y-auto pr-2">
-                      {teamMembers.length === 0 ? (
-                        <EmptyState>No members available</EmptyState>
+                      {loadingOptions ? (
+                        <EmptyState>Loading team members...</EmptyState>
+                      ) : teamMembers.length === 0 ? (
+                        <EmptyState>
+                          {loadError ? "Team members unavailable" : "No team members available"}
+                        </EmptyState>
                       ) : (
                         teamMembers.map((m) => (
                           <label
-                            key={m.id}
+                            key={m.user_id}
                             className="flex items-center gap-2 text-xs text-zinc-400 cursor-pointer hover:text-white"
                           >
                             <input
                               type="checkbox"
-                              checked={selectedAssignees.includes(m.id)}
-                              onChange={() => toggleAssignee(m.id)}
+                              checked={selectedAssignees.includes(m.user_id)}
+                              onChange={() => toggleAssignee(m.user_id)}
                               className="accent-white"
                             />
-                            {displayNameFromProfile(m)}
+                            {displayNameFromProfile(m.profiles)}
                           </label>
                         ))
                       )}
@@ -378,8 +499,12 @@ export default function TeamTasksClient({
                   <div>
                     <Label>Attach Parts</Label>
                     <div className="mt-2 space-y-1 max-h-36 overflow-y-auto pr-2">
-                      {assignableParts.length === 0 ? (
-                        <EmptyState>No assignable parts</EmptyState>
+                      {loadingOptions ? (
+                        <EmptyState>Loading team parts...</EmptyState>
+                      ) : assignableParts.length === 0 ? (
+                        <EmptyState>
+                          {loadError ? "Team parts unavailable" : "No assignable parts"}
+                        </EmptyState>
                       ) : (
                         assignableParts.map((p) => (
                           <label
@@ -445,57 +570,23 @@ export default function TeamTasksClient({
                     </div>
                   ) : (
                     columnTasks.map((task) => (
-                      <div
+                      <TaskCard
                         key={task.id}
-                        draggable
+                        task={task}
+                        parentTask={tasks.find((candidate) => candidate.id === task.parent_id)}
+                        childTasks={tasks.filter((candidate) => candidate.parent_id === task.id)}
+                        isDragging={draggedTaskId === task.id}
                         onDragStart={() => handleDragStart(task.id)}
-                        className="group bg-black border border-zinc-800 hover:border-zinc-700 p-4 rounded-lg space-y-3 cursor-grab active:cursor-grabbing transition-all shadow-sm hover:shadow-md"
-                      >
-                        <div className="flex justify-between items-start gap-2">
-                          <h3 className="text-xs font-semibold text-zinc-100 leading-snug">
-                            {task.name}
-                          </h3>
-                          {task.id.startsWith("temp-") && (
-                            <span className="text-[9px] font-mono text-amber-400 bg-amber-950/50 px-1.5 py-0.5 border border-amber-800 rounded">
-                              Saving...
-                            </span>
-                          )}
-                        </div>
-
-                        {task.description && (
-                          <p className="text-xs text-zinc-500 leading-relaxed line-clamp-2">
-                            {task.description}
-                          </p>
-                        )}
-
-                        {/* Assignees */}
-                        {task.task_assignees && task.task_assignees.length > 0 && (
-                          <div className="flex flex-wrap gap-1 pt-1">
-                            {task.task_assignees.map((a, i) => (
-                              <span
-                                key={i}
-                                className="text-[10px] font-mono text-zinc-400 bg-zinc-900 px-2 py-0.5 rounded border border-zinc-800"
-                              >
-                                {displayNameFromProfile(a.profiles)}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-
-                        {/* Attached Parts */}
-                        {task.task_parts && task.task_parts.length > 0 && (
-                          <div className="flex flex-wrap gap-1 pt-1">
-                            {task.task_parts.map((p, i) => (
-                              <span
-                                key={i}
-                                className="text-[10px] font-mono text-emerald-400/80 bg-zinc-900 px-2 py-0.5 rounded border border-zinc-800"
-                              >
-                                {p.parts?.part_catalog?.name ?? "Part"}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
+                        onDragEnd={() => setDraggedTaskId(null)}
+                        onStatusChange={(status) =>
+                          void handleStatusChange(task.id, status)
+                        }
+                        onDelete={
+                          canManageTasks
+                            ? () => void handleDelete(task)
+                            : undefined
+                        }
+                      />
                     ))
                   )}
                 </div>
