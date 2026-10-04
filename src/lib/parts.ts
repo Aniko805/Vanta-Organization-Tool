@@ -79,6 +79,18 @@ export async function listAssignableParts(teamId: string): Promise<Part[]> {
   return (data ?? []) as Part[];
 }
 
+export function getInStockQuantity(part: Part): number {
+  return (part.part_status ?? []).reduce((total, status) => {
+    const statusName = status.status_list?.name
+      ?.trim()
+      .toLowerCase()
+      .replace(/[_-]+/g, " ");
+    return statusName === "inventory" || statusName === "in stock"
+      ? total + status.quantity
+      : total;
+  }, 0);
+}
+
 export async function createPart(input: {
   teamId: string;
   catalogId: string;

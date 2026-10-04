@@ -35,7 +35,6 @@ export async function createTask(input: {
   is_personal?: boolean;
   parent_id?: string | null;
   assignee_ids?: string[];
-  part_ids?: string[];
 }): Promise<TaskWithRelations> {
   const {
     data: { user },
@@ -86,22 +85,34 @@ export async function createTask(input: {
     }
   }
 
-  // 3. Insert into public.task_parts
-  if (input.part_ids && input.part_ids.length > 0) {
-    const parts = input.part_ids.map((part_id) => ({
-      task_id: task.id,
-      part_id,
-    }));
-    const { error: partError } = await supabase
-      .from("task_parts")
-      .insert(parts);
-      
-    if (partError) {
-      console.error("Task part insertion error:", partError);
-    }
-  }
-
   return task as TaskWithRelations;
+}
+
+export async function createTeamTask(input: {
+  team_id: string;
+  name: string;
+  description?: string | null;
+  status: TaskStatus;
+  importance: Importance;
+  due_date?: string | null;
+  parent_id?: string | null;
+  assignee_ids: string[];
+  part_allocations: { part_id: string; quantity: number }[];
+}): Promise<TaskWithRelations> {
+  const { data, error } = await supabase.rpc("create_team_task_with_parts", {
+    p_team_id: input.team_id,
+    p_name: input.name.trim(),
+    p_description: input.description?.trim() || null,
+    p_status: input.status,
+    p_importance: input.importance,
+    p_due_date: input.due_date || null,
+    p_parent_id: input.parent_id || null,
+    p_assignee_ids: input.assignee_ids,
+    p_part_allocations: input.part_allocations,
+  });
+
+  if (error) throw new Error(error.message);
+  return data as TaskWithRelations;
 }
 
 export async function updateTask(
@@ -116,6 +127,26 @@ export async function updateTask(
     due_date: string | null;
   }>
 ): Promise<Task> {
+  if (updates.status && Object.keys(updates).length === 1) {
+    const { data: currentTask, error: taskError } = await supabase
+      .from("tasks")
+      .select("team_id, is_personal")
+      .eq("id", taskId)
+      .single();
+
+    if (taskError) throw new Error(taskError.message);
+    if (!currentTask.is_personal && currentTask.team_id) {
+      await updateTeamTaskStatus(taskId, updates.status);
+      const { data, error } = await supabase
+        .from("tasks")
+        .select("*")
+        .eq("id", taskId)
+        .single();
+      if (error) throw new Error(error.message);
+      return data as Task;
+    }
+  }
+
   const { data, error } = await supabase
     .from("tasks")
     .update({ ...updates, updated_at: new Date().toISOString() })
@@ -125,6 +156,17 @@ export async function updateTask(
 
   if (error) throw new Error(error.message);
   return data as Task;
+}
+
+export async function updateTeamTaskStatus(
+  taskId: string,
+  status: TaskStatus
+): Promise<void> {
+  const { error } = await supabase.rpc("update_team_task_status", {
+    p_task_id: taskId,
+    p_status: status,
+  });
+  if (error) throw new Error(error.message);
 }
 
 export async function deleteTask(taskId: string): Promise<void> {
@@ -143,7 +185,8 @@ export async function listTeamTasks(teamId: string): Promise<TaskWithRelations[]
       task_assignees(user_id, profiles(*)),
       task_role_assignees(role_id, team_roles(*)),
       task_parts(
-        part_id, 
+        part_id,
+        quantity,
         parts(
           id, 
           team_id, 
@@ -178,7 +221,8 @@ export async function listPersonalAndAssignedTasks(
     task_assignees(user_id, profiles(*)),
     task_role_assignees(role_id, team_roles(*)),
     task_parts(
-      part_id, 
+      part_id,
+      quantity,
       parts(
         id, 
         team_id, 
@@ -335,16 +379,22 @@ export async function setTaskAssignees(
 }
 
 export async function setTaskParts(taskId: string, partIds: string[]): Promise<void> {
-  const { error: delError } = await supabase
+  const { data: existingParts, error: selectError } = await supabase
     .from("task_parts")
-    .delete()
+    .select("part_id, quantity")
     .eq("task_id", taskId);
-  if (delError) throw new Error(delError.message);
+  if (selectError) throw new Error(selectError.message);
 
-  if (partIds.length === 0) return;
-
-  const { error } = await supabase.from("task_parts").insert(
-    partIds.map((part_id) => ({ task_id: taskId, part_id }))
+  const quantities = new Map(
+    (existingParts ?? []).map((part) => [part.part_id, part.quantity])
   );
+  const partAllocations = Array.from(new Set(partIds)).map((part_id) => ({
+    part_id,
+    quantity: Math.max(1, quantities.get(part_id) ?? 1),
+  }));
+  const { error } = await supabase.rpc("replace_team_task_parts", {
+    p_task_id: taskId,
+    p_part_allocations: partAllocations,
+  });
   if (error) throw new Error(error.message);
 }

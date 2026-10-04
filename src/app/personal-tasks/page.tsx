@@ -24,7 +24,13 @@ import {
   type TaskWithRelations,
 } from "@/lib/types";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useCallback, useEffect, useState } from "react";
+import {
+  startTransition,
+  Suspense,
+  useCallback,
+  useEffect,
+  useState,
+} from "react";
 
 export default function PersonalTasksPage() {
   return (
@@ -94,20 +100,23 @@ function PersonalTasksContent() {
     const params = new URLSearchParams(queryString);
     if (params.get("new") !== "1") return;
 
-    setShowForm(true);
     const parentId = params.get("parent");
     if (!parentId) {
+      startTransition(() => setShowForm(true));
       router.replace("/personal-tasks");
       return;
     }
     if (loading) return;
 
     const parentTask = tasks.find((task) => task.id === parentId);
-    if (parentTask?.is_personal) {
-      setSelectedParentId(parentTask.id);
-    } else {
-      setError("The selected personal parent task is unavailable.");
-    }
+    startTransition(() => {
+      setShowForm(true);
+      if (parentTask?.is_personal) {
+        setSelectedParentId(parentTask.id);
+      } else {
+        setError("The selected personal parent task is unavailable.");
+      }
+    });
     router.replace("/personal-tasks");
   }, [loading, queryString, router, tasks]);
 

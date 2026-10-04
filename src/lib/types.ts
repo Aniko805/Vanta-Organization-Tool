@@ -123,7 +123,7 @@ export type TaskWithRelations = Task & {
   child_tasks?: TaskLink[];
   task_assignees?: { user_id: string; profiles?: Profile | null }[];
   task_role_assignees?: { role_id: string; team_roles?: TeamRole | null }[];
-  task_parts?: { part_id: string; parts?: Part | null }[];
+  task_parts?: { part_id: string; quantity?: number; parts?: Part | null }[];
   subtasks?: Subtask[];
   teams?: Pick<Team, "id" | "name" | "team_number"> | null;
 };

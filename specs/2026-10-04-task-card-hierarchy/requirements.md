@@ -17,6 +17,8 @@ Team and personal task cards currently expose different information and actions.
 - Add Child actions that open the correct board's new-task form with the parent preselected.
 - Team-scoped loading of assignable members and inventory parts.
 - Personal-task deletion and permission-checked team-task subtree deletion.
+- Task card importance and due-date urgency styling; team task importance and due-date inputs.
+- Quantity-aware part reservation and inventory-status synchronization with task status.
 
 ### Out of scope
 
@@ -35,6 +37,10 @@ Team and personal task cards currently expose different information and actions.
 | Personal board deletion | Personal tasks only | Assigned team tasks are shared work and remain protected there. |
 | Parent deletion | Delete its complete descendant tree | Explicitly requested behavior; database operation is transactional. |
 | Assignment options | Authenticated queries scoped to the active team | Prevents global profiles/parts and allows existing RLS to return visible rows. |
+| Importance styling | Importance sets the card's left-edge severity color; deadline urgency uses a separate ring | Keeps task severity and date urgency distinguishable. |
+| Due-date urgency | Overdue tasks are red; tasks due today or tomorrow are amber | Makes near-term deadlines visible without hiding task importance. |
+| Reservation status | Use `Reserved` for tasks outside `in_progress`, `In Use` for `in_progress` | Matches the agreed board-to-inventory workflow; accept legacy `to_be_used` as an alias. |
+| Part quantity | Reserve immediately from `Inventory`; store allocated quantity on `task_parts` | Prevents multiple tasks from claiming the same stock. |
 
 ## Data shapes / contracts
 
@@ -51,11 +57,20 @@ Team and personal task cards currently expose different information and actions.
 - Team deletion authorization is derived from `auth.uid()` and checked against task team membership, owner, admin, or `can_manage_tasks` role; it must not trust client-supplied identity/permission claims.
 - Deleting a task removes all descendants and dependent association rows transactionally.
 - Direct task-table DELETE cannot bypass the permission-checked deletion operation.
+- Critical task cards use a red importance accent; other importance values have distinct severity accents.
+- Overdue cards show a stronger red urgency treatment; tasks due today or tomorrow show amber urgency treatment.
+- The Team Tasks form exposes importance, due date, and a field labeled `Task status`.
+- Part choices show available in-stock quantity; zero-stock parts remain visible but disabled.
+- Each selected part has a positive integer quantity no greater than available stock.
+- Team task creation and selected part allocation are atomic: subtract quantity from Inventory and add it to Reserved, or In Use when initial status is `in_progress`.
+- Moving a task into or out of `in_progress` transfers each allocation between Reserved and In Use atomically; insufficient source quantity blocks the status change.
+- `task_parts.quantity` stores the allocated amount; direct writes cannot bypass inventory transfer operations.
+- Deleting a task tree returns its Reserved/In Use allocations to Inventory before removing task-part links.
 
 ### SHOULD
 
 - Keep card styling and core interactions consistent without changing the established dark design system.
-- Keep existing status updates, drag/drop, and task creation behavior intact.
+- Keep existing status updates, drag/drop, and task creation behavior intact, except linked inventory transfers follow task status.
 - Confirm destructive subtree deletion before invoking it.
 
 ## UX / routes
@@ -67,5 +82,5 @@ Team and personal task cards currently expose different information and actions.
 ## Dependencies
 
 - Depends on: existing `team_members`, `member_roles`, `team_roles`, `parts`, `tasks`, and task association tables.
-- Database acceptance checks require applying the additive task deletion migration to the Supabase project.
+- Database acceptance checks require applying the additive task deletion and quantity-allocation migration to the Supabase project.
 - The live Supabase project is not accessible from this workspace; its effective privileges/policies must be validated after migration.

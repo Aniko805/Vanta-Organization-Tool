@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { startTransition, useState, useMemo, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import AppShell, {
   Panel,
@@ -11,9 +11,14 @@ import AppShell, {
   EmptyState,
 } from "@/app/components/AppShell";
 import TaskCard from "@/app/components/TaskCard";
-import { createTask, deleteTask, updateTask, listTeamTasks } from "@/lib/tasks";
-import { listAssignableParts } from "@/lib/parts";
-import { getTeam, listTeamMembers, memberCanManageTasks } from "@/lib/teams";
+import { createTeamTask, deleteTask, updateTeamTaskStatus, listTeamTasks } from "@/lib/tasks";
+import { getInStockQuantity, listAssignableParts } from "@/lib/parts";
+import {
+  getTeam,
+  listTeamMembers,
+  memberCanManageInventory,
+  memberCanManageTasks,
+} from "@/lib/teams";
 import { supabase } from "@/lib/supabase";
 import {
   displayNameFromProfile,
@@ -21,6 +26,7 @@ import {
   type TaskWithRelations,
   type TeamMember,
   type Part,
+  type Importance,
 } from "@/lib/types";
 
 const KANBAN_COLUMNS: { id: TaskStatus; label: string }[] = [
@@ -61,6 +67,7 @@ export default function TeamTasksClient({
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [assignableParts, setAssignableParts] = useState<Part[]>([]);
   const [canManageTasks, setCanManageTasks] = useState(false);
+  const [canManageInventory, setCanManageInventory] = useState(false);
   const [boardReady, setBoardReady] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -74,8 +81,10 @@ export default function TeamTasksClient({
   const [description, setDescription] = useState("");
   const [selectedParentId, setSelectedParentId] = useState<string>("none");
   const [selectedStatus, setSelectedStatus] = useState<TaskStatus>("todo");
+  const [selectedImportance, setSelectedImportance] = useState<Importance>("medium");
+  const [dueDate, setDueDate] = useState("");
   const [selectedAssignees, setSelectedAssignees] = useState<string[]>([]);
-  const [selectedParts, setSelectedParts] = useState<string[]>([]);
+  const [selectedParts, setSelectedParts] = useState<Record<string, number>>({});
 
   // Fetch team details and tasks when page mounts or team changes
   useEffect(() => {
@@ -104,6 +113,7 @@ export default function TeamTasksClient({
         setTeamMembers([]);
         setAssignableParts([]);
         setCanManageTasks(false);
+        setCanManageInventory(false);
         setLoadingOptions(false);
         setBoardReady(true);
         return;
@@ -117,6 +127,7 @@ export default function TeamTasksClient({
       setTeamMembers([]);
       setAssignableParts([]);
       setCanManageTasks(false);
+      setCanManageInventory(false);
 
       try {
         const [teamData, fetchedTasks, members, parts] = await Promise.all([
@@ -135,6 +146,17 @@ export default function TeamTasksClient({
               user &&
                 teamData &&
                 memberCanManageTasks(
+                  teamData,
+                  user.id,
+                  members.find((member) => member.user_id === user.id)
+                )
+            )
+          );
+          setCanManageInventory(
+            Boolean(
+              user &&
+                teamData &&
+                memberCanManageInventory(
                   teamData,
                   user.id,
                   members.find((member) => member.user_id === user.id)
@@ -167,7 +189,6 @@ export default function TeamTasksClient({
     const params = new URLSearchParams(queryString);
     if (params.get("new") !== "1" || !boardReady) return;
 
-    setShowForm(true);
     const parentId = params.get("parent");
     const parentTask = parentId
       ? tasks.find(
@@ -178,11 +199,14 @@ export default function TeamTasksClient({
         )
       : undefined;
 
-    if (parentTask) {
-      setSelectedParentId(parentTask.id);
-    } else if (parentId) {
-      setErrorMessage("The selected team parent task is unavailable.");
-    }
+    startTransition(() => {
+      setShowForm(true);
+      if (parentTask) {
+        setSelectedParentId(parentTask.id);
+      } else if (parentId) {
+        setErrorMessage("The selected team parent task is unavailable.");
+      }
+    });
 
     const teamQuery = activeTeamId
       ? `?team=${encodeURIComponent(activeTeamId)}`
@@ -209,22 +233,48 @@ export default function TeamTasksClient({
     );
   };
 
-  const togglePart = (id: string) => {
-    setSelectedParts((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-    );
+  const setPartQuantity = (id: string, quantity: number | null) => {
+    setSelectedParts((current) => {
+      const next = { ...current };
+      if (quantity === null) {
+        delete next[id];
+      } else {
+        next[id] = quantity;
+      }
+      return next;
+    });
   };
+
+  const refreshPartOptions = (targetTeamId: string) => {
+    void listAssignableParts(targetTeamId)
+      .then(setAssignableParts)
+      .catch((err: unknown) => {
+        setLoadError(
+          err instanceof Error ? err.message : "Failed to refresh team parts"
+        );
+      });
+  };
+
+  const hasInvalidAllocation = Object.entries(selectedParts).some(
+    ([partId, quantity]) => {
+      const part = assignableParts.find((candidate) => candidate.id === partId);
+      return !part || quantity < 1 || quantity > getInStockQuantity(part);
+    }
+  );
 
   const handleCreateTask = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!taskName.trim()) return;
 
     const resolvedTeamId = activeTeamId || urlTeamId || teamId || activeTeam?.id;
-
     if (!resolvedTeamId) {
       setErrorMessage(
         "No active team found for your user profile. Make sure you are added to a team in the team_members database."
       );
+      return;
+    }
+    if (hasInvalidAllocation || (Object.keys(selectedParts).length > 0 && !canManageInventory)) {
+      setErrorMessage("Selected part quantities exceed available inventory or your inventory permissions.");
       return;
     }
 
@@ -241,15 +291,16 @@ export default function TeamTasksClient({
       name: taskName.trim(),
       description: description.trim() || null,
       status: targetStatus,
-      importance: "medium",
+      importance: selectedImportance,
+      due_date: dueDate || null,
       parent_id: selectedParentId === "none" ? null : selectedParentId,
       task_assignees: selectedAssignees.map((id) => {
         const member = teamMembers.find((m) => m.user_id === id);
         return { user_id: id, profiles: member?.profiles ?? null };
       }),
-      task_parts: selectedParts.map((id) => {
+      task_parts: Object.entries(selectedParts).map(([id, quantity]) => {
         const part = assignableParts.find((p) => p.id === id);
-        return { part_id: id, parts: part ?? null };
+        return { part_id: id, quantity, parts: part ?? null };
       }),
       subtasks: [],
     } as unknown as TaskWithRelations;
@@ -259,15 +310,18 @@ export default function TeamTasksClient({
 
     try {
       // 3. Persist to Supabase
-      const createdTask = await createTask({
+      const createdTask = await createTeamTask({
         team_id: resolvedTeamId,
         name: optimisticTask.name,
         description: optimisticTask.description,
         status: targetStatus,
-        importance: "medium",
+        importance: selectedImportance,
+        due_date: dueDate || null,
         parent_id: optimisticTask.parent_id,
         assignee_ids: selectedAssignees,
-        part_ids: selectedParts,
+        part_allocations: Object.entries(selectedParts).map(
+          ([part_id, quantity]) => ({ part_id, quantity })
+        ),
       });
 
       // 4. Update state with real Supabase task record
@@ -280,19 +334,23 @@ export default function TeamTasksClient({
           )
         );
       }
+      refreshPartOptions(resolvedTeamId);
 
       // Clear form inputs on success
       setTaskName("");
       setDescription("");
       setSelectedParentId("none");
       setSelectedStatus("todo");
+      setSelectedImportance("medium");
+      setDueDate("");
       setSelectedAssignees([]);
-      setSelectedParts([]);
+      setSelectedParts({});
       setShowForm(false);
     } catch (err: unknown) {
       const errorStr =
         err instanceof Error ? err.message : "Failed to create task in database";
       console.error("Supabase creation error:", err);
+      setTasks((current) => current.filter((task) => task.id !== tempId));
       setErrorMessage(errorStr);
     } finally {
       setLoading(false);
@@ -325,10 +383,13 @@ export default function TeamTasksClient({
 
     try {
       if (!draggedTaskId.startsWith("temp-")) {
-        await updateTask(draggedTaskId, { status: targetStatus });
+        await updateTeamTaskStatus(draggedTaskId, targetStatus);
+        if (activeTeamId) refreshPartOptions(activeTeamId);
       }
     } catch (err) {
-      console.error("Failed to update status in Supabase:", err);
+      setErrorMessage(
+        err instanceof Error ? err.message : "Failed to update task status"
+      );
       setTasks((prev) =>
         prev.map((t) =>
           t.id === draggedTaskId ? { ...t, status: currentTask.status } : t
@@ -348,7 +409,8 @@ export default function TeamTasksClient({
     );
     try {
       if (!taskId.startsWith("temp-")) {
-        await updateTask(taskId, { status });
+        await updateTeamTaskStatus(taskId, status);
+        if (activeTeamId) refreshPartOptions(activeTeamId);
       }
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : "Update failed");
@@ -374,6 +436,7 @@ export default function TeamTasksClient({
     try {
       await deleteTask(task.id);
       setTasks(await listTeamTasks(activeTeamId));
+      refreshPartOptions(activeTeamId);
     } catch (err) {
       setErrorMessage(err instanceof Error ? err.message : "Delete failed");
     }
@@ -424,7 +487,7 @@ export default function TeamTasksClient({
             <Panel className="space-y-4">
               <Label>Create Task</Label>
               <form onSubmit={handleCreateTask} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
                   <FieldInput
                     type="text"
                     placeholder="Task name (e.g. Assemble Subsystem)"
@@ -435,15 +498,30 @@ export default function TeamTasksClient({
                   <FieldInput
                     as="select"
                     value={selectedStatus}
+                    aria-label="Task status"
                     onChange={(e) =>
                       setSelectedStatus(e.target.value as TaskStatus)
                     }
                   >
                     {KANBAN_COLUMNS.map((col) => (
                       <option key={col.id} value={col.id}>
-                        Column: {col.label}
+                        Task status: {col.label}
                       </option>
                     ))}
+                  </FieldInput>
+
+                  <FieldInput
+                    as="select"
+                    value={selectedImportance}
+                    onChange={(event) =>
+                      setSelectedImportance(event.target.value as Importance)
+                    }
+                    aria-label="Importance"
+                  >
+                    <option value="low">Importance: Low</option>
+                    <option value="medium">Importance: Medium</option>
+                    <option value="high">Importance: High</option>
+                    <option value="critical">Importance: Critical</option>
                   </FieldInput>
 
                   <FieldInput
@@ -465,6 +543,14 @@ export default function TeamTasksClient({
                   placeholder="Description / Requirements..."
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
+                />
+
+                <FieldInput
+                  type="date"
+                  value={dueDate}
+                  onChange={(event) => setDueDate(event.target.value)}
+                  aria-label="Due date"
+                  className="md:max-w-56"
                 />
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
@@ -501,25 +587,70 @@ export default function TeamTasksClient({
                     <div className="mt-2 space-y-1 max-h-36 overflow-y-auto pr-2">
                       {loadingOptions ? (
                         <EmptyState>Loading team parts...</EmptyState>
+                      ) : !canManageInventory ? (
+                        <EmptyState>
+                          Inventory manager access is required to reserve parts.
+                        </EmptyState>
                       ) : assignableParts.length === 0 ? (
                         <EmptyState>
                           {loadError ? "Team parts unavailable" : "No assignable parts"}
                         </EmptyState>
                       ) : (
-                        assignableParts.map((p) => (
-                          <label
-                            key={p.id}
-                            className="flex items-center gap-2 text-xs text-zinc-400 cursor-pointer hover:text-white"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={selectedParts.includes(p.id)}
-                              onChange={() => togglePart(p.id)}
-                              className="accent-white"
-                            />
-                            {p.part_catalog?.name ?? "Unnamed Part"}
-                          </label>
-                        ))
+                        assignableParts.map((part) => {
+                          const availableQuantity = getInStockQuantity(part);
+                          const selectedQuantity = selectedParts[part.id] ?? 0;
+                          return (
+                            <div
+                              key={part.id}
+                              className="flex items-center gap-3 text-xs text-zinc-400"
+                            >
+                              <label className="flex min-w-0 flex-1 items-center gap-2 cursor-pointer hover:text-white">
+                                <input
+                                  type="checkbox"
+                                  checked={selectedQuantity > 0}
+                                  disabled={availableQuantity === 0}
+                                  onChange={(event) =>
+                                    setPartQuantity(
+                                      part.id,
+                                      event.target.checked ? 1 : null
+                                    )
+                                  }
+                                  className="accent-white"
+                                />
+                                <span className="truncate">
+                                  {part.part_catalog?.name ?? "Unnamed Part"}
+                                </span>
+                                <span className="shrink-0 text-[10px] text-zinc-600">
+                                  In stock: {availableQuantity}
+                                </span>
+                              </label>
+                              {selectedQuantity > 0 ? (
+                                <FieldInput
+                                  type="number"
+                                  min="1"
+                                  max={availableQuantity}
+                                  value={selectedQuantity}
+                                  aria-label={`Quantity of ${part.part_catalog?.name ?? "part"}`}
+                                  className="w-20"
+                                  onChange={(event) => {
+                                    const nextQuantity = Number.parseInt(
+                                      event.target.value,
+                                      10
+                                    );
+                                    if (Number.isNaN(nextQuantity)) return;
+                                    setPartQuantity(
+                                      part.id,
+                                      Math.min(
+                                        availableQuantity,
+                                        Math.max(1, nextQuantity)
+                                      )
+                                    );
+                                  }}
+                                />
+                              ) : null}
+                            </div>
+                          );
+                        })
                       )}
                     </div>
                   </div>
@@ -534,7 +665,12 @@ export default function TeamTasksClient({
                   </SecondaryButton>
                   <PrimaryButton
                     type="submit"
-                    disabled={loading || !taskName.trim()}
+                    disabled={
+                      loading ||
+                      !taskName.trim() ||
+                      hasInvalidAllocation ||
+                      (Object.keys(selectedParts).length > 0 && !canManageInventory)
+                    }
                   >
                     {loading ? "Adding..." : "Add Task"}
                   </PrimaryButton>
