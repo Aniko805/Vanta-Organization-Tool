@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useRef, useMemo, useEffect } from "react";
-import { useSearchParams } from "next/navigation";
+import { startTransition, useState, useMemo, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import AppShell, {
   Panel,
   Label,
@@ -10,14 +10,23 @@ import AppShell, {
   SecondaryButton,
   EmptyState,
 } from "@/app/components/AppShell";
-import { createTask, updateTask, listTeamTasks } from "@/lib/tasks";
+import TaskCard from "@/app/components/TaskCard";
+import { createTeamTask, deleteTask, updateTeamTaskStatus, listTeamTasks } from "@/lib/tasks";
+import { getInStockQuantity, listAssignableParts } from "@/lib/parts";
+import {
+  getTeam,
+  listTeamMembers,
+  memberCanManageInventory,
+  memberCanManageTasks,
+} from "@/lib/teams";
 import { supabase } from "@/lib/supabase";
 import {
   displayNameFromProfile,
   type TaskStatus,
   type TaskWithRelations,
-  type Profile,
+  type TeamMember,
   type Part,
+  type Importance,
 } from "@/lib/types";
 
 const KANBAN_COLUMNS: { id: TaskStatus; label: string }[] = [
@@ -30,26 +39,24 @@ const KANBAN_COLUMNS: { id: TaskStatus; label: string }[] = [
 export interface TeamInfo {
   id: string;
   name?: string;
-  team_number?: string | number;
+  team_number?: string | number | null;
 }
 
 export interface TeamTasksClientProps {
   initialTasks?: TaskWithRelations[];
-  teamMembers?: Profile[];
-  assignableParts?: Part[];
   teamId?: string | null;
   activeTeamInfo?: TeamInfo | null;
 }
 
 export default function TeamTasksClient({
   initialTasks = [],
-  teamMembers = [],
-  assignableParts = [],
   teamId,
   activeTeamInfo,
 }: TeamTasksClientProps) {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const urlTeamId = searchParams.get("team");
+  const queryString = searchParams.toString();
 
   const [activeTeam, setActiveTeam] = useState<TeamInfo | null>(activeTeamInfo || null);
   const [activeTeamId, setActiveTeamId] = useState<string | null>(
@@ -57,8 +64,15 @@ export default function TeamTasksClient({
   );
 
   const [tasks, setTasks] = useState<TaskWithRelations[]>(initialTasks);
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [assignableParts, setAssignableParts] = useState<Part[]>([]);
+  const [canManageTasks, setCanManageTasks] = useState(false);
+  const [canManageInventory, setCanManageInventory] = useState(false);
+  const [boardReady, setBoardReady] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [loadingOptions, setLoadingOptions] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
 
@@ -67,69 +81,146 @@ export default function TeamTasksClient({
   const [description, setDescription] = useState("");
   const [selectedParentId, setSelectedParentId] = useState<string>("none");
   const [selectedStatus, setSelectedStatus] = useState<TaskStatus>("todo");
+  const [selectedImportance, setSelectedImportance] = useState<Importance>("medium");
+  const [dueDate, setDueDate] = useState("");
   const [selectedAssignees, setSelectedAssignees] = useState<string[]>([]);
-  const [selectedParts, setSelectedParts] = useState<string[]>([]);
-
-  const createFormRef = useRef<HTMLDivElement | null>(null);
+  const [selectedParts, setSelectedParts] = useState<Record<string, number>>({});
 
   // Fetch team details and tasks when page mounts or team changes
   useEffect(() => {
-  let isMounted = true;
+    let isMounted = true;
 
-  async function initTeamAndTasks() {
-    let currentTeamId = urlTeamId || activeTeamInfo?.id || teamId;
-
-    if (!currentTeamId) {
+    async function initTeamAndTasks() {
       const {
         data: { user },
       } = await supabase.auth.getUser();
+      let currentTeamId = urlTeamId || activeTeamInfo?.id || teamId || null;
 
-      if (user) {
-        // Step 1: Find user's team ID
+      if (!currentTeamId && user) {
         const { data: member } = await supabase
           .from("team_members")
           .select("team_id")
           .eq("user_id", user.id)
           .limit(1)
           .maybeSingle();
-
-        if (member?.team_id) {
-          currentTeamId = member.team_id;
-
-          // Step 2: Fetch team metadata (number/name)
-          const { data: teamData } = await supabase
-            .from("teams")
-            .select("id, name, team_number")
-            .eq("id", member.team_id)
-            .maybeSingle();
-
-          if (teamData && isMounted) {
-            setActiveTeam(teamData);
-          }
-        }
+        currentTeamId = member?.team_id ?? null;
       }
-    }
 
-    if (currentTeamId && isMounted) {
+      if (!currentTeamId || !isMounted) {
+        setActiveTeamId(null);
+        setActiveTeam(null);
+        setTasks([]);
+        setTeamMembers([]);
+        setAssignableParts([]);
+        setCanManageTasks(false);
+        setCanManageInventory(false);
+        setLoadingOptions(false);
+        setBoardReady(true);
+        return;
+      }
+
       setActiveTeamId(currentTeamId);
+      setBoardReady(false);
+      setLoadingOptions(true);
+      setLoadError(null);
+      setTasks([]);
+      setTeamMembers([]);
+      setAssignableParts([]);
+      setCanManageTasks(false);
+      setCanManageInventory(false);
 
       try {
-        const fetchedTasks = await listTeamTasks(currentTeamId);
-        if (isMounted && fetchedTasks) {
+        const [teamData, fetchedTasks, members, parts] = await Promise.all([
+          getTeam(currentTeamId),
+          listTeamTasks(currentTeamId),
+          listTeamMembers(currentTeamId),
+          listAssignableParts(currentTeamId),
+        ]);
+        if (isMounted) {
+          setActiveTeam(teamData);
           setTasks(fetchedTasks);
+          setTeamMembers(members);
+          setAssignableParts(parts);
+          setCanManageTasks(
+            Boolean(
+              user &&
+                teamData &&
+                memberCanManageTasks(
+                  teamData,
+                  user.id,
+                  members.find((member) => member.user_id === user.id)
+                )
+            )
+          );
+          setCanManageInventory(
+            Boolean(
+              user &&
+                teamData &&
+                memberCanManageInventory(
+                  teamData,
+                  user.id,
+                  members.find((member) => member.user_id === user.id)
+                )
+            )
+          );
         }
       } catch (err) {
-        console.error("Error loading team tasks:", err);
+        if (isMounted) {
+          setLoadError(
+            err instanceof Error ? err.message : "Failed to load team data"
+          );
+        }
+      } finally {
+        if (isMounted) {
+          setLoadingOptions(false);
+          setBoardReady(true);
+        }
       }
     }
-  }
 
-  initTeamAndTasks();
+    void initTeamAndTasks();
 
-  return () => {
-    isMounted = false;
-  };
-}, [urlTeamId, teamId, activeTeamInfo]);
+    return () => {
+      isMounted = false;
+    };
+  }, [urlTeamId, teamId, activeTeamInfo]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(queryString);
+    if (params.get("new") !== "1" || !boardReady) return;
+
+    const parentId = params.get("parent");
+    const parentTask = parentId
+      ? tasks.find(
+          (task) =>
+            task.id === parentId &&
+            !task.is_personal &&
+            task.team_id === activeTeamId
+        )
+      : undefined;
+
+    startTransition(() => {
+      setShowForm(true);
+      if (parentTask) {
+        setSelectedParentId(parentTask.id);
+      } else if (parentId) {
+        setErrorMessage("The selected team parent task is unavailable.");
+      }
+    });
+
+    const teamQuery = activeTeamId
+      ? `?team=${encodeURIComponent(activeTeamId)}`
+      : "";
+    router.replace(`/team-tasks${teamQuery}`);
+  }, [activeTeamId, boardReady, queryString, router, tasks]);
+
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (!hash.startsWith("#task-")) return;
+    document.getElementById(decodeURIComponent(hash.slice(1)))?.scrollIntoView({
+      block: "center",
+    });
+  }, [tasks]);
 
   const parentTasks = useMemo(
     () => tasks.filter((t) => !t.is_personal),
@@ -142,22 +233,48 @@ export default function TeamTasksClient({
     );
   };
 
-  const togglePart = (id: string) => {
-    setSelectedParts((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-    );
+  const setPartQuantity = (id: string, quantity: number | null) => {
+    setSelectedParts((current) => {
+      const next = { ...current };
+      if (quantity === null) {
+        delete next[id];
+      } else {
+        next[id] = quantity;
+      }
+      return next;
+    });
   };
+
+  const refreshPartOptions = (targetTeamId: string) => {
+    void listAssignableParts(targetTeamId)
+      .then(setAssignableParts)
+      .catch((err: unknown) => {
+        setLoadError(
+          err instanceof Error ? err.message : "Failed to refresh team parts"
+        );
+      });
+  };
+
+  const hasInvalidAllocation = Object.entries(selectedParts).some(
+    ([partId, quantity]) => {
+      const part = assignableParts.find((candidate) => candidate.id === partId);
+      return !part || quantity < 1 || quantity > getInStockQuantity(part);
+    }
+  );
 
   const handleCreateTask = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!taskName.trim()) return;
 
     const resolvedTeamId = activeTeamId || urlTeamId || teamId || activeTeam?.id;
-
     if (!resolvedTeamId) {
       setErrorMessage(
         "No active team found for your user profile. Make sure you are added to a team in the team_members database."
       );
+      return;
+    }
+    if (hasInvalidAllocation || (Object.keys(selectedParts).length > 0 && !canManageInventory)) {
+      setErrorMessage("Selected part quantities exceed available inventory or your inventory permissions.");
       return;
     }
 
@@ -174,15 +291,16 @@ export default function TeamTasksClient({
       name: taskName.trim(),
       description: description.trim() || null,
       status: targetStatus,
-      importance: "medium",
+      importance: selectedImportance,
+      due_date: dueDate || null,
       parent_id: selectedParentId === "none" ? null : selectedParentId,
       task_assignees: selectedAssignees.map((id) => {
-        const profile = teamMembers.find((m) => m.id === id);
-        return { user_id: id, profiles: profile ?? null };
+        const member = teamMembers.find((m) => m.user_id === id);
+        return { user_id: id, profiles: member?.profiles ?? null };
       }),
-      task_parts: selectedParts.map((id) => {
+      task_parts: Object.entries(selectedParts).map(([id, quantity]) => {
         const part = assignableParts.find((p) => p.id === id);
-        return { part_id: id, parts: part ?? null };
+        return { part_id: id, quantity, parts: part ?? null };
       }),
       subtasks: [],
     } as unknown as TaskWithRelations;
@@ -192,36 +310,47 @@ export default function TeamTasksClient({
 
     try {
       // 3. Persist to Supabase
-      const createdTask = await createTask({
+      const createdTask = await createTeamTask({
         team_id: resolvedTeamId,
         name: optimisticTask.name,
         description: optimisticTask.description,
         status: targetStatus,
-        importance: "medium",
+        importance: selectedImportance,
+        due_date: dueDate || null,
         parent_id: optimisticTask.parent_id,
         assignee_ids: selectedAssignees,
-        part_ids: selectedParts,
+        part_allocations: Object.entries(selectedParts).map(
+          ([part_id, quantity]) => ({ part_id, quantity })
+        ),
       });
 
       // 4. Update state with real Supabase task record
       if (createdTask && createdTask.id) {
         setTasks((prev) =>
-          prev.map((t) => (t.id === tempId ? createdTask : t))
+          prev.map((task) =>
+            task.id === tempId
+              ? { ...optimisticTask, ...createdTask }
+              : task
+          )
         );
       }
+      refreshPartOptions(resolvedTeamId);
 
       // Clear form inputs on success
       setTaskName("");
       setDescription("");
       setSelectedParentId("none");
       setSelectedStatus("todo");
+      setSelectedImportance("medium");
+      setDueDate("");
       setSelectedAssignees([]);
-      setSelectedParts([]);
+      setSelectedParts({});
       setShowForm(false);
     } catch (err: unknown) {
       const errorStr =
         err instanceof Error ? err.message : "Failed to create task in database";
       console.error("Supabase creation error:", err);
+      setTasks((current) => current.filter((task) => task.id !== tempId));
       setErrorMessage(errorStr);
     } finally {
       setLoading(false);
@@ -254,10 +383,13 @@ export default function TeamTasksClient({
 
     try {
       if (!draggedTaskId.startsWith("temp-")) {
-        await updateTask(draggedTaskId, { status: targetStatus });
+        await updateTeamTaskStatus(draggedTaskId, targetStatus);
+        if (activeTeamId) refreshPartOptions(activeTeamId);
       }
     } catch (err) {
-      console.error("Failed to update status in Supabase:", err);
+      setErrorMessage(
+        err instanceof Error ? err.message : "Failed to update task status"
+      );
       setTasks((prev) =>
         prev.map((t) =>
           t.id === draggedTaskId ? { ...t, status: currentTask.status } : t
@@ -265,6 +397,48 @@ export default function TeamTasksClient({
       );
     } finally {
       setDraggedTaskId(null);
+    }
+  };
+
+  const handleStatusChange = async (taskId: string, status: TaskStatus) => {
+    const currentTask = tasks.find((task) => task.id === taskId);
+    if (!currentTask || currentTask.status === status) return;
+
+    setTasks((current) =>
+      current.map((task) => (task.id === taskId ? { ...task, status } : task))
+    );
+    try {
+      if (!taskId.startsWith("temp-")) {
+        await updateTeamTaskStatus(taskId, status);
+        if (activeTeamId) refreshPartOptions(activeTeamId);
+      }
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : "Update failed");
+      setTasks((current) =>
+        current.map((task) =>
+          task.id === taskId ? { ...task, status: currentTask.status } : task
+        )
+      );
+    }
+  };
+
+  const handleDelete = async (task: TaskWithRelations) => {
+    if (
+      !window.confirm(
+        `Delete "${task.name}" and all of its child tasks? This cannot be undone.`
+      )
+    ) {
+      return;
+    }
+    if (!activeTeamId) return;
+
+    setErrorMessage(null);
+    try {
+      await deleteTask(task.id);
+      setTasks(await listTeamTasks(activeTeamId));
+      refreshPartOptions(activeTeamId);
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : "Delete failed");
     }
   };
 
@@ -295,6 +469,12 @@ export default function TeamTasksClient({
           </div>
         </div>
 
+        {loadError && (
+          <div className="p-3 bg-red-950/80 border border-red-800 rounded-lg text-xs text-red-200">
+            <strong>Loading Error:</strong> {loadError}
+          </div>
+        )}
+
         {errorMessage && (
           <div className="p-3 bg-red-950/80 border border-red-800 rounded-lg text-xs text-red-200">
             <strong>Supabase Error:</strong> {errorMessage}
@@ -303,11 +483,11 @@ export default function TeamTasksClient({
 
         {/* Creation Form Panel */}
         {showForm && (
-          <div ref={createFormRef}>
+          <div id="task-form">
             <Panel className="space-y-4">
               <Label>Create Task</Label>
               <form onSubmit={handleCreateTask} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
                   <FieldInput
                     type="text"
                     placeholder="Task name (e.g. Assemble Subsystem)"
@@ -318,15 +498,30 @@ export default function TeamTasksClient({
                   <FieldInput
                     as="select"
                     value={selectedStatus}
+                    aria-label="Task status"
                     onChange={(e) =>
                       setSelectedStatus(e.target.value as TaskStatus)
                     }
                   >
                     {KANBAN_COLUMNS.map((col) => (
                       <option key={col.id} value={col.id}>
-                        Column: {col.label}
+                        Task status: {col.label}
                       </option>
                     ))}
+                  </FieldInput>
+
+                  <FieldInput
+                    as="select"
+                    value={selectedImportance}
+                    onChange={(event) =>
+                      setSelectedImportance(event.target.value as Importance)
+                    }
+                    aria-label="Importance"
+                  >
+                    <option value="low">Importance: Low</option>
+                    <option value="medium">Importance: Medium</option>
+                    <option value="high">Importance: High</option>
+                    <option value="critical">Importance: Critical</option>
                   </FieldInput>
 
                   <FieldInput
@@ -350,25 +545,37 @@ export default function TeamTasksClient({
                   onChange={(e) => setDescription(e.target.value)}
                 />
 
+                <FieldInput
+                  type="date"
+                  value={dueDate}
+                  onChange={(event) => setDueDate(event.target.value)}
+                  aria-label="Due date"
+                  className="md:max-w-56"
+                />
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
                   <div>
                     <Label>Assign Team Members</Label>
                     <div className="mt-2 space-y-1 max-h-36 overflow-y-auto pr-2">
-                      {teamMembers.length === 0 ? (
-                        <EmptyState>No members available</EmptyState>
+                      {loadingOptions ? (
+                        <EmptyState>Loading team members...</EmptyState>
+                      ) : teamMembers.length === 0 ? (
+                        <EmptyState>
+                          {loadError ? "Team members unavailable" : "No team members available"}
+                        </EmptyState>
                       ) : (
                         teamMembers.map((m) => (
                           <label
-                            key={m.id}
+                            key={m.user_id}
                             className="flex items-center gap-2 text-xs text-zinc-400 cursor-pointer hover:text-white"
                           >
                             <input
                               type="checkbox"
-                              checked={selectedAssignees.includes(m.id)}
-                              onChange={() => toggleAssignee(m.id)}
+                              checked={selectedAssignees.includes(m.user_id)}
+                              onChange={() => toggleAssignee(m.user_id)}
                               className="accent-white"
                             />
-                            {displayNameFromProfile(m)}
+                            {displayNameFromProfile(m.profiles)}
                           </label>
                         ))
                       )}
@@ -378,23 +585,72 @@ export default function TeamTasksClient({
                   <div>
                     <Label>Attach Parts</Label>
                     <div className="mt-2 space-y-1 max-h-36 overflow-y-auto pr-2">
-                      {assignableParts.length === 0 ? (
-                        <EmptyState>No assignable parts</EmptyState>
+                      {loadingOptions ? (
+                        <EmptyState>Loading team parts...</EmptyState>
+                      ) : !canManageInventory ? (
+                        <EmptyState>
+                          Inventory manager access is required to reserve parts.
+                        </EmptyState>
+                      ) : assignableParts.length === 0 ? (
+                        <EmptyState>
+                          {loadError ? "Team parts unavailable" : "No assignable parts"}
+                        </EmptyState>
                       ) : (
-                        assignableParts.map((p) => (
-                          <label
-                            key={p.id}
-                            className="flex items-center gap-2 text-xs text-zinc-400 cursor-pointer hover:text-white"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={selectedParts.includes(p.id)}
-                              onChange={() => togglePart(p.id)}
-                              className="accent-white"
-                            />
-                            {p.part_catalog?.name ?? "Unnamed Part"}
-                          </label>
-                        ))
+                        assignableParts.map((part) => {
+                          const availableQuantity = getInStockQuantity(part);
+                          const selectedQuantity = selectedParts[part.id] ?? 0;
+                          return (
+                            <div
+                              key={part.id}
+                              className="flex items-center gap-3 text-xs text-zinc-400"
+                            >
+                              <label className="flex min-w-0 flex-1 items-center gap-2 cursor-pointer hover:text-white">
+                                <input
+                                  type="checkbox"
+                                  checked={selectedQuantity > 0}
+                                  disabled={availableQuantity === 0}
+                                  onChange={(event) =>
+                                    setPartQuantity(
+                                      part.id,
+                                      event.target.checked ? 1 : null
+                                    )
+                                  }
+                                  className="accent-white"
+                                />
+                                <span className="truncate">
+                                  {part.part_catalog?.name ?? "Unnamed Part"}
+                                </span>
+                                <span className="shrink-0 text-[10px] text-zinc-600">
+                                  In stock: {availableQuantity}
+                                </span>
+                              </label>
+                              {selectedQuantity > 0 ? (
+                                <FieldInput
+                                  type="number"
+                                  min="1"
+                                  max={availableQuantity}
+                                  value={selectedQuantity}
+                                  aria-label={`Quantity of ${part.part_catalog?.name ?? "part"}`}
+                                  className="w-20"
+                                  onChange={(event) => {
+                                    const nextQuantity = Number.parseInt(
+                                      event.target.value,
+                                      10
+                                    );
+                                    if (Number.isNaN(nextQuantity)) return;
+                                    setPartQuantity(
+                                      part.id,
+                                      Math.min(
+                                        availableQuantity,
+                                        Math.max(1, nextQuantity)
+                                      )
+                                    );
+                                  }}
+                                />
+                              ) : null}
+                            </div>
+                          );
+                        })
                       )}
                     </div>
                   </div>
@@ -409,7 +665,12 @@ export default function TeamTasksClient({
                   </SecondaryButton>
                   <PrimaryButton
                     type="submit"
-                    disabled={loading || !taskName.trim()}
+                    disabled={
+                      loading ||
+                      !taskName.trim() ||
+                      hasInvalidAllocation ||
+                      (Object.keys(selectedParts).length > 0 && !canManageInventory)
+                    }
                   >
                     {loading ? "Adding..." : "Add Task"}
                   </PrimaryButton>
@@ -445,57 +706,23 @@ export default function TeamTasksClient({
                     </div>
                   ) : (
                     columnTasks.map((task) => (
-                      <div
+                      <TaskCard
                         key={task.id}
-                        draggable
+                        task={task}
+                        parentTask={tasks.find((candidate) => candidate.id === task.parent_id)}
+                        childTasks={tasks.filter((candidate) => candidate.parent_id === task.id)}
+                        isDragging={draggedTaskId === task.id}
                         onDragStart={() => handleDragStart(task.id)}
-                        className="group bg-black border border-zinc-800 hover:border-zinc-700 p-4 rounded-lg space-y-3 cursor-grab active:cursor-grabbing transition-all shadow-sm hover:shadow-md"
-                      >
-                        <div className="flex justify-between items-start gap-2">
-                          <h3 className="text-xs font-semibold text-zinc-100 leading-snug">
-                            {task.name}
-                          </h3>
-                          {task.id.startsWith("temp-") && (
-                            <span className="text-[9px] font-mono text-amber-400 bg-amber-950/50 px-1.5 py-0.5 border border-amber-800 rounded">
-                              Saving...
-                            </span>
-                          )}
-                        </div>
-
-                        {task.description && (
-                          <p className="text-xs text-zinc-500 leading-relaxed line-clamp-2">
-                            {task.description}
-                          </p>
-                        )}
-
-                        {/* Assignees */}
-                        {task.task_assignees && task.task_assignees.length > 0 && (
-                          <div className="flex flex-wrap gap-1 pt-1">
-                            {task.task_assignees.map((a, i) => (
-                              <span
-                                key={i}
-                                className="text-[10px] font-mono text-zinc-400 bg-zinc-900 px-2 py-0.5 rounded border border-zinc-800"
-                              >
-                                {displayNameFromProfile(a.profiles)}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-
-                        {/* Attached Parts */}
-                        {task.task_parts && task.task_parts.length > 0 && (
-                          <div className="flex flex-wrap gap-1 pt-1">
-                            {task.task_parts.map((p, i) => (
-                              <span
-                                key={i}
-                                className="text-[10px] font-mono text-emerald-400/80 bg-zinc-900 px-2 py-0.5 rounded border border-zinc-800"
-                              >
-                                {p.parts?.part_catalog?.name ?? "Part"}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
+                        onDragEnd={() => setDraggedTaskId(null)}
+                        onStatusChange={(status) =>
+                          void handleStatusChange(task.id, status)
+                        }
+                        onDelete={
+                          canManageTasks
+                            ? () => void handleDelete(task)
+                            : undefined
+                        }
+                      />
                     ))
                   )}
                 </div>

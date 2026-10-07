@@ -68,8 +68,6 @@ export type StatusList = {
 
 export type PartStatus = {
   id: string;
-  name: string;
-  description: string | null;
   status_id: string | null;
   part_id: string | null;
   quantity: number;
@@ -105,6 +103,11 @@ export type Task = {
   updated_at: string;
 };
 
+export type TaskLink = Pick<
+  Task,
+  "id" | "name" | "team_id" | "is_personal" | "parent_id"
+>;
+
 export type Subtask = {
   id: string;
   task_id: string;
@@ -117,9 +120,10 @@ export type Subtask = {
 };
 
 export type TaskWithRelations = Task & {
+  child_tasks?: TaskLink[];
   task_assignees?: { user_id: string; profiles?: Profile | null }[];
   task_role_assignees?: { role_id: string; team_roles?: TeamRole | null }[];
-  task_parts?: { part_id: string; parts?: Part | null }[];
+  task_parts?: { part_id: string; quantity?: number; parts?: Part | null }[];
   subtasks?: Subtask[];
   teams?: Pick<Team, "id" | "name" | "team_number"> | null;
 };

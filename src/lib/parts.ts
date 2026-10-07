@@ -1,5 +1,26 @@
 import { supabase } from "./supabase";
-import type { Part, StatusList } from "./types";
+import type { Part, PartCatalog, StatusList } from "./types";
+
+export async function listPartCatalog(teamId: string): Promise<PartCatalog[]> {
+  const [officialResult, teamResult] = await Promise.all([
+    supabase
+      .from("part_catalog")
+      .select("*")
+      .is("team_id", null)
+      .eq("is_official", true)
+      .order("name", { ascending: true }),
+    supabase
+      .from("part_catalog")
+      .select("*")
+      .eq("team_id", teamId)
+      .order("name", { ascending: true }),
+  ]);
+
+  if (officialResult.error) throw new Error(officialResult.error.message);
+  if (teamResult.error) throw new Error(teamResult.error.message);
+
+  return [...(officialResult.data ?? []), ...(teamResult.data ?? [])] as PartCatalog[];
+}
 
 export async function listPartStatuses(teamId: string): Promise<StatusList[]> {
   const [globalResult, teamResult] = await Promise.all([
@@ -58,6 +79,18 @@ export async function listAssignableParts(teamId: string): Promise<Part[]> {
   return (data ?? []) as Part[];
 }
 
+export function getInStockQuantity(part: Part): number {
+  return (part.part_status ?? []).reduce((total, status) => {
+    const statusName = status.status_list?.name
+      ?.trim()
+      .toLowerCase()
+      .replace(/[_-]+/g, " ");
+    return statusName === "inventory" || statusName === "in stock"
+      ? total + status.quantity
+      : total;
+  }, 0);
+}
+
 export async function createPart(input: {
   teamId: string;
   catalogId: string;
@@ -77,8 +110,40 @@ export async function createPart(input: {
   return data as Part;
 }
 
+export async function addPartToInventory(input: {
+  teamId: string;
+  catalogId: string | null;
+  name: string;
+  sku: string;
+  description: string;
+  statusId: string;
+  quantity: number;
+}): Promise<string> {
+  const { data, error } = await supabase.rpc("add_part_to_inventory", {
+    p_team_id: input.teamId,
+    p_catalog_id: input.catalogId,
+    p_name: input.name,
+    p_sku: input.sku || null,
+    p_description: input.description || null,
+    p_status_id: input.statusId,
+    p_quantity: input.quantity,
+  });
+
+  if (error) throw new Error(error.message);
+  return data as string;
+}
+
 export async function deletePart(partId: string): Promise<void> {
-  const { error } = await supabase.from("parts").delete().eq("id", partId);
+  const { error } = await supabase.rpc("delete_part_from_inventory", {
+    p_part_id: partId,
+  });
+  if (error) throw new Error(error.message);
+}
+
+export async function deletePartStatusListing(partStatusId: string): Promise<void> {
+  const { error } = await supabase.rpc("delete_part_status_listing", {
+    p_part_status_id: partStatusId,
+  });
   if (error) throw new Error(error.message);
 }
 
@@ -98,10 +163,10 @@ export async function updatePartStatus(
   partStatusId: string,
   statusId: string
 ): Promise<void> {
-  const { error } = await supabase
-    .from("part_status")
-    .update({ status_id: statusId })
-    .eq("id", partStatusId);
+  const { error } = await supabase.rpc("merge_part_status", {
+    p_part_status_id: partStatusId,
+    p_status_id: statusId,
+  });
 
   if (error) throw new Error(error.message);
 }
@@ -111,14 +176,17 @@ export async function countPartsByStatus(
 ): Promise<Record<string, number>> {
   const { data, error } = await supabase
     .from("part_status")
-    .select("name, status_id, part!inner(team_id)")
+    .select("status_id, part!inner(team_id)")
     .eq("part.team_id", teamId);
 
   if (error) throw new Error(error.message);
 
+  const statuses = await listPartStatuses(teamId);
+  const statusNames = new Map(statuses.map((status) => [status.id, status.name]));
+
   const counts: Record<string, number> = {};
   (data ?? []).forEach((row) => {
-    const key = row.name || "Unknown";
+    const key = statusNames.get(row.status_id ?? "") || "Unknown";
     counts[key] = (counts[key] || 0) + 1;
   });
 

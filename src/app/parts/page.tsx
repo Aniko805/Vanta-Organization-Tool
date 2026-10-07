@@ -10,8 +10,10 @@ import AppShell, {
   SecondaryButton,
 } from "@/app/components/AppShell";
 import {
-  createPart,
+  addPartToInventory,
   deletePart,
+  deletePartStatusListing,
+  listPartCatalog,
   listPartStatuses,
   listParts,
   updatePartQuantity,
@@ -23,8 +25,15 @@ import {
   listTeamMembers,
   memberCanManageInventory,
 } from "@/lib/teams";
-import { type Part, type StatusList, type Team, type TeamMember } from "@/lib/types";
-import { useCallback, useEffect, useState } from "react";
+import {
+  type Part,
+  type PartCatalog,
+  type PartStatus,
+  type StatusList,
+  type Team,
+  type TeamMember,
+} from "@/lib/types";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export default function PartsPage() {
   const [userId, setUserId] = useState<string | null>(null);
@@ -32,7 +41,10 @@ export default function PartsPage() {
   const [teamId, setTeamId] = useState<string | null>(null);
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [parts, setParts] = useState<Part[]>([]);
+  const [catalog, setCatalog] = useState<PartCatalog[]>([]);
   const [statuses, setStatuses] = useState<StatusList[]>([]);
+  const [selectedCatalogId, setSelectedCatalogId] = useState("new");
+  const [selectedStatusId, setSelectedStatusId] = useState("");
   const [filter, setFilter] = useState<string>("all");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -42,6 +54,7 @@ export default function PartsPage() {
   const [sku, setSku] = useState("");
   const [notes, setNotes] = useState("");
   const [quantity, setQuantity] = useState<number>(1);
+  const refreshGeneration = useRef(0);
 
   const selectedTeam = teams.find((t) => t.id === teamId) ?? null;
   const myMembership = members.find((m) => m.user_id === userId) ?? null;
@@ -49,22 +62,45 @@ export default function PartsPage() {
     selectedTeam && userId
       ? memberCanManageInventory(selectedTeam, userId, myMembership)
       : false;
+  const selectedCatalog = catalog.find((item) => item.id === selectedCatalogId);
+  const hasValidCatalogSelection =
+    selectedCatalogId === "new" ? Boolean(name.trim()) : Boolean(selectedCatalog);
 
   const refresh = useCallback(async (tid: string) => {
+    const generation = ++refreshGeneration.current;
     setLoading(true);
+    setError(null);
     try {
-      const [p, m, s] = await Promise.all([
+      const [p, m, s, c] = await Promise.all([
         listParts(tid),
         listTeamMembers(tid),
         listPartStatuses(tid),
+        listPartCatalog(tid),
       ]);
+      if (generation !== refreshGeneration.current) return;
       setParts(p);
       setMembers(m);
       setStatuses(s);
+      setCatalog(c);
+      setSelectedStatusId((current) => {
+        if (s.some((status) => status.id === current)) return current;
+        return (
+          s.find((status) => status.name === "PLANNING")?.id ??
+          s.find((status) => status.is_default)?.id ??
+          s[0]?.id ??
+          ""
+        );
+      });
     } catch (e) {
+      if (generation !== refreshGeneration.current) return;
+      setParts([]);
+      setMembers([]);
+      setStatuses([]);
+      setCatalog([]);
+      setSelectedStatusId("");
       setError(e instanceof Error ? e.message : "Failed to load parts");
     } finally {
-      setLoading(false);
+      if (generation === refreshGeneration.current) setLoading(false);
     }
   }, []);
 
@@ -108,66 +144,38 @@ export default function PartsPage() {
     loadData();
   }, [teamId, refresh]);
 
+  const listings = parts.flatMap<{ part: Part; statusRecord: PartStatus | null }>((part) => {
+    const partStatuses = part.part_status ?? [];
+    return partStatuses.length > 0
+      ? partStatuses.map((statusRecord) => ({ part, statusRecord }))
+      : [{ part, statusRecord: null }];
+  });
   const visible =
     filter === "all"
-      ? parts
-      : parts.filter((p) =>
-          p.part_status?.some(
-            (ps) =>
-              ps.status_id === filter ||
-              ps.status_list?.id === filter ||
-              ps.status_list?.name === filter ||
-              ps.name === filter
-          )
+      ? listings
+      : listings.filter(
+          ({ statusRecord }) =>
+            statusRecord?.status_id === filter ||
+            statusRecord?.status_list?.id === filter ||
+            statusRecord?.status_list?.name === filter
         );
 
   const handleCreate = async () => {
-    if (!userId || !teamId || !name.trim()) return;
+    if (!userId || !teamId || !hasValidCatalogSelection || !selectedStatusId) return;
     setBusy(true);
     setError(null);
     try {
-      const initialStatus =
-        statuses.find((status) => status.is_default) ??
-        statuses.find((status) => status.name === "PLANNING") ??
-        statuses[0];
-
-      if (!initialStatus) {
-        throw new Error("No inventory statuses are configured for this team.");
-      }
-
-      // 1. Insert into part_catalog
-      const { data: catalogData, error: catalogError } = await supabase
-        .from("part_catalog")
-        .insert({
-          name,
-          sku: sku || null,
-          description: notes || null,
-          team_id: teamId,
-          created_by: userId,
-        })
-        .select()
-        .single();
-
-      if (catalogError) throw new Error(catalogError.message);
-
-      // 2. Create actual Part relation
-      const part = await createPart({
+      await addPartToInventory({
         teamId,
-        catalogId: catalogData.id,
-        createdBy: userId,
-      });
-
-      // 3. Insert initial status tracking entry
-      const { error: statusError } = await supabase.from("part_status").insert({
-        part_id: part.id,
-        status_id: initialStatus.id,
-        name: initialStatus.name,
+        catalogId: selectedCatalog?.id ?? null,
+        name: selectedCatalog?.name ?? name.trim(),
+        sku: selectedCatalog?.sku ?? sku.trim(),
+        description: selectedCatalog?.description ?? notes.trim(),
+        statusId: selectedStatusId,
         quantity,
-        created_by: userId,
       });
 
-      if (statusError) throw new Error(statusError.message);
-
+      setSelectedCatalogId("new");
       setName("");
       setSku("");
       setNotes("");
@@ -189,7 +197,20 @@ export default function PartsPage() {
           as="select"
           className="w-48"
           value={teamId ?? ""}
-          onChange={(e) => setTeamId(e.target.value || null)}
+          onChange={(e) => {
+            const nextTeamId = e.target.value || null;
+            refreshGeneration.current += 1;
+            setFilter("all");
+            setParts([]);
+            setMembers([]);
+            setCatalog([]);
+            setStatuses([]);
+            setSelectedCatalogId("new");
+            setSelectedStatusId("");
+            setError(null);
+            setLoading(Boolean(nextTeamId));
+            setTeamId(nextTeamId);
+          }}
         >
           {teams.length === 0 ? <option value="">No teams</option> : null}
           {teams.map((t) => (
@@ -213,20 +234,52 @@ export default function PartsPage() {
               <Label>Add part</Label>
               <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                 <FieldInput
-                  placeholder="Part name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                />
+                  as="select"
+                  aria-label="Catalog part"
+                  className="md:col-span-2"
+                  value={selectedCatalogId}
+                  onChange={(e) => setSelectedCatalogId(e.target.value)}
+                >
+                  <option value="new">Create a new catalog item</option>
+                  {catalog.some((item) => item.is_official) ? (
+                    <optgroup label="Official parts">
+                      {catalog
+                        .filter((item) => item.is_official)
+                        .map((item) => (
+                          <option key={item.id} value={item.id}>
+                            {item.name}{item.sku ? ` · ${item.sku}` : ""}
+                          </option>
+                        ))}
+                    </optgroup>
+                  ) : null}
+                  {catalog.some((item) => item.team_id === teamId) ? (
+                    <optgroup label="Team parts">
+                      {catalog
+                        .filter((item) => item.team_id === teamId)
+                        .map((item) => (
+                          <option key={item.id} value={item.id}>
+                            {item.name}{item.sku ? ` · ${item.sku}` : ""}
+                          </option>
+                        ))}
+                    </optgroup>
+                  ) : null}
+                </FieldInput>
                 <FieldInput
-                  placeholder="SKU / type"
-                  value={sku}
-                  onChange={(e) => setSku(e.target.value)}
-                />
-                <FieldInput
-                  placeholder="Notes"
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                />
+                  as="select"
+                  aria-label="Initial part status"
+                  value={selectedStatusId}
+                  disabled={statuses.length === 0}
+                  onChange={(e) => setSelectedStatusId(e.target.value)}
+                >
+                  {statuses.length === 0 ? (
+                    <option value="">No statuses available</option>
+                  ) : null}
+                  {statuses.map((status) => (
+                    <option key={status.id} value={status.id}>
+                      {status.name}
+                    </option>
+                  ))}
+                </FieldInput>
                 <FieldInput
                   type="number"
                   min="1"
@@ -234,8 +287,39 @@ export default function PartsPage() {
                   value={quantity}
                   onChange={(e) => setQuantity(parseInt(e.target.value, 10) || 1)}
                 />
+                {selectedCatalogId === "new" ? (
+                  <>
+                    <FieldInput
+                      placeholder="Part name"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                    />
+                    <FieldInput
+                      placeholder="SKU / type"
+                      value={sku}
+                      onChange={(e) => setSku(e.target.value)}
+                    />
+                    <FieldInput
+                      placeholder="Description"
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
+                    />
+                  </>
+                ) : (
+                  <p className="md:col-span-4 text-xs text-zinc-500">
+                    {selectedCatalog?.description || "No description"}
+                  </p>
+                )}
               </div>
-              <PrimaryButton disabled={busy || !name.trim()} onClick={handleCreate}>
+              <PrimaryButton
+                disabled={
+                  busy ||
+                  !hasValidCatalogSelection ||
+                  !selectedStatusId ||
+                  statuses.length === 0
+                }
+                onClick={handleCreate}
+              >
                 Add to inventory
               </PrimaryButton>
             </Panel>
@@ -249,17 +333,14 @@ export default function PartsPage() {
             <FilterChip
               active={filter === "all"}
               onClick={() => setFilter("all")}
-              label={`All (${parts.length})`}
+              label={`All (${listings.length})`}
             />
             {statuses.map((status) => {
-              const count = parts.filter((p) =>
-                p.part_status?.some(
-                  (ps) =>
-                    ps.status_id === status.id ||
-                    ps.status_list?.id === status.id ||
-                    ps.status_list?.name === status.name ||
-                    ps.name === status.name
-                )
+              const count = listings.filter(
+                ({ statusRecord }) =>
+                  statusRecord?.status_id === status.id ||
+                  statusRecord?.status_list?.id === status.id ||
+                  statusRecord?.status_list?.name === status.name
               ).length;
 
               return (
@@ -273,6 +354,15 @@ export default function PartsPage() {
             })}
           </div>
 
+          {!loading && statuses.length === 0 ? (
+            <Panel>
+              <EmptyState>
+                No inventory statuses are available. Confirm that global default
+                statuses exist and apply the inventory access migration.
+              </EmptyState>
+            </Panel>
+          ) : null}
+
           <div className="space-y-2">
             {loading ? (
               <Panel>
@@ -283,20 +373,18 @@ export default function PartsPage() {
                 <EmptyState>No parts in this filter.</EmptyState>
               </Panel>
             ) : (
-              visible.map((part) => {
+              visible.map(({ part, statusRecord }) => {
                 const catalog = part.part_catalog;
-                const statusRecord = part.part_status?.[0];
                 const currentQty = statusRecord?.quantity ?? 1;
+                const currentStatus =
+                  statuses.find((status) => status.id === statusRecord?.status_id) ??
+                  statusRecord?.status_list;
                 const currentStatusId =
-                  statusRecord?.status_list?.id ??
-                  statuses.find((status) => status.id === statusRecord?.status_id)?.id ??
-                  statuses.find((status) => status.name === statusRecord?.name)?.id ??
-                  "";
-                const currentStatusName =
-                  statusRecord?.status_list?.name ?? statusRecord?.name ?? "Unknown";
+                  currentStatus?.id ?? "";
+                const currentStatusName = currentStatus?.name ?? "Unknown";
 
                 return (
-                  <Panel key={part.id} className="!p-4 flex flex-wrap items-center justify-between gap-4">
+                  <Panel key={`${part.id}-${statusRecord?.id ?? "no-status"}`} className="!p-4 flex flex-wrap items-center justify-between gap-4">
                     <div>
                       <p className="text-sm font-semibold text-zinc-100">
                         {catalog?.name ?? "Unnamed Part"}
@@ -308,7 +396,7 @@ export default function PartsPage() {
                     </div>
 
                     <div className="flex items-center gap-3">
-                      {canManage && statusRecord ? (
+                      {canManage && statusRecord && statuses.length > 0 ? (
                         <div className="flex items-center gap-1">
                           <button
                             type="button"
@@ -319,10 +407,11 @@ export default function PartsPage() {
                                   p.id === part.id && p.part_status?.[0]
                                     ? {
                                         ...p,
-                                        part_status: [
-                                          { ...p.part_status[0], quantity: newQty },
-                                          ...p.part_status.slice(1),
-                                        ],
+                                        part_status: p.part_status?.map((status) =>
+                                          status.id === statusRecord.id
+                                            ? { ...status, quantity: newQty }
+                                            : status
+                                        ),
                                       }
                                     : p
                                 )
@@ -346,10 +435,11 @@ export default function PartsPage() {
                                   p.id === part.id && p.part_status?.[0]
                                     ? {
                                         ...p,
-                                        part_status: [
-                                          { ...p.part_status[0], quantity: next },
-                                          ...p.part_status.slice(1),
-                                        ],
+                                        part_status: p.part_status?.map((status) =>
+                                          status.id === statusRecord.id
+                                            ? { ...status, quantity: next }
+                                            : status
+                                        ),
                                       }
                                     : p
                                 )
@@ -368,10 +458,11 @@ export default function PartsPage() {
                                   p.id === part.id && p.part_status?.[0]
                                     ? {
                                         ...p,
-                                        part_status: [
-                                          { ...p.part_status[0], quantity: newQty },
-                                          ...p.part_status.slice(1),
-                                        ],
+                                        part_status: p.part_status?.map((status) =>
+                                          status.id === statusRecord.id
+                                            ? { ...status, quantity: newQty }
+                                            : status
+                                        ),
                                       }
                                     : p
                                 )
@@ -389,7 +480,7 @@ export default function PartsPage() {
                         </span>
                       )}
 
-                      {canManage && statusRecord ? (
+                      {canManage && statusRecord && statuses.length > 0 ? (
                         <FieldInput
                           as="select"
                           className="w-40"
@@ -422,12 +513,18 @@ export default function PartsPage() {
                           onClick={async () => {
                             if (
                               !window.confirm(
-                                `Are you sure you want to delete "${catalog?.name ?? "this part"}"? This cannot be undone.`
+                                statusRecord
+                                  ? `Delete the ${currentStatusName} listing for "${catalog?.name ?? "this part"}"? Other status listings will remain.`
+                                  : `Delete "${catalog?.name ?? "this part"}"? This cannot be undone.`
                               )
                             )
                               return;
                             try {
-                              await deletePart(part.id);
+                              if (statusRecord) {
+                                await deletePartStatusListing(statusRecord.id);
+                              } else {
+                                await deletePart(part.id);
+                              }
                               if (teamId) await refresh(teamId);
                             } catch (err) {
                               setError(
