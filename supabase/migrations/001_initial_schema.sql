@@ -102,6 +102,7 @@ CREATE TABLE public.task_role_assignees (
 CREATE TABLE public.task_parts (
   task_id uuid NOT NULL,
   part_id uuid NOT NULL,
+  quantity integer NOT NULL DEFAULT 0 CHECK (quantity >= 0),
   CONSTRAINT task_parts_pkey PRIMARY KEY (task_id, part_id),
   CONSTRAINT task_parts_task_id_fkey FOREIGN KEY (task_id) REFERENCES public.tasks(id),
   CONSTRAINT task_parts_part_id_fkey FOREIGN KEY (part_id) REFERENCES public.parts(id)

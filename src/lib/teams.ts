@@ -154,6 +154,68 @@ export async function listTeamRoles(teamId: string): Promise<TeamRole[]> {
   return (data ?? []) as TeamRole[];
 }
 
+export type TeamRoleInput = Omit<
+  Pick<
+    TeamRole,
+    | "name"
+    | "is_admin"
+    | "can_manage_tasks"
+    | "can_manage_members"
+    | "can_manage_inventory"
+  >,
+  "name"
+> & { name: string };
+
+export type DeleteTeamRoleResult = {
+  member_assignments_deleted: number;
+  task_assignments_deleted: number;
+};
+
+export async function createTeamRole(
+  teamId: string,
+  role: TeamRoleInput
+): Promise<TeamRole> {
+  const { data, error } = await supabase.rpc("create_team_role", {
+    p_team_id: teamId,
+    p_name: role.name.trim(),
+    p_is_admin: role.is_admin,
+    p_can_manage_tasks: role.can_manage_tasks,
+    p_can_manage_members: role.can_manage_members,
+    p_can_manage_inventory: role.can_manage_inventory,
+  });
+
+  if (error) throw new Error(error.message);
+  return data as TeamRole;
+}
+
+export async function updateTeamRole(
+  roleId: string,
+  role: TeamRoleInput
+): Promise<TeamRole> {
+  const { data, error } = await supabase.rpc("update_team_role", {
+    p_role_id: roleId,
+    p_name: role.name.trim(),
+    p_is_admin: role.is_admin,
+    p_can_manage_tasks: role.can_manage_tasks,
+    p_can_manage_members: role.can_manage_members,
+    p_can_manage_inventory: role.can_manage_inventory,
+  });
+
+  if (error) throw new Error(error.message);
+  return data as TeamRole;
+}
+
+export async function deleteTeamRole(
+  roleId: string
+): Promise<DeleteTeamRoleResult> {
+  const { data, error } = await supabase.rpc("delete_team_role", {
+    p_role_id: roleId,
+  });
+
+  if (error) throw new Error(error.message);
+  return data as DeleteTeamRoleResult;
+}
+
 export async function updateMemberRoles(
   memberId: string,
   roleIds: string[],
@@ -260,6 +322,18 @@ export function memberIsAdmin(
   }
   const role = membership?.team_roles;
   return Boolean(role?.is_admin || role?.can_manage_members);
+}
+
+export function memberCanManageRoleDefinitions(
+  team: Team,
+  userId: string,
+  membership?: TeamMember | null
+): boolean {
+  if (team.owner_id === userId) return true;
+  const roles = membership?.team_roles_list ?? [];
+  if (roles.some((role) => role.team_id === team.id && role.is_admin)) return true;
+  const role = membership?.team_roles;
+  return Boolean(role?.team_id === team.id && role.is_admin);
 }
 
 export function memberCanManageTasks(

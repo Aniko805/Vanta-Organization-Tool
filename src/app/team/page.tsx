@@ -12,14 +12,18 @@ import AppShell, {
 import { supabase } from "@/lib/supabase";
 import {
   createTeam,
+  createTeamRole,
+  deleteTeamRole,
   joinTeamByInvite,
   leaveTeam,
   listMyTeams,
   listTeamMembers,
   listTeamRoles,
   memberIsAdmin,
+  memberCanManageRoleDefinitions,
   regenerateInviteCode,
   removeMember,
+  updateTeamRole,
   updateMemberRoles,
 } from "@/lib/teams";
 import {
@@ -29,26 +33,63 @@ import {
   type TeamRole,
 } from "@/lib/types";
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+
+type TeamRoleDraft = {
+  name: string;
+  is_admin: boolean;
+  can_manage_tasks: boolean;
+  can_manage_members: boolean;
+  can_manage_inventory: boolean;
+};
+
+type TeamRolePermission = Exclude<keyof TeamRoleDraft, "name">;
+
+const EMPTY_TEAM_ROLE_DRAFT: TeamRoleDraft = {
+  name: "",
+  is_admin: false,
+  can_manage_tasks: false,
+  can_manage_members: false,
+  can_manage_inventory: false,
+};
+
+const TEAM_ROLE_PERMISSIONS: { key: TeamRolePermission; label: string }[] = [
+  { key: "is_admin", label: "Admin" },
+  { key: "can_manage_tasks", label: "Manage tasks" },
+  { key: "can_manage_members", label: "Manage members" },
+  { key: "can_manage_inventory", label: "Manage inventory" },
+];
 
 export default function TeamPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [teams, setTeams] = useState<Team[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [members, setMembers] = useState<TeamMember[]>([]);
-  const [roles, setRoles] = useState<TeamRole[]>([]);
+  const [memberData, setMemberData] = useState<TeamMember[]>([]);
+  const [roleData, setRoleData] = useState<TeamRole[]>([]);
+  const [loadedTeamId, setLoadedTeamId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [updatingMemberId, setUpdatingMemberId] = useState<string | null>(null);
+  const [roleEditorOpen, setRoleEditorOpen] = useState(false);
+  const [editingRoleId, setEditingRoleId] = useState<string | null>(null);
+  const [roleDraft, setRoleDraft] = useState<TeamRoleDraft>(EMPTY_TEAM_ROLE_DRAFT);
+  const [roleActionBusy, setRoleActionBusy] = useState(false);
+  const [roleNotice, setRoleNotice] = useState<string | null>(null);
 
   const [createName, setCreateName] = useState("");
   const [createNumber, setCreateNumber] = useState("");
   const [inviteCode, setInviteCode] = useState("");
 
+  const members = loadedTeamId === selectedId ? memberData : [];
+  const roles = loadedTeamId === selectedId ? roleData : [];
   const selected = teams.find((t) => t.id === selectedId) ?? null;
   const myMembership = members.find((m) => m.user_id === userId) ?? null;
   const isAdmin = selected && userId ? memberIsAdmin(selected, userId, myMembership) : false;
+  const canManageRoleDefinitions =
+    selected && userId
+      ? memberCanManageRoleDefinitions(selected, userId, myMembership)
+      : false;
 
   const refreshTeams = useCallback(async (uid: string) => {
     const next = await listMyTeams();
@@ -60,11 +101,22 @@ export default function TeamPage() {
     return next;
   }, []);
 
+  const refreshSequence = useRef(0);
   const refreshSelected = useCallback(async (teamId: string) => {
+    const requestId = ++refreshSequence.current;
     const [m, r] = await Promise.all([listTeamMembers(teamId), listTeamRoles(teamId)]);
-    setMembers(m);
-    setRoles(r);
+    if (requestId !== refreshSequence.current) return;
+    setMemberData(m);
+    setRoleData(r);
+    setLoadedTeamId(teamId);
   }, []);
+
+  const closeRoleEditor = () => {
+    setRoleEditorOpen(false);
+    setEditingRoleId(null);
+    setRoleDraft(EMPTY_TEAM_ROLE_DRAFT);
+    setRoleNotice(null);
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -90,11 +142,7 @@ export default function TeamPage() {
 
   useEffect(() => {
     let mounted = true;
-    if (!selectedId) {
-      setMembers([]);
-      setRoles([]);
-      return;
-    }
+    if (!selectedId) return;
     refreshSelected(selectedId).catch((e) => {
       if (mounted) {
         setError(e instanceof Error ? e.message : "Failed to load members");
@@ -117,6 +165,7 @@ export default function TeamPage() {
       });
       setCreateName("");
       setCreateNumber("");
+      closeRoleEditor();
       await refreshTeams(userId);
       setSelectedId(team.id);
     } catch (e) {
@@ -133,6 +182,7 @@ export default function TeamPage() {
     try {
       const tid = await joinTeamByInvite(inviteCode);
       setInviteCode("");
+      closeRoleEditor();
       await refreshTeams(userId);
       setSelectedId(tid);
     } catch (e) {
@@ -151,6 +201,7 @@ export default function TeamPage() {
     setBusy(true);
     try {
       await leaveTeam(selected.id);
+      closeRoleEditor();
       await refreshTeams(userId);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Leave failed");
@@ -171,6 +222,82 @@ export default function TeamPage() {
       setError(e instanceof Error ? e.message : "Could not regenerate code");
     } finally {
       setBusy(false);
+    }
+  };
+
+  const openCreateRoleEditor = () => {
+    setEditingRoleId(null);
+    setRoleDraft(EMPTY_TEAM_ROLE_DRAFT);
+    setRoleNotice(null);
+    setRoleEditorOpen(true);
+  };
+
+  const openEditRoleEditor = (role: TeamRole) => {
+    setEditingRoleId(role.id);
+    setRoleDraft({
+      name: role.name ?? "",
+      is_admin: role.is_admin,
+      can_manage_tasks: role.can_manage_tasks,
+      can_manage_members: role.can_manage_members,
+      can_manage_inventory: role.can_manage_inventory,
+    });
+    setRoleNotice(null);
+    setRoleEditorOpen(true);
+  };
+
+  const handleSaveRole = async () => {
+    if (!selected || !roleDraft.name.trim()) return;
+    setRoleActionBusy(true);
+    setError(null);
+    setRoleNotice(null);
+    try {
+      if (editingRoleId) {
+        await updateTeamRole(editingRoleId, roleDraft);
+        setRoleNotice("Role updated.");
+      } else {
+        await createTeamRole(selected.id, roleDraft);
+        setRoleNotice("Role created.");
+      }
+      await refreshSelected(selected.id);
+      setRoleEditorOpen(false);
+      setEditingRoleId(null);
+      setRoleDraft(EMPTY_TEAM_ROLE_DRAFT);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Role could not be saved");
+    } finally {
+      setRoleActionBusy(false);
+    }
+  };
+
+  const handleDeleteRole = async (role: TeamRole) => {
+    if (!selected) return;
+    const roleName = role.name ?? "this role";
+    if (
+      !window.confirm(
+        `Delete ${roleName}? This permanently removes the role and unassigns it from all members and team tasks.`
+      )
+    ) {
+      return;
+    }
+
+    setRoleActionBusy(true);
+    setError(null);
+    setRoleNotice(null);
+    try {
+      const result = await deleteTeamRole(role.id);
+      await refreshSelected(selected.id);
+      setRoleNotice(
+        `Role deleted. Removed ${result.member_assignments_deleted} member assignments and ${result.task_assignments_deleted} task assignments.`
+      );
+      if (editingRoleId === role.id) {
+        setRoleEditorOpen(false);
+        setEditingRoleId(null);
+        setRoleDraft(EMPTY_TEAM_ROLE_DRAFT);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Role could not be deleted");
+    } finally {
+      setRoleActionBusy(false);
     }
   };
 
@@ -282,7 +409,10 @@ export default function TeamPage() {
                   <button
                     key={team.id}
                     type="button"
-                    onClick={() => setSelectedId(team.id)}
+                    onClick={() => {
+                      closeRoleEditor();
+                      setSelectedId(team.id);
+                    }}
                     className={`w-full text-left px-3 py-2 rounded border text-sm transition-colors ${
                       selectedId === team.id
                         ? "border-zinc-600 bg-zinc-900/60 text-white"
@@ -380,6 +510,152 @@ export default function TeamPage() {
                 <p className="text-[10px] font-mono text-zinc-600">
                   Share this code with teammates so they can join from this page.
                 </p>
+              </div>
+
+              <div>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <Label>Team roles</Label>
+                    <p className="mt-1 text-[11px] text-zinc-500">
+                      Roles control member access to team tools.
+                    </p>
+                  </div>
+                  {canManageRoleDefinitions && !roleEditorOpen ? (
+                    <PrimaryButton
+                      type="button"
+                      disabled={roleActionBusy}
+                      onClick={openCreateRoleEditor}
+                    >
+                      Create role
+                    </PrimaryButton>
+                  ) : null}
+                </div>
+
+                {roleNotice ? (
+                  <p role="status" className="mt-3 text-xs text-emerald-400">
+                    {roleNotice}
+                  </p>
+                ) : null}
+
+                {selectedId !== loadedTeamId ? (
+                  <div className="mt-3">
+                    <EmptyState>Loading team roles...</EmptyState>
+                  </div>
+                ) : roles.length === 0 ? (
+                  <div className="mt-3">
+                    <EmptyState>No roles are defined for this team.</EmptyState>
+                  </div>
+                ) : (
+                  <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {roles.map((role) => {
+                      const permissions = [
+                        role.is_admin ? "Admin" : null,
+                        role.can_manage_tasks ? "Tasks" : null,
+                        role.can_manage_members ? "Members" : null,
+                        role.can_manage_inventory ? "Inventory" : null,
+                      ].filter(Boolean);
+
+                      return (
+                        <div
+                          key={role.id}
+                          className="border border-zinc-900 rounded bg-zinc-950/40 p-3"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <h3 className="truncate text-sm font-semibold text-zinc-200">
+                                {role.name ?? "Unnamed role"}
+                              </h3>
+                              <p className="mt-1 text-[11px] text-zinc-500">
+                                {permissions.length > 0
+                                  ? permissions.join(" · ")
+                                  : "No management permissions"}
+                              </p>
+                            </div>
+                            {canManageRoleDefinitions ? (
+                              <div className="flex shrink-0 gap-2">
+                                <button
+                                  type="button"
+                                  disabled={roleActionBusy}
+                                  onClick={() => openEditRoleEditor(role)}
+                                  className="text-xs text-zinc-400 hover:text-white disabled:opacity-50"
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={roleActionBusy}
+                                  onClick={() => handleDeleteRole(role)}
+                                  className="text-xs text-zinc-500 hover:text-red-400 disabled:opacity-50"
+                                >
+                                  Delete
+                                </button>
+                              </div>
+                            ) : null}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {roleEditorOpen && canManageRoleDefinitions ? (
+                  <div className="mt-4 border border-zinc-800 rounded bg-black/40 p-4 space-y-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <Label>{editingRoleId ? "Edit role" : "Create role"}</Label>
+                      <SecondaryButton
+                        type="button"
+                        disabled={roleActionBusy}
+                        onClick={closeRoleEditor}
+                      >
+                        Cancel
+                      </SecondaryButton>
+                    </div>
+
+                    <FieldInput
+                      placeholder="Role name"
+                      value={roleDraft.name}
+                      maxLength={60}
+                      disabled={roleActionBusy}
+                      onChange={(e) =>
+                        setRoleDraft((current) => ({
+                          ...current,
+                          name: e.target.value,
+                        }))
+                      }
+                    />
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {TEAM_ROLE_PERMISSIONS.map((permission) => (
+                        <label
+                          key={permission.key}
+                          className="flex items-center gap-2 border border-zinc-900 rounded px-3 py-2 text-xs text-zinc-300"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={roleDraft[permission.key]}
+                            disabled={roleActionBusy}
+                            onChange={(e) =>
+                              setRoleDraft((current) => ({
+                                ...current,
+                                [permission.key]: e.target.checked,
+                              }))
+                            }
+                            className="h-4 w-4 accent-emerald-400"
+                          />
+                          {permission.label}
+                        </label>
+                      ))}
+                    </div>
+
+                    <PrimaryButton
+                      type="button"
+                      disabled={roleActionBusy || !roleDraft.name.trim()}
+                      onClick={handleSaveRole}
+                    >
+                      {roleActionBusy ? "Saving..." : "Save role"}
+                    </PrimaryButton>
+                  </div>
+                ) : null}
               </div>
 
               {/* Members Section with Multi-Dropdowns */}

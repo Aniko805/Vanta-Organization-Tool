@@ -1,0 +1,310 @@
+.github/skills/debugging/SKILL.md:1: trailing whitespace.
+[32m+[m[32m---[m[41m[m
+.github/skills/debugging/SKILL.md:2: trailing whitespace.
+[32m+[m[32mname: debugging[m[41m[m
+.github/skills/debugging/SKILL.md:3: trailing whitespace.
+[32m+[m[32mdescription: >[m[41m[m
+.github/skills/debugging/SKILL.md:4: trailing whitespace.
+[32m+[m[32m  Systematically debug application errors and unexpected behavior.[m[41m[m
+.github/skills/debugging/SKILL.md:5: trailing whitespace.
+[32m+[m[32m  Use when investigating errors, failed requests, broken UI behavior,[m[41m[m
+.github/skills/debugging/SKILL.md:6: trailing whitespace.
+[32m+[m[32m  authentication failures, database errors, or deployment issues.[m[41m[m
+.github/skills/debugging/SKILL.md:7: trailing whitespace.
+[32m+[m[32m---[m[41m[m
+.github/skills/debugging/SKILL.md:8: trailing whitespace.
+[32m+[m[41m[m
+.github/skills/debugging/SKILL.md:9: trailing whitespace.
+[32m+[m[32m# Debugging process[m[41m[m
+.github/skills/debugging/SKILL.md:10: trailing whitespace.
+[32m+[m[41m[m
+.github/skills/debugging/SKILL.md:11: trailing whitespace.
+[32m+[m[32mWhen debugging an issue, do not immediately rewrite the code.[m[41m[m
+.github/skills/debugging/SKILL.md:12: trailing whitespace.
+[32m+[m[41m[m
+.github/skills/debugging/SKILL.md:13: trailing whitespace.
+[32m+[m[32mFollow this process:[m[41m[m
+.github/skills/debugging/SKILL.md:14: trailing whitespace.
+[32m+[m[41m[m
+.github/skills/debugging/SKILL.md:15: trailing whitespace.
+[32m+[m[32m1. Identify the exact operation that is failing.[m[41m[m
+.github/skills/debugging/SKILL.md:16: trailing whitespace.
+[32m+[m[32m2. Identify which layer is failing.[m[41m[m
+.github/skills/debugging/SKILL.md:17: trailing whitespace.
+[32m+[m[32m3. Read the relevant source code.[m[41m[m
+.github/skills/debugging/SKILL.md:18: trailing whitespace.
+[32m+[m[32m4. Trace the data entering the failing operation.[m[41m[m
+.github/skills/debugging/SKILL.md:19: trailing whitespace.
+[32m+[m[32m5. Check the relevant database schema or application configuration[m[41m[m
+.github/skills/debugging/SKILL.md:20: trailing whitespace.
+[32m+[m[32m   when applicable.[m[41m[m
+.github/skills/debugging/SKILL.md:21: trailing whitespace.
+[32m+[m[32m6. Identify the most likely root cause.[m[41m[m
+.github/skills/debugging/SKILL.md:22: trailing whitespace.
+[32m+[m[32m7. Make the smallest reasonable change.[m[41m[m
+.github/skills/debugging/SKILL.md:23: trailing whitespace.
+[32m+[m[32m8. Explain why the change fixes the problem.[m[41m[m
+.github/skills/debugging/SKILL.md:24: trailing whitespace.
+[32m+[m[32m9. Consider whether the change creates regressions or security issues.[m[41m[m
+.github/skills/debugging/SKILL.md:25: trailing whitespace.
+[32m+[m[41m[m
+.github/skills/debugging/SKILL.md:26: trailing whitespace.
+[32m+[m[32mDistinguish between:[m[41m[m
+.github/skills/debugging/SKILL.md:27: trailing whitespace.
+[32m+[m[41m[m
+.github/skills/debugging/SKILL.md:28: trailing whitespace.
+[32m+[m[32m- Browser/UI errors[m[41m[m
+.github/skills/debugging/SKILL.md:29: trailing whitespace.
+[32m+[m[32m- React errors[m[41m[m
+.github/skills/debugging/SKILL.md:30: trailing whitespace.
+[32m+[m[32m- Next.js errors[m[41m[m
+.github/skills/debugging/SKILL.md:31: trailing whitespace.
+[32m+[m[32m- TypeScript errors[m[41m[m
+.github/skills/debugging/SKILL.md:32: trailing whitespace.
+[32m+[m[32m- Network/API errors[m[41m[m
+.github/skills/debugging/SKILL.md:33: trailing whitespace.
+[32m+[m[32m- Supabase Auth errors[m[41m[m
+.github/skills/debugging/SKILL.md:34: trailing whitespace.
+[32m+[m[32m- PostgreSQL errors[m[41m[m
+.github/skills/debugging/SKILL.md:35: trailing whitespace.
+[32m+[m[32m- RLS errors[m[41m[m
+.github/skills/debugging/SKILL.md:36: trailing whitespace.
+[32m+[m[32m- Supabase Storage errors[m[41m[m
+.github/skills/debugging/SKILL.md:37: trailing whitespace.
+[32m+[m[32m- Environment-variable errors[m[41m[m
+.github/skills/debugging/SKILL.md:38: trailing whitespace.
+[32m+[m[32m- Vercel/deployment errors[m[41m[m
+.github/skills/debugging/SKILL.md:39: trailing whitespace.
+[32m+[m[41m[m
+.github/skills/debugging/SKILL.md:40: trailing whitespace.
+[32m+[m[32mDo not assume that an error message identifies the root cause.[m[41m[m
+.github/skills/debugging/SKILL.md:41: trailing whitespace.
+[32m+[m[41m[m
+.github/skills/debugging/SKILL.md:42: trailing whitespace.
+[32m+[m[32mWhen multiple causes are plausible, explain what evidence would[m[41m[m
+.github/skills/debugging/SKILL.md:43: trailing whitespace.
+[32m+[m[32mdistinguish between them.[m[41m[m
+.github/skills/debugging/SKILL.md:44: trailing whitespace.
+[32m+[m[41m[m
+.github/skills/debugging/SKILL.md:45: trailing whitespace.
+[32m+[m[32mPrefer diagnostic steps that produce useful evidence over speculative[m[41m[m
+.github/skills/debugging/SKILL.md:46: trailing whitespace.
+[32m+[m[32mcode changes.[m[41m[m
+.github/skills/debugging/SKILL.md:47: trailing whitespace.
+[32m+[m[41m[m
+.github/skills/security/SKILL.md:1: trailing whitespace.
+[32m+[m[32m---[m[41m[m
+.github/skills/security/SKILL.md:2: trailing whitespace.
+[32m+[m[32mname: security[m[41m[m
+.github/skills/security/SKILL.md:3: trailing whitespace.
+[32m+[m[32mdescription: >[m[41m[m
+.github/skills/security/SKILL.md:4: trailing whitespace.
+[32m+[m[32m  Review Vanta code for authentication, authorization, RLS, Storage,[m[41m[m
+.github/skills/security/SKILL.md:5: trailing whitespace.
+[32m+[m[32m  secrets, user-owned resources, and other application security issues.[m[41m[m
+.github/skills/security/SKILL.md:6: trailing whitespace.
+[32m+[m[32m  Use when implementing or reviewing security-sensitive functionality.[m[41m[m
+.github/skills/security/SKILL.md:7: trailing whitespace.
+[32m+[m[32m---[m[41m[m
+.github/skills/security/SKILL.md:8: trailing whitespace.
+[32m+[m[41m[m
+.github/skills/security/SKILL.md:9: trailing whitespace.
+[32m+[m[32m# Vanta Security[m[41m[m
+.github/skills/security/SKILL.md:10: trailing whitespace.
+[32m+[m[41m[m
+.github/skills/security/SKILL.md:11: trailing whitespace.
+[32m+[m[32m## Authentication vs authorization[m[41m[m
+.github/skills/security/SKILL.md:12: trailing whitespace.
+[32m+[m[41m[m
+.github/skills/security/SKILL.md:13: trailing whitespace.
+[32m+[m[32mAuthentication determines who the user is.[m[41m[m
+.github/skills/security/SKILL.md:14: trailing whitespace.
+[32m+[m[41m[m
+.github/skills/security/SKILL.md:15: trailing whitespace.
+[32m+[m[32mAuthorization determines what the user is allowed to do.[m[41m[m
+.github/skills/security/SKILL.md:16: trailing whitespace.
+[32m+[m[41m[m
+.github/skills/security/SKILL.md:17: trailing whitespace.
+[32m+[m[32mDo not treat successful authentication as proof that a user may access[m[41m[m
+.github/skills/security/SKILL.md:18: trailing whitespace.
+[32m+[m[32ma resource.[m[41m[m
+.github/skills/security/SKILL.md:19: trailing whitespace.
+[32m+[m[41m[m
+.github/skills/security/SKILL.md:20: trailing whitespace.
+[32m+[m[32m## User identity[m[41m[m
+.github/skills/security/SKILL.md:21: trailing whitespace.
+[32m+[m[41m[m
+.github/skills/security/SKILL.md:22: trailing whitespace.
+[32m+[m[32mDo not trust user IDs, team IDs, roles, ownership fields, or other[m[41m[m
+.github/skills/security/SKILL.md:23: trailing whitespace.
+[32m+[m[32mauthorization information supplied by the client.[m[41m[m
+.github/skills/security/SKILL.md:24: trailing whitespace.
+[32m+[m[41m[m
+.github/skills/security/SKILL.md:25: trailing whitespace.
+[32m+[m[32mWhen possible, derive identity from the authenticated Supabase user.[m[41m[m
+.github/skills/security/SKILL.md:26: trailing whitespace.
+[32m+[m[41m[m
+.github/skills/security/SKILL.md:27: trailing whitespace.
+[32m+[m[32m## Database security[m[41m[m
+.github/skills/security/SKILL.md:28: trailing whitespace.
+[32m+[m[41m[m
+.github/skills/security/SKILL.md:29: trailing whitespace.
+[32m+[m[32mDo not disable RLS to solve an application problem.[m[41m[m
+.github/skills/security/SKILL.md:30: trailing whitespace.
+[32m+[m[41m[m
+.github/skills/security/SKILL.md:31: trailing whitespace.
+[32m+[m[32mDo not create broadly permissive policies without understanding the[m[41m[m
+.github/skills/security/SKILL.md:32: trailing whitespace.
+[32m+[m[32mresource's ownership model.[m[41m[m
+.github/skills/security/SKILL.md:33: trailing whitespace.
+[32m+[m[41m[m
+.github/skills/security/SKILL.md:34: trailing whitespace.
+[32m+[m[32mWhen modifying RLS, inspect the relevant relationships in[m[41m[m
+.github/skills/security/SKILL.md:35: trailing whitespace.
+[32m+[m[32m`supabase/migrations/`.[m[41m[m
+.github/skills/security/SKILL.md:36: trailing whitespace.
+[32m+[m[41m[m
+.github/skills/security/SKILL.md:37: trailing whitespace.
+[32m+[m[32m## Secrets[m[41m[m
+.github/skills/security/SKILL.md:38: trailing whitespace.
+[32m+[m[41m[m
+.github/skills/security/SKILL.md:39: trailing whitespace.
+[32m+[m[32mNever expose:[m[41m[m
+.github/skills/security/SKILL.md:40: trailing whitespace.
+[32m+[m[41m[m
+.github/skills/security/SKILL.md:41: trailing whitespace.
+[32m+[m[32m- Supabase service-role keys[m[41m[m
+.github/skills/security/SKILL.md:42: trailing whitespace.
+[32m+[m[32m- private API keys[m[41m[m
+.github/skills/security/SKILL.md:43: trailing whitespace.
+[32m+[m[32m- database passwords[m[41m[m
+.github/skills/security/SKILL.md:44: trailing whitespace.
+[32m+[m[32m- other server-side secrets[m[41m[m
+.github/skills/security/SKILL.md:45: trailing whitespace.
+[32m+[m[41m[m
+.github/skills/security/SKILL.md:46: trailing whitespace.
+[32m+[m[32mDo not put server secrets in `NEXT_PUBLIC_*` environment variables.[m[41m[m
+.github/skills/security/SKILL.md:47: trailing whitespace.
+[32m+[m[41m[m
+.github/skills/security/SKILL.md:48: trailing whitespace.
+[32m+[m[32m## File uploads[m[41m[m
+.github/skills/security/SKILL.md:49: trailing whitespace.
+[32m+[m[41m[m
+.github/skills/security/SKILL.md:50: trailing whitespace.
+[32m+[m[32mValidate uploaded files appropriately.[m[41m[m
+.github/skills/security/SKILL.md:51: trailing whitespace.
+[32m+[m[41m[m
+.github/skills/security/SKILL.md:52: trailing whitespace.
+[32m+[m[32mDo not rely exclusively on frontend validation for security.[m[41m[m
+.github/skills/security/SKILL.md:53: trailing whitespace.
+[32m+[m[41m[m
+.github/skills/security/SKILL.md:54: trailing whitespace.
+[32m+[m[32mSupabase Storage policies must enforce ownership and access.[m[41m[m
+.github/skills/security/SKILL.md:55: trailing whitespace.
+[32m+[m[41m[m
+.github/skills/security/SKILL.md:56: trailing whitespace.
+[32m+[m[32m## Changes[m[41m[m
+.github/skills/security/SKILL.md:57: trailing whitespace.
+[32m+[m[41m[m
+.github/skills/security/SKILL.md:58: trailing whitespace.
+[32m+[m[32mFor security-sensitive changes, prefer the smallest change that[m[41m[m
+.github/skills/supabase/SKILL.md:1: trailing whitespace.
+[32m+[m[32m---[m[41m[m
+.github/skills/supabase/SKILL.md:2: trailing whitespace.
+[32m+[m[32mname: supabase[m[41m[m
+.github/skills/supabase/SKILL.md:3: trailing whitespace.
+[32m+[m[32mdescription: >[m[41m[m
+.github/skills/supabase/SKILL.md:4: trailing whitespace.
+[32m+[m[32m  Work with the project's Supabase integration, including PostgreSQL,[m[41m[m
+.github/skills/supabase/SKILL.md:5: trailing whitespace.
+[32m+[m[32m  Supabase Auth, Row Level Security, Storage, queries, mutations,[m[41m[m
+.github/skills/supabase/SKILL.md:6: trailing whitespace.
+[32m+[m[32m  and database migrations.[m[41m[m
+.github/skills/supabase/SKILL.md:7: trailing whitespace.
+[32m+[m[32m---[m[41m[m
+.github/skills/supabase/SKILL.md:8: trailing whitespace.
+[32m+[m[41m[m
+.github/skills/supabase/SKILL.md:9: trailing whitespace.
+[32m+[m[32m# Vanta Supabase[m[41m[m
+.github/skills/supabase/SKILL.md:10: trailing whitespace.
+[32m+[m[41m[m
+.github/skills/supabase/SKILL.md:11: trailing whitespace.
+[32m+[m[32mVanta uses:[m[41m[m
+.github/skills/supabase/SKILL.md:12: trailing whitespace.
+[32m+[m[41m[m
+.github/skills/supabase/SKILL.md:13: trailing whitespace.
+[32m+[m[32m- Supabase PostgreSQL[m[41m[m
+.github/skills/supabase/SKILL.md:14: trailing whitespace.
+[32m+[m[32m- Supabase Auth[m[41m[m
+.github/skills/supabase/SKILL.md:15: trailing whitespace.
+[32m+[m[32m- Supabase Storage[m[41m[m
+.github/skills/supabase/SKILL.md:16: trailing whitespace.
+[32m+[m[32m- supabase-js[m[41m[m
+.github/skills/supabase/SKILL.md:17: trailing whitespace.
+[32m+[m[32m- Next.js[m[41m[m
+.github/skills/supabase/SKILL.md:18: trailing whitespace.
+[32m+[m[32m- Vercel[m[41m[m
+.github/skills/supabase/SKILL.md:19: trailing whitespace.
+[32m+[m[41m[m
+.github/skills/supabase/SKILL.md:20: trailing whitespace.
+[32m+[m[32m## Database knowledge[m[41m[m
+.github/skills/supabase/SKILL.md:21: trailing whitespace.
+[32m+[m[41m[m
+.github/skills/supabase/SKILL.md:22: trailing whitespace.
+[32m+[m[32mThe Copilot agent does NOT have direct access to the live Supabase[m[41m[m
+.github/skills/supabase/SKILL.md:23: trailing whitespace.
+[32m+[m[32mdatabase.[m[41m[m
+.github/skills/supabase/SKILL.md:24: trailing whitespace.
+[32m+[m[41m[m
+.github/skills/supabase/SKILL.md:25: trailing whitespace.
+[32m+[m[32mWhen database structure is relevant, consult:[m[41m[m
+.github/skills/supabase/SKILL.md:26: trailing whitespace.
+[32m+[m[41m[m
+.github/skills/supabase/SKILL.md:27: trailing whitespace.
+[32m+[m[32m1. `supabase/migrations/`[m[41m[m
+.github/skills/supabase/SKILL.md:28: trailing whitespace.
+[32m+[m[32m2. Relevant application code[m[41m[m
+.github/skills/supabase/SKILL.md:29: trailing whitespace.
+[32m+[m[32m3. Repository documentation[m[41m[m
+.github/skills/supabase/SKILL.md:30: trailing whitespace.
+[32m+[m[41m[m
+.github/skills/supabase/SKILL.md:31: trailing whitespace.
+[32m+[m[32mDo not claim to have inspected the live database.[m[41m[m
+.github/skills/supabase/SKILL.md:32: trailing whitespace.
+[32m+[m[41m[m
+.github/skills/supabase/SKILL.md:33: trailing whitespace.
+[32m+[m[32mDo not invent tables, columns, constraints, relationships, or policies.[m[41m[m
+.github/skills/supabase/SKILL.md:34: trailing whitespace.
+[32m+[m[41m[m
+.github/skills/supabase/SKILL.md:35: trailing whitespace.
+[32m+[m[32mIf the repository does not contain enough information to determine[m[41m[m
+.github/skills/supabase/SKILL.md:36: trailing whitespace.
+[32m+[m[32mthe answer, state what information is missing.[m[41m[m
+.github/skills/supabase/SKILL.md:37: trailing whitespace.
+[32m+[m[41m[m
+.github/skills/supabase/SKILL.md:38: trailing whitespace.
+[32m+[m[32m## RLS[m[41m[m
+.github/skills/supabase/SKILL.md:39: trailing whitespace.
+[32m+[m[41m[m
+.github/skills/supabase/SKILL.md:40: trailing whitespace.
+[32m+[m[32mTreat PostgreSQL table privileges and Row Level Security as separate[m[41m[m
+.github/skills/supabase/SKILL.md:41: trailing whitespace.
+[32m+[m[32msystems.[m[41m[m
+.github/skills/supabase/SKILL.md:42: trailing whitespace.
+[32m+[m[41m[m
+.github/skills/supabase/SKILL.md:43: trailing whitespace.
+[32m+[m[32mFor RLS:[m[41m[m
+.github/skills/supabase/SKILL.md:44: trailing whitespace.
+[32m+[m[41m[m
+.github/skills/supabase/SKILL.md:45: trailing whitespace.
+[32m+[m[32m- SELECT uses `USING`[m[41m[m
+.github/skills/supabase/SKILL.md:46: trailing whitespace.
+[32m+[m[32m- INSERT uses `WITH CHECK`[m[41m[m
+.github/skills/supabase/SKILL.md:47: trailing whitespace.
+[32m+[m[32m- UPDATE uses both `USING` and `WITH CHECK`[m[41m[m
+.github/skills/supabase/SKILL.md:48: trailing whitespace.
+[32m+[m[32m- DELETE uses `USING`[m[41m[m
+.github/skills/supabase/SKILL.md:49: trailing whitespace.
+[32m+[m[41m[m
+.github/skills/supabase/SKILL.md:50: trailing whitespace.
+[32m+[m[32mBefore proposing an RLS 

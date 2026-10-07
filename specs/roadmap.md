@@ -141,3 +141,5 @@ Ordered delivery phases for Vulcan. Each phase should be small enough for one fo
 ## Changelog discipline
 
 When a phase completes, mark its status `[x]`, tick deliverable boxes, and note the feature directory (e.g. `specs/2026-07-21-vulcan-v1-core/`).
+
+- 2026-10-07 refinement: team role definition CRUD and permission editing are tracked in `specs/2026-10-07-team-role-management/`. Phase 2 remains complete; migration `010_team_role_management.sql` still requires application and database validation in Supabase.
