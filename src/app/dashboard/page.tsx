@@ -102,7 +102,7 @@ export default function DashboardPage() {
   return (
     <AppShell
       eyebrow="Workspace"
-      title="System Control"
+      title="Overview"
       actions={
         <PrimaryButton disabled={syncing} onClick={load}>
           {syncing ? "Syncing…" : "Sync Database"}
