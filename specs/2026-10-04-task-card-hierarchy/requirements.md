@@ -66,6 +66,7 @@ Team and personal task cards currently expose different information and actions.
 - Moving a task into or out of `in_progress` transfers each allocation between Reserved and In Use atomically; insufficient source quantity blocks the status change.
 - `task_parts.quantity` stores the allocated amount; direct writes cannot bypass inventory transfer operations.
 - Deleting a task tree returns its Reserved/In Use allocations to Inventory before removing task-part links.
+- The additive migration removes the deprecated `on_task_part_inserted` trigger, which targets the obsolete `parts.status` column and conflicts with the active `part_status` inventory model.
 
 ### SHOULD
 
@@ -82,5 +83,5 @@ Team and personal task cards currently expose different information and actions.
 ## Dependencies
 
 - Depends on: existing `team_members`, `member_roles`, `team_roles`, `parts`, `tasks`, and task association tables.
-- Database acceptance checks require applying the additive task deletion and quantity-allocation migration to the Supabase project.
+- Database acceptance checks require applying the additive task deletion, quantity-allocation, and legacy-trigger cleanup migrations to the Supabase project.
 - The live Supabase project is not accessible from this workspace; its effective privileges/policies must be validated after migration.

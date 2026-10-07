@@ -20,6 +20,7 @@ Team and personal task cards expose consistent hierarchy actions, team assignmen
 - [ ] Task creation reserves exactly the requested quantity from Inventory into Reserved, or In Use for initial `in_progress`; insufficient stock rolls back the task and all links.
 - [ ] Moving a linked task into/out of `in_progress` transfers all allocations atomically and cannot make a status quantity negative.
 - [ ] Deleting a task tree returns its allocations to Inventory.
+- [ ] Task-part inserts no longer invoke the deprecated trigger that updates `parts.status`.
 
 ## Manual test steps
 
@@ -33,6 +34,7 @@ Team and personal task cards expose consistent hierarchy actions, team assignmen
 8. Reserve partial and full part quantities in todo and in-progress tasks; verify Inventory, Reserved, and In Use quantities and task allocations.
 9. Move a task with allocated parts into and out of In Progress; verify inventory transfer. Attempt allocation beyond stock and verify the task is not created and inventory is unchanged.
 10. Delete a task with allocated parts and verify the quantities return to Inventory.
+11. Apply migration `009` to a database that has the deprecated task-part trigger; create a task with a selected part and verify no `parts.status` error occurs.
 
 ## Automated checks
 
@@ -52,6 +54,7 @@ Team and personal task cards expose consistent hierarchy actions, team assignmen
 
 ## Validation notes
 
+- Supabase logs identified `public.handle_task_part_link()` as the source: it updates the removed `public.parts.status` column when `task_parts` is inserted. Migration `009` removes that trigger/function; the task table's `status` column is unrelated.
 - `next build` completed with exit code 0.
 - Focused ESLint passed. Direct full-repository ESLint produced no diagnostics; the WSL shell returned only the npm banner for `npm run lint`, so its wrapper exit status was not captured.
 - `supabase db lint --local` could not connect because Docker is unavailable and no local database is listening on port 54322.

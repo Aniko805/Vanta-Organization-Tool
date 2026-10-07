@@ -36,6 +36,7 @@
 ### 6. Quantity-aware part allocation
 
 - [x] Add allocation quantity to `task_parts` and seed/normalize Inventory, Reserved, and In Use status rows.
+- [x] Add a forward migration removing the legacy task-part trigger that updates `parts.status`.
 - [x] Add an atomic team-task creation RPC that validates and reserves selected quantities.
 - [x] Add an atomic team-task status RPC that transfers allocations between Reserved and In Use.
 - [x] Return reserved/in-use allocations to Inventory when deleting task trees.
