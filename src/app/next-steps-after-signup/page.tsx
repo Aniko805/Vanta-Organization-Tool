@@ -10,35 +10,32 @@ export default function NextStepsAfterSignup() {
   const [resendLoading, setResendLoading] = useState(false);
   const [resendMessage, setResendMessage] = useState<string | null>(null);
 
-  useEffect(() => {
-    let isMounted = true;
+  // Replace your useEffect in NextStepsAfterSignup with this:
+useEffect(() => {
+  let isMounted = true;
 
-    const fetchUser = async () => {
-      try {
-        const {
-          data: { user },
-          error,
-        } = await supabase.auth.getUser();
+  const fetchUser = async () => {
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
-        if (!isMounted) return;
+      if (!isMounted) return;
 
-        if (error || !user) {
-          router.replace("/login");
-          return;
-        }
-
-        if (user.email) setEmail(user.email);
-      } catch {
-        // ignore
+      if (user?.email) {
+        setEmail(user.email);
       }
-    };
+    } catch {
+      // ignore
+    }
+  };
 
-    fetchUser();
+  fetchUser();
 
-    return () => {
-      isMounted = false;
-    };
-  }, [router]);
+  return () => {
+    isMounted = false;
+  };
+}, []);
 
   const handleReturnToLogin = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();

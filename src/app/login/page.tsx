@@ -59,7 +59,7 @@ export default function LoginPage() {
 
       // For signups, route to next-steps-after-signup so users see verification/next steps
       if (activeTab === "signup") {
-        router.push("/next-steps-after-signup/page.tsx");
+        router.push("/next-steps-after-signup");
         return;
       }
 
