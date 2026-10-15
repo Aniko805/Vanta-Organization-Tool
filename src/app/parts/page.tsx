@@ -9,11 +9,11 @@ import AppShell, {
   PrimaryButton,
   SecondaryButton,
 } from "@/app/components/AppShell";
+import CatalogPicker from "@/app/components/CatalogPicker";
 import {
   addPartToInventory,
   deletePart,
   deletePartStatusListing,
-  listPartCatalog,
   listPartStatuses,
   listParts,
   updatePartQuantity,
@@ -41,9 +41,8 @@ export default function PartsPage() {
   const [teamId, setTeamId] = useState<string | null>(null);
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [parts, setParts] = useState<Part[]>([]);
-  const [catalog, setCatalog] = useState<PartCatalog[]>([]);
   const [statuses, setStatuses] = useState<StatusList[]>([]);
-  const [selectedCatalogId, setSelectedCatalogId] = useState("new");
+  const [selectedCatalog, setSelectedCatalog] = useState<PartCatalog | null>(null);
   const [selectedStatusId, setSelectedStatusId] = useState("");
   const [filter, setFilter] = useState<string>("all");
   const [error, setError] = useState<string | null>(null);
@@ -62,26 +61,22 @@ export default function PartsPage() {
     selectedTeam && userId
       ? memberCanManageInventory(selectedTeam, userId, myMembership)
       : false;
-  const selectedCatalog = catalog.find((item) => item.id === selectedCatalogId);
-  const hasValidCatalogSelection =
-    selectedCatalogId === "new" ? Boolean(name.trim()) : Boolean(selectedCatalog);
+  const hasValidCatalogSelection = Boolean(selectedCatalog) || Boolean(name.trim());
 
   const refresh = useCallback(async (tid: string) => {
     const generation = ++refreshGeneration.current;
     setLoading(true);
     setError(null);
     try {
-      const [p, m, s, c] = await Promise.all([
+      const [p, m, s] = await Promise.all([
         listParts(tid),
         listTeamMembers(tid),
         listPartStatuses(tid),
-        listPartCatalog(tid),
       ]);
       if (generation !== refreshGeneration.current) return;
       setParts(p);
       setMembers(m);
       setStatuses(s);
-      setCatalog(c);
       setSelectedStatusId((current) => {
         if (s.some((status) => status.id === current)) return current;
         return (
@@ -96,7 +91,6 @@ export default function PartsPage() {
       setParts([]);
       setMembers([]);
       setStatuses([]);
-      setCatalog([]);
       setSelectedStatusId("");
       setError(e instanceof Error ? e.message : "Failed to load parts");
     } finally {
@@ -175,7 +169,7 @@ export default function PartsPage() {
         quantity,
       });
 
-      setSelectedCatalogId("new");
+      setSelectedCatalog(null);
       setName("");
       setSku("");
       setNotes("");
@@ -203,9 +197,8 @@ export default function PartsPage() {
             setFilter("all");
             setParts([]);
             setMembers([]);
-            setCatalog([]);
             setStatuses([]);
-            setSelectedCatalogId("new");
+            setSelectedCatalog(null);
             setSelectedStatusId("");
             setError(null);
             setLoading(Boolean(nextTeamId));
@@ -233,37 +226,12 @@ export default function PartsPage() {
             <Panel className="space-y-3">
               <Label>Add part</Label>
               <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                <FieldInput
-                  as="select"
-                  aria-label="Catalog part"
-                  className="md:col-span-2"
-                  value={selectedCatalogId}
-                  onChange={(e) => setSelectedCatalogId(e.target.value)}
-                >
-                  <option value="new">Create a new catalog item</option>
-                  {catalog.some((item) => item.is_official) ? (
-                    <optgroup label="Official parts">
-                      {catalog
-                        .filter((item) => item.is_official)
-                        .map((item) => (
-                          <option key={item.id} value={item.id}>
-                            {item.name}{item.sku ? ` · ${item.sku}` : ""}
-                          </option>
-                        ))}
-                    </optgroup>
-                  ) : null}
-                  {catalog.some((item) => item.team_id === teamId) ? (
-                    <optgroup label="Team parts">
-                      {catalog
-                        .filter((item) => item.team_id === teamId)
-                        .map((item) => (
-                          <option key={item.id} value={item.id}>
-                            {item.name}{item.sku ? ` · ${item.sku}` : ""}
-                          </option>
-                        ))}
-                    </optgroup>
-                  ) : null}
-                </FieldInput>
+                <CatalogPicker
+                  key={teamId}
+                  teamId={teamId}
+                  value={selectedCatalog}
+                  onChange={setSelectedCatalog}
+                />
                 <FieldInput
                   as="select"
                   aria-label="Initial part status"
@@ -287,7 +255,7 @@ export default function PartsPage() {
                   value={quantity}
                   onChange={(e) => setQuantity(parseInt(e.target.value, 10) || 1)}
                 />
-                {selectedCatalogId === "new" ? (
+                {!selectedCatalog ? (
                   <>
                     <FieldInput
                       placeholder="Part name"

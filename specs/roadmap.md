@@ -103,6 +103,21 @@ Ordered delivery phases for Vulcan. Each phase should be small enough for one fo
 
 ---
 
+## Phase 6.5 — Official parts catalog
+
+- **Status:** [ ] In progress (picker shipped; catalog ingestion pending)
+- **Goal:** Make the parts catalog fillable from manufacturer data and make the catalog picker scale and searchable.
+- **Depends on:** Phase 6
+- **Deliverables:**
+  - [x] Searchable catalog picker on `/parts` — search by part name, paged browse, official/team grouping — `specs/2026-10-14-official-parts-catalog/`
+  - [x] Bounded `searchPartCatalog` query layer replacing the unbounded catalog load (removes the 1000-row PostgREST truncation and whole-catalog egress)
+  - [ ] Catalog identity migration `011`: `manufacturer` + `sku` unique key, plus `product_url` / `image_url` / `category` / `source` columns
+  - [ ] Offline ingestion tool + idempotent seed migration `012` (goBILDA first; REV, AndyMark, WCP, Studica after)
+- **Validation gate:** A team can add an official catalog part by searching for it by name, and the official catalog can be populated reproducibly without a privileged key in the repo.
+- **Note:** Prerequisite for Phase 7 — CV identification is materially easier against a catalog with stable SKUs and images.
+
+---
+
 ## Phase 7 — Parts computer-vision identification
 
 - **Status:** [ ] Later
@@ -143,3 +158,4 @@ Ordered delivery phases for Vulcan. Each phase should be small enough for one fo
 When a phase completes, mark its status `[x]`, tick deliverable boxes, and note the feature directory (e.g. `specs/2026-07-21-vulcan-v1-core/`).
 
 - 2026-10-07 refinement: team role definition CRUD and permission editing are tracked in `specs/2026-10-07-team-role-management/`. Phase 2 remains complete; migration `010_team_role_management.sql` still requires application and database validation in Supabase.
+- 2026-10-14: Phase 6.5 opened — searchable catalog picker shipped (`specs/2026-10-14-official-parts-catalog/`); catalog identity and ingestion migrations `011`/`012` still pending.
