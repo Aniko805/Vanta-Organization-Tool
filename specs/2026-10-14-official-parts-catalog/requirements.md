@@ -27,6 +27,7 @@ This phase makes the catalog **fillable** (identity + ingest path) and **usable*
 - Catalog metadata columns needed by an imported catalog (`product_url`, `image_url`, `category`, `source`).
 - An **offline** ingestion tool that captures vendor product data into a committed JSON snapshot and generates an idempotent SQL seed migration.
 - Seeding the official catalog with goBILDA as the first vendor.
+- Omitting kits and bundles from the official catalog. Those rows are assortments of other parts. A multipack of one part, such as a 25-pack of washers, stays.
 
 ### Out of scope
 
@@ -66,6 +67,7 @@ A team may select a catalog entry when `team_id = <team>` **or** (`team_id is nu
 - Existing official rows (if any) MUST be deduplicated by `(manufacturer, sku)` before that index is created.
 - The ingestion tool MUST NOT write to Supabase with a privileged key from inside the repo.
 - The generated seed MUST be idempotent: applying it twice MUST NOT create duplicate rows.
+- The generated seed MUST NOT insert a product whose name, product URL, or category identifies it as a kit or bundle. A category named like "Kits & Bundles" is not sufficient on its own.
 
 ### SHOULD
 

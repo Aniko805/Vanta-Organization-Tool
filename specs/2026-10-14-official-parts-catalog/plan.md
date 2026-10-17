@@ -32,35 +32,36 @@
 
 ### 3. Catalog identity & schema migration
 
-- [ ] Add `supabase/migrations/011_part_catalog_identity.sql`:
-  - [ ] Add `product_url`, `image_url`, `category`, `source` columns (all nullable).
-  - [ ] Backfill `manufacturer` for official rows where it is null and derivable.
-  - [ ] Deduplicate official rows by `(manufacturer, sku)` before indexing — repoint `parts.part_catalog_id` to the keeper row first, mirroring the pattern in `004_parts_catalog_aggregation.sql`.
-  - [ ] Create a partial unique index on `(manufacturer, sku)` where `team_id is null and is_official and sku is not null`.
-  - [ ] Leave the existing `(name, sku, description)` index in place initially; drop it only after a successful goBILDA import proves no regressions.
-- [ ] Update `PartCatalog` in `src/lib/types.ts` with the new columns.
-- [ ] Record the migration in `specs/roadmap.md` and the README migration list.
+`011_team_delete_cascade.sql` already exists, so this migration is `012` and the seed is `013`.
+
+- [x] Add `supabase/migrations/012_part_catalog_identity.sql`:
+  - [x] Add `product_url`, `image_url`, `category`, `source` columns (all nullable).
+  - [x] Backfill `manufacturer` for official rows where it is null and derivable.
+  - [x] Deduplicate official rows by `(manufacturer, sku)` before indexing — repoint `parts.part_catalog_id` to the keeper row first, mirroring the pattern in `004_parts_catalog_aggregation.sql`.
+  - [x] Create a partial unique index on `(manufacturer, sku)` where `team_id is null and is_official and sku is not null`.
+  - [x] Leave the existing `(name, sku, description)` index in place initially; drop it only after a successful goBILDA import proves no regressions.
+- [x] Update `PartCatalog` in `src/lib/types.ts` with the new columns.
+- [x] Record the migration in `specs/roadmap.md` and the README migration list.
 
 ### 4. Offline ingestion tool + seed
 
-- [ ] Create `tools/catalog-ingest/` (offline; not imported by the app). Add a short `README.md` documenting how to re-run it.
-- [ ] Fetch stage: write raw vendor responses to `tools/catalog-ingest/data/<vendor>.json`.
-  - goBILDA: crawl `/xmlsitemap.php?type=products&page=N` for product URLs, then read `SKU:` from the product page body. Throttle to `Crawl-delay: 10` and set an identifying User-Agent.
-  - REV: same shape; confirm the SKU is the URL slug (`/rev-41-1301/`) before relying on it.
-  - AndyMark / WCP (follow-up, easiest wins): `GET /products.json?limit=250&page=N`. Read `agents.md` and prefer the advertised UCP/MCP endpoint if it is usable without credentials.
-  - Studica (spike): nopCommerce; no confirmed SKU scheme — treat as unresolved.
-- [ ] Normalize stage: map to the catalog shape (`manufacturer`, `sku`, `name`, `description`, `category`, `product_url`, `image_url`, `source`). Truncate long descriptions — they dominate payload size.
-- [ ] Emit stage: generate `supabase/migrations/012_seed_official_catalog.sql`, idempotent via `on conflict do nothing` against the `(manufacturer, sku)` index.
+- [x] Create `tools/catalog-ingest/` (offline; not imported by the app). Add a short `README.md` documenting how to re-run it.
+- [ ] Fetch stage: write extracted vendor snapshots to `tools/catalog-ingest/data/<vendor>.json` (fields used by the catalog, not raw HTML — full HTML is hundreds of megabytes and is not a reviewable diff).
+  - goBILDA: crawl `/xmlsitemap.php?type=products&page=N` for product URLs, then read purchasable SKUs from the product page. Family pages contribute every child `data-sku`; `parent-…` placeholders are not rows. Throttle to `Crawl-delay: 10` and set an identifying User-Agent.
+  - REV: same shape. The page SKU matches the URL slug (`/rev-41-1301/` → `REV-41-1301`); the page SKU is the source of truth.
+  - AndyMark / WCP / Studica: deferred to roadmap phase 6.6. Not fetched in this pass.
+- [x] Normalize stage: map to the catalog shape (`manufacturer`, `sku`, `name`, `description`, `category`, `product_url`, `image_url`, `source`). Truncate long descriptions — they dominate payload size. Drop kits and bundles before the seed is emitted.
+- [x] Emit stage: generate `supabase/migrations/013_seed_official_catalog_NN.sql` parts, each small enough for the SQL editor, idempotent via `on conflict do nothing` against the `(manufacturer, sku)` index.
 - [ ] Commit the JSON snapshot so re-imports produce reviewable diffs.
-- [ ] Note the new tool and its runtime in `specs/tech-stack.md` (required by its own rules for anything new).
+- [x] Note the new tool and its runtime in `specs/tech-stack.md` (required by its own rules for anything new).
 
 ### 5. Seed + close-out
 
-- [ ] Apply `011` and `012` to the Supabase project (`supabase link` + `db push`, or the SQL Editor).
+- [ ] Apply `012` and then `013_seed_official_catalog_01.sql` through `_14.sql` to the Supabase project (SQL Editor, one file at a time).
 - [ ] Spot-check ≥ 20 imported rows against the live vendor pages for name, SKU, and URL accuracy.
 - [ ] Verify a team can add an imported part to inventory end to end.
 - [ ] Update `specs/roadmap.md`: tick deliverables and set the phase status.
-- [ ] If deferred, log AndyMark/WCP/Studica as a follow-up phase rather than leaving them implicit.
+- [x] If deferred, log AndyMark/WCP/Studica as a follow-up phase rather than leaving them implicit. Logged as roadmap phase 6.6.
 
 ## Notes
 

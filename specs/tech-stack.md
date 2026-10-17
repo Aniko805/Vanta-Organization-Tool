@@ -65,8 +65,9 @@ src/
     tasks.ts
     parts.ts
 public/
-supabase/migrations/         # Apply 001_vulcan_schema.sql in Supabase
+supabase/migrations/         # Apply *.sql in numeric order (skip deprecated/)
 specs/                       # SDD constitution + feature specs
+tools/catalog-ingest/        # Offline vendor catalog fetch; not imported by the app
 ```
 
 ### Routing and pages
@@ -156,6 +157,10 @@ Guidance from the product blueprint. Implement via migrations/SQL in the schema 
 | `npm run build` | Production build |
 | `npm run start` | Serve production build |
 | `npm run lint` | ESLint |
+| `node tools/catalog-ingest/fetch.mjs <vendor>` | Offline catalog crawl (Node 20+ built-ins only; no npm package) |
+| `node tools/catalog-ingest/emit.mjs` | Write `013_seed_official_catalog_NN.sql` parts from completed snapshots |
+
+The catalog ingest tool lives under `tools/catalog-ingest/` and is not part of the Next.js bundle. It uses Node's global `fetch` and the standard library. It waits 10 seconds between vendor requests. Details are in that directory's README. AndyMark, West Coast Products, and Studica are follow-ups (roadmap phase 6.6), not part of this tool's current run.
 
 ## Deliberate exclusions
 

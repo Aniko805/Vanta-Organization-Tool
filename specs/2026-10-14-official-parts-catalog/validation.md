@@ -23,14 +23,15 @@ A team can add an official catalog part to inventory by searching for it by name
 
 ### Catalog identity (task group 3)
 
-- [ ] `011_part_catalog_identity.sql` applies cleanly to a database that already contains the Phase 1–10 migrations.
-- [ ] Applying `011` twice does not error.
+- [ ] `012_part_catalog_identity.sql` applies cleanly to a database that already contains migrations `001`–`011`. (`011` is team delete cascade, so the identity migration is `012`.)
+- [ ] Applying `012` twice does not error.
 - [ ] The partial unique index on `(manufacturer, sku)` exists and does not constrain team-scoped rows.
 - [ ] Official rows with a null SKU are permitted (the index must not block them).
 
 ### Ingestion (task groups 4–5)
 
-- [ ] `012_seed_official_catalog.sql` is idempotent: applying it twice leaves the row count unchanged.
+- [ ] Each `013_seed_official_catalog_NN.sql` part is idempotent: applying it twice leaves the row count unchanged.
+- [ ] The seed contains no kit or bundle rows (name, URL, or a kit category such as `KITS / Chassis Kits`). Same-part packs remain.
 - [ ] No `service_role` key, `.env` value, or other secret appears anywhere in `tools/` or the generated migration.
 - [ ] ≥ 20 sampled rows match the live vendor page on name, SKU, and product URL.
 - [ ] Re-running the fetch produces a diffable change to the committed JSON snapshot rather than a silent overwrite.
@@ -59,7 +60,7 @@ A team can add an official catalog part to inventory by searching for it by name
 - [x] `npm run build` passes — verified 2026-10-14 on Next.js 16.2.10 (compilation + TypeScript clean)
 - [x] No new runtime dependency added to `package.json` for the picker work
 - [ ] `npm run lint` passes — **blocked by 2 pre-existing errors on files this change did not touch**: `src/app/dashboard/page.tsx:90` (`react-hooks/set-state-in-effect`) and `src/app/next-steps-after-signup/page.tsx:128` (`react/no-unescaped-entities`). `CatalogPicker.tsx` and `parts/page.tsx` contribute zero errors and zero warnings. Needs a human decision: fix the pre-existing errors, or waive this check.
-- [ ] `specs/tech-stack.md` updated if the ingestion tool introduces a new runtime
+- [x] `specs/tech-stack.md` updated for the ingestion tool (Node 20+ built-ins, no new npm dependency)
 
 ### Local query-shape verification (done)
 

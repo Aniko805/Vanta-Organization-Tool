@@ -223,7 +223,7 @@ export default function PartsPage() {
       ) : (
         <>
           {canManage ? (
-            <Panel className="space-y-3">
+            <Panel className="relative z-20 space-y-3">
               <Label>Add part</Label>
               <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                 <CatalogPicker

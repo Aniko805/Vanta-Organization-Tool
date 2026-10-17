@@ -54,6 +54,10 @@ export type PartCatalog = {
   is_official: boolean;
   created_by: string | null;
   created_at: string;
+  product_url: string | null;
+  image_url: string | null;
+  category: string | null;
+  source: string | null;
 };
 
 export type StatusList = {
