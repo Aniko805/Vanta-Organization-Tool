@@ -6,11 +6,12 @@ import { usePathname, useRouter } from "next/navigation";
 import { getUserProfile } from "@/lib/auth";
 import { displayNameFromProfile } from "@/lib/types";
 import { supabase } from "@/lib/supabase";
-import { La_Belle_Aurore } from "next/font/google";
 
 export default function Sidebar() {
   const router = useRouter();
   const pathname = usePathname();
+  const [menuPath, setMenuPath] = useState<string | null>(null);
+  const menuOpen = menuPath === pathname;
   const [displayName, setDisplayName] = useState("User");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
@@ -51,13 +52,33 @@ export default function Sidebar() {
     { label: "Team", href: "/team" },
     { label: "Team Tasks", href: "/team-tasks" },
     { label: "Parts", href: "/parts" },
-    { label: "Part Identifier", href: "/parts/identify"},
+    { label: "Part Identifier", href: "/parts/identify" },
+    { label: "Engineering Notes", href: "/engineering-notes" },
     { label: "Settings", href: "/settings" },
     
   ];
 
   return (
-    <aside className="w-64 border-r border-zinc-900 bg-zinc-950/20 backdrop-blur-md flex flex-col justify-between p-6">
+    <>
+      <button
+        type="button"
+        className="mobile-menu no-print fixed left-3 top-3 z-50 inline-flex h-11 items-center border border-zinc-800 bg-black px-3 text-[10px] font-mono uppercase tracking-widest text-zinc-300 md:hidden"
+        onClick={() => setMenuPath(pathname)}
+        aria-label="Open menu"
+      >
+        Menu
+      </button>
+      {menuOpen ? (
+        <button
+          type="button"
+          className="no-print fixed inset-0 z-40 bg-black/70 md:hidden"
+          aria-label="Close menu"
+          onClick={() => setMenuPath(null)}
+        />
+      ) : null}
+      <aside
+        className={`${menuOpen ? "flex" : "hidden"} no-print fixed inset-y-0 left-0 z-50 w-64 border-r border-zinc-900 bg-zinc-950 backdrop-blur-md flex-col justify-between p-6 md:static md:flex md:bg-zinc-950/20`}
+      >
       <div>
         {/* Logo */}
         <div className="mb-10">
@@ -72,7 +93,10 @@ export default function Sidebar() {
         {/* Navigation Links */}
         <nav className="space-y-1">
           {navItems.map((item) => {
-            const isActive = pathname === item.href;
+            const isActive =
+              item.href === "/engineering-notes"
+                ? pathname === item.href || pathname.startsWith("/engineering-notes/")
+                : pathname === item.href;
             return (
               <Link
                 key={item.href}
@@ -82,6 +106,7 @@ export default function Sidebar() {
                     ? "bg-zinc-900/60 text-white"
                     : "text-zinc-500 hover:text-zinc-300"
                 }`}
+                onClick={() => setMenuPath(null)}
               >
                 <span>{item.label}</span>
               </Link>
@@ -125,6 +150,7 @@ export default function Sidebar() {
           </Link>
         </div>
       </div>
-    </aside>
+      </aside>
+    </>
   );
 }

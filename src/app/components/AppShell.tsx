@@ -116,24 +116,32 @@ export default function AppShell({
   eyebrow,
   title,
   actions,
+  workspace = false,
 }: {
   children: React.ReactNode;
   eyebrow?: string;
   title: string;
   actions?: React.ReactNode;
+  workspace?: boolean;
 }) {
   return (
-    <div className="min-h-screen bg-black text-white font-sans overflow-x-hidden flex">
+    <div className={`min-h-screen bg-black text-white font-sans flex ${workspace ? "h-dvh overflow-hidden" : "overflow-x-hidden"}`}>
       <Sidebar />
-      <main className="flex-1 p-10 max-w-7xl mx-auto space-y-8 w-full">
-        <header className="flex flex-wrap justify-between items-end gap-4 border-b border-zinc-900 pb-6">
+      <main
+        className={
+          workspace
+            ? "flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden px-3 pt-16 pb-3 md:p-6"
+            : "flex-1 min-w-0 px-4 pt-16 pb-4 md:p-10 max-w-7xl mx-auto space-y-8 w-full"
+        }
+      >
+        <header className="no-print flex flex-wrap justify-between items-end gap-4 border-b border-zinc-900 pb-4 md:pb-6">
           <div>
             {eyebrow ? (
               <p className="text-xs font-mono text-zinc-500 uppercase tracking-widest mb-1">
                 {eyebrow}
               </p>
             ) : null}
-            <h1 className="text-3xl font-extrabold tracking-tight">{title}</h1>
+            <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight">{title}</h1>
           </div>
           {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}
         </header>

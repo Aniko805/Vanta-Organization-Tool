@@ -24,6 +24,8 @@ NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 ```
 
+Curation reads `DEEPSEEK_API_KEY` and `MOONSHOT_API_KEY` from the server environment only. Set whichever providers the team will use in `.env.local`. Do not prefix them with `NEXT_PUBLIC_`.
+
 3. Apply the database schema in the Supabase SQL Editor, in numeric order. Use the files in [`supabase/migrations/`](./supabase/migrations/) and skip `deprecated/`.
 
 - `012_part_catalog_identity.sql` adds the official `(manufacturer, sku)` key and catalog metadata columns.
@@ -49,6 +51,7 @@ Open [http://localhost:3000](http://localhost:3000).
 | `/team-tasks` | Team Kanban board |
 | `/personal-tasks` | Personal + assigned tasks |
 | `/parts` | Team parts inventory |
+| `/engineering-notes` | Dated engineering notes and the curated notebook |
 | `/settings` | Profile settings |
 
 ## Spec Driven Development

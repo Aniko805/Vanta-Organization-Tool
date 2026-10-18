@@ -20,6 +20,8 @@ export type Team = {
   invite_code: string;
   created_at: string | null;
   updated_at: string;
+  ai_provider?: "deepseek" | "moonshot" | null;
+  ai_model?: string | null;
 };
 
 export type TeamRole = {
@@ -148,6 +150,113 @@ export const PART_STATUSES = [
   { value: "TESTING", label: "Testing" },
   { value: "COMPLETE", label: "Complete" },
 ];
+
+export type EngNoteImage = {
+  id: string;
+  note_id: string | null;
+  team_id: string;
+  storage_path: string;
+  mime_type: string | null;
+  byte_size: number | null;
+  caption: string | null;
+  position: number;
+  created_by: string | null;
+  created_at: string;
+  signed_url?: string | null;
+};
+
+export type EngNote = {
+  id: string;
+  team_id: string;
+  note_date: string;
+  author_id: string | null;
+  title: string | null;
+  body: string;
+  subteam: string | null;
+  task_id: string | null;
+  created_at: string;
+  updated_at: string;
+  author?: Profile | null;
+  eng_note_images?: EngNoteImage[];
+};
+
+export type NotebookTemplateSection = {
+  id: string;
+  tab_id: string;
+  name: string;
+  position: number;
+  prompt_hint: string | null;
+};
+
+export type NotebookTemplateTab = {
+  id: string;
+  template_id: string;
+  name: string;
+  position: number;
+  notebook_template_sections?: NotebookTemplateSection[];
+};
+
+export type NotebookTemplate = {
+  id: string;
+  team_id: string | null;
+  name: string;
+  description: string | null;
+  is_default: boolean;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+  notebook_template_tabs?: NotebookTemplateTab[];
+};
+
+export type NotebookStatus = "draft" | "curated" | "failed";
+
+export type NotebookSectionRef = {
+  id: string;
+  section_id: string;
+  kind: "note" | "task" | "image";
+  note_id: string | null;
+  task_id: string | null;
+  image_id: string | null;
+};
+
+export type NotebookSection = {
+  id: string;
+  notebook_id: string;
+  tab_name: string;
+  tab_position: number;
+  section_name: string;
+  section_position: number;
+  content: string;
+  is_user_edited: boolean;
+  edited_by: string | null;
+  edited_at: string | null;
+  notebook_section_refs?: NotebookSectionRef[];
+};
+
+export type Notebook = {
+  id: string;
+  team_id: string;
+  notebook_date: string;
+  template_id: string | null;
+  title: string | null;
+  status: NotebookStatus;
+  generated_at: string | null;
+  generated_by: string | null;
+  provider: string | null;
+  model: string | null;
+  source_note_count: number;
+  source_max_updated_at: string | null;
+  created_at: string;
+  updated_at: string;
+  notebook_sections?: NotebookSection[];
+};
+
+export type NotebookTemplateExport = {
+  schemaVersion: 1;
+  name: string;
+  description?: string;
+  tabs: { name: string; sections: { name: string; promptHint?: string }[] }[];
+};
 
 export function displayNameFromProfile(
   profile?: Profile | null,

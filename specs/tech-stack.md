@@ -9,6 +9,7 @@ Source of truth for languages, libraries, conventions, design tokens, and delibe
 | Language | TypeScript 5 | Strict typing preferred for new code |
 | Framework | Next.js 16.2.x | App Router under `src/app` |
 | UI | React 19.2.x | Interactive pages use `"use client"` at the top of the component |
+| Markdown | `react-markdown` + `rehype-sanitize` | Curated notebook text. Model output is sanitized before display |
 | Styling | Tailwind CSS v4 | Via `@tailwindcss/postcss` |
 | Lint | ESLint + `eslint-config-next` | `npm run lint` |
 | Package manager | npm (repo default) | Match existing lockfile |
@@ -55,6 +56,7 @@ src/
     team/
     team-tasks/              # Team Kanban
     parts/                   # Inventory
+    engineering-notes/       # Dated notes and curated notebook
     settings/
     components/              # Shared UI (Sidebar, AppShell)
   lib/
@@ -74,7 +76,7 @@ tools/catalog-ingest/        # Offline vendor catalog fetch; not imported by the
 
 - Prefer App Router folders with `page.tsx` per route.
 - Auth-gated tool routes redirect unauthenticated users to `/login` (pattern already used in `Sidebar`).
-- Sidebar nav: Overview (`/dashboard`), Personal Tasks (`/personal-tasks`), Team (`/team`), Team Tasks (`/team-tasks`), Parts (`/parts`), Settings (`/settings`).
+- Sidebar nav: Overview (`/dashboard`), Personal Tasks (`/personal-tasks`), Team (`/team`), Team Tasks (`/team-tasks`), Parts (`/parts`), Engineering Notes (`/engineering-notes`), Settings (`/settings`).
 
 ### Interactive vs server components
 
