@@ -478,7 +478,7 @@ export default function TeamPage() {
                   <h2 className="text-xl font-bold">{selected.name}</h2>
                   <p className="text-xs font-mono text-zinc-500 mt-1">
                     {selected.team_number ? `Team #${selected.team_number} · ` : null}
-                    Owner session {selected.owner_id === userId ? "(you)" : ""}
+                    session {selected.owner_id === userId ? "(Admin)" : ""}
                   </p>
                 </div>
                 <div className="flex gap-2">
