@@ -577,26 +577,39 @@ export default function TeamTasksClient({
                 />
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-                  <div>
-                    <Label>Assign Team Members</Label>
-                    <div className="mt-2 space-y-1 max-h-36 overflow-y-auto pr-2">
+                  {/* MEMBERS SECTION */}
+                  <div className="flex flex-col bg-zinc-950/30 p-3 rounded-lg border border-zinc-900/50">
+                    <div className="flex items-center justify-between mb-3">
+                      <Label>Assign Team Members</Label>
+                    </div>
+                    <FieldInput
+                      type="text"
+                      placeholder="Search members..."
+                      value={memberSearch}
+                      onChange={(e) => setMemberSearch(e.target.value)}
+                      className="mb-3 text-xs py-1.5"
+                    />
+                    {/* Dark Glass Scrollbar Customization */}
+                    <div className="space-y-1.5 max-h-40 overflow-y-auto pr-3 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-white/10 [&::-webkit-scrollbar-thumb]:backdrop-blur-md [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-white/20 transition-all">
                       {loadingOptions ? (
                         <EmptyState>Loading team members...</EmptyState>
                       ) : teamMembers.length === 0 ? (
                         <EmptyState>
                           {loadError ? "Team members unavailable" : "No team members available"}
                         </EmptyState>
+                      ) : filteredMembers.length === 0 ? (
+                        <EmptyState>No members match "{memberSearch}"</EmptyState>
                       ) : (
-                        teamMembers.map((m) => (
+                        filteredMembers.map((m) => (
                           <label
                             key={m.user_id}
-                            className="flex items-center gap-2 text-xs text-zinc-400 cursor-pointer hover:text-white"
+                            className="flex items-center gap-2 text-xs text-zinc-400 cursor-pointer hover:text-white transition-colors py-0.5"
                           >
                             <input
                               type="checkbox"
                               checked={selectedAssignees.includes(m.user_id)}
                               onChange={() => toggleAssignee(m.user_id)}
-                              className="accent-white"
+                              className="accent-white bg-zinc-900 border-zinc-700 rounded-sm"
                             />
                             {displayNameFromProfile(m.profiles)}
                           </label>
@@ -605,127 +618,84 @@ export default function TeamTasksClient({
                     </div>
                   </div>
 
+                  {/* PARTS SECTION */}
+                  <div className="flex flex-col bg-zinc-950/30 p-3 rounded-lg border border-zinc-900/50">
+                    <div className="flex items-center justify-between mb-3">
+                      <Label>Attach Parts</Label>
+                    </div>
+                    <FieldInput
+                      type="text"
+                      placeholder="Search parts..."
+                      value={partSearch}
+                      onChange={(e) => setPartSearch(e.target.value)}
+                      className="mb-3 text-xs py-1.5"
+                      disabled={!canManageInventory}
+                    />
+                    {/* Dark Glass Scrollbar Customization */}
+                    <div className="space-y-1.5 max-h-40 overflow-y-auto pr-3 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-white/10 [&::-webkit-scrollbar-thumb]:backdrop-blur-md [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-white/20 transition-all">
+                      {loadingOptions ? (
+                        <EmptyState>Loading team parts...</EmptyState>
+                      ) : !canManageInventory ? (
+                        <EmptyState>
+                          Inventory manager access is required to reserve parts.
+                        </EmptyState>
+                      ) : assignableParts.length === 0 ? (
+                        <EmptyState>
+                          {loadError ? "Team parts unavailable" : "No assignable parts"}
+                        </EmptyState>
+                      ) : filteredParts.length === 0 ? (
+                        <EmptyState>No parts match "{partSearch}"</EmptyState>
+                      ) : (
+                        filteredParts.map((part) => {
+                          const availableQuantity = getInStockQuantity(part);
+                          const selectedQuantity = selectedParts[part.id] ?? 0;
+                          return (
+                            <div
+                              key={part.id}
+                              className="flex items-center gap-3 text-xs text-zinc-400 py-0.5"
+                            >
+                              <label className="flex min-w-0 flex-1 items-center gap-2 cursor-pointer hover:text-white transition-colors">
+                                <input
+                                  type="checkbox"
+                                  checked={selectedQuantity > 0}
+                                  disabled={availableQuantity === 0}
+                                  onChange={(event) =>
+                                    setPartQuantity(part.id, event.target.checked ? 1 : null)
+                                  }
+                                  className="accent-white bg-zinc-900 border-zinc-700 rounded-sm"
+                                />
+                                <span className="truncate">
+                                  {part.part_catalog?.name ?? "Unnamed Part"}
+                                </span>
+                                <span className="shrink-0 text-[10px] text-zinc-600 bg-zinc-900 px-1.5 py-0.5 rounded-md border border-zinc-800">
+                                  In stock: {availableQuantity}
+                                </span>
+                              </label>
+                              {selectedQuantity > 0 ? (
+                                <FieldInput
+                                  type="number"
+                                  min="1"
+                                  max={availableQuantity}
+                                  value={selectedQuantity}
+                                  aria-label={`Quantity of ${part.part_catalog?.name ?? "part"}`}
+                                  className="w-16 h-6 px-1 py-0 text-center"
+                                  onChange={(event) => {
+                                    const nextQuantity = Number.parseInt(event.target.value, 10);
+                                    if (Number.isNaN(nextQuantity)) return;
+                                    setPartQuantity(
+                                      part.id,
+                                      Math.min(availableQuantity, Math.max(1, nextQuantity))
+                                    );
+                                  }}
+                                />
+                              ) : null}
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
                   </div>
-  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-  {/* MEMBERS SECTION */}
-  <div className="flex flex-col bg-zinc-950/30 p-3 rounded-lg border border-zinc-900/50">
-    <div className="flex items-center justify-between mb-3">
-      <Label>Assign Team Members</Label>
-    </div>
-    <FieldInput
-      type="text"
-      placeholder="Search members..."
-      value={memberSearch}
-      onChange={(e) => setMemberSearch(e.target.value)}
-      className="mb-3 text-xs py-1.5"
-    />
-    {/* Dark Glass Scrollbar Customization */}
-    <div className="space-y-1.5 max-h-40 overflow-y-auto pr-3 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-white/10 [&::-webkit-scrollbar-thumb]:backdrop-blur-md [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-white/20 transition-all">
-      {loadingOptions ? (
-        <EmptyState>Loading team members...</EmptyState>
-      ) : teamMembers.length === 0 ? (
-        <EmptyState>
-          {loadError ? "Team members unavailable" : "No team members available"}
-        </EmptyState>
-      ) : filteredMembers.length === 0 ? (
-        <EmptyState>No members match "{memberSearch}"</EmptyState>
-      ) : (
-        filteredMembers.map((m) => (
-          <label
-            key={m.user_id}
-            className="flex items-center gap-2 text-xs text-zinc-400 cursor-pointer hover:text-white transition-colors py-0.5"
-          >
-            <input
-              type="checkbox"
-              checked={selectedAssignees.includes(m.user_id)}
-              onChange={() => toggleAssignee(m.user_id)}
-              className="accent-white bg-zinc-900 border-zinc-700 rounded-sm"
-            />
-            {displayNameFromProfile(m.profiles)}
-          </label>
-        ))
-      )}
-    </div>
-  </div>
-
-  {/* PARTS SECTION */}
-  <div className="flex flex-col bg-zinc-950/30 p-3 rounded-lg border border-zinc-900/50">
-    <div className="flex items-center justify-between mb-3">
-      <Label>Attach Parts</Label>
-    </div>
-    <FieldInput
-      type="text"
-      placeholder="Search parts..."
-      value={partSearch}
-      onChange={(e) => setPartSearch(e.target.value)}
-      className="mb-3 text-xs py-1.5"
-      disabled={!canManageInventory}
-    />
-    {/* Dark Glass Scrollbar Customization */}
-    <div className="space-y-1.5 max-h-40 overflow-y-auto pr-3 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-white/10 [&::-webkit-scrollbar-thumb]:backdrop-blur-md [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-white/20 transition-all">
-      {loadingOptions ? (
-        <EmptyState>Loading team parts...</EmptyState>
-      ) : !canManageInventory ? (
-        <EmptyState>
-          Inventory manager access is required to reserve parts.
-        </EmptyState>
-      ) : assignableParts.length === 0 ? (
-        <EmptyState>
-          {loadError ? "Team parts unavailable" : "No assignable parts"}
-        </EmptyState>
-      ) : filteredParts.length === 0 ? (
-        <EmptyState>No parts match "{partSearch}"</EmptyState>
-      ) : (
-        filteredParts.map((part) => {
-          const availableQuantity = getInStockQuantity(part);
-          const selectedQuantity = selectedParts[part.id] ?? 0;
-          return (
-            <div
-              key={part.id}
-              className="flex items-center gap-3 text-xs text-zinc-400 py-0.5"
-            >
-              <label className="flex min-w-0 flex-1 items-center gap-2 cursor-pointer hover:text-white transition-colors">
-                <input
-                  type="checkbox"
-                  checked={selectedQuantity > 0}
-                  disabled={availableQuantity === 0}
-                  onChange={(event) =>
-                    setPartQuantity(part.id, event.target.checked ? 1 : null)
-                  }
-                  className="accent-white bg-zinc-900 border-zinc-700 rounded-sm"
-                />
-                <span className="truncate">
-                  {part.part_catalog?.name ?? "Unnamed Part"}
-                </span>
-                <span className="shrink-0 text-[10px] text-zinc-600 bg-zinc-900 px-1.5 py-0.5 rounded-md border border-zinc-800">
-                  In stock: {availableQuantity}
-                </span>
-              </label>
-              {selectedQuantity > 0 ? (
-                <FieldInput
-                  type="number"
-                  min="1"
-                  max={availableQuantity}
-                  value={selectedQuantity}
-                  aria-label={`Quantity of ${part.part_catalog?.name ?? "part"}`}
-                  className="w-16 h-6 px-1 py-0 text-center"
-                  onChange={(event) => {
-                    const nextQuantity = Number.parseInt(event.target.value, 10);
-                    if (Number.isNaN(nextQuantity)) return;
-                    setPartQuantity(
-                      part.id,
-                      Math.min(availableQuantity, Math.max(1, nextQuantity))
-                    );
-                  }}
-                />
-              ) : null}
-            </div>
-          );
-        })
-      )}
-    </div>
-  </div>
-</div>
+                </div>
 
                 <div className="flex justify-end gap-2 pt-2">
                   <SecondaryButton
