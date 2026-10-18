@@ -76,12 +76,18 @@ export default function TeamPage() {
   const [roleDraft, setRoleDraft] = useState<TeamRoleDraft>(EMPTY_TEAM_ROLE_DRAFT);
   const [roleActionBusy, setRoleActionBusy] = useState(false);
   const [roleNotice, setRoleNotice] = useState<string | null>(null);
+  const [memberSearch, setMemberSearch] = useState("");
 
   const [createName, setCreateName] = useState("");
   const [createNumber, setCreateNumber] = useState("");
   const [inviteCode, setInviteCode] = useState("");
 
   const members = loadedTeamId === selectedId ? memberData : [];
+
+  const filteredMembers = members.filter((m) =>
+    displayNameFromProfile(m.profiles).toLowerCase().includes(memberSearch.toLowerCase())
+  );
+
   const roles = loadedTeamId === selectedId ? roleData : [];
   const selected = teams.find((t) => t.id === selectedId) ?? null;
   const myMembership = members.find((m) => m.user_id === userId) ?? null;
@@ -659,173 +665,188 @@ export default function TeamPage() {
               </div>
 
               {/* Members Section with Multi-Dropdowns */}
-              <div>
+              <div className="flex flex-col">
                 <Label>Members</Label>
-                <div className="mt-3 divide-y divide-zinc-900 border border-zinc-900 rounded-lg overflow-hidden">
-                  {members.map((member) => {
-                    const assignedRoleIds = member.role_ids ?? [];
-                    const selectedTeamRoles = roles.filter(
-                      (role) => role.team_id === selected.id
-                    );
+                
+                <FieldInput
+                  type="text"
+                  placeholder="Search members..."
+                  value={memberSearch}
+                  onChange={(e) => setMemberSearch(e.target.value)}
+                  className="mt-3 mb-3 text-sm py-2"
+                />
 
-                    const hasAvailableRoles =
-                      assignedRoleIds.length < selectedTeamRoles.length;
+                <div className="divide-y divide-zinc-900 border border-zinc-900 rounded-lg overflow-y-auto max-h-[600px] pr-1 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-white/10 [&::-webkit-scrollbar-thumb]:backdrop-blur-md [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-white/20 transition-all">
+                  {filteredMembers.length === 0 ? (
+                     <div className="p-4">
+                       <EmptyState>No members match "{memberSearch}"</EmptyState>
+                     </div>
+                  ) : (
+                    filteredMembers.map((member) => {
+                      const assignedRoleIds = member.role_ids ?? [];
+                      const selectedTeamRoles = roles.filter(
+                        (role) => role.team_id === selected.id
+                      );
 
-                    return (
-                      <div
-                        key={member.id}
-                        className="flex flex-wrap items-center justify-between gap-4 px-4 py-3 bg-zinc-950/30"
-                      >
-                        {/* Member Identity & Role Badges */}
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-semibold text-zinc-200">
-                              {displayNameFromProfile(member.profiles)}
-                            </span>
-                            {member.user_id === userId ? (
-                              <span className="text-[10px] font-mono text-zinc-500">you</span>
-                            ) : null}
-                            {member.user_id === selected.owner_id ? (
-                              <span className="text-[10px] font-mono text-emerald-500">
-                                OWNER
+                      const hasAvailableRoles =
+                        assignedRoleIds.length < selectedTeamRoles.length;
+
+                      return (
+                        <div
+                          key={member.id}
+                          className="flex flex-wrap items-center justify-between gap-4 px-4 py-3 bg-zinc-950/30"
+                        >
+                          {/* Member Identity & Role Badges */}
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-semibold text-zinc-200">
+                                {displayNameFromProfile(member.profiles)}
                               </span>
-                            ) : null}
-                          </div>
-
-                          {/* Active Role Badges */}
-                          <div className="flex flex-wrap gap-1.5 pt-0.5">
-                            {member.team_roles_list && member.team_roles_list.length > 0 ? (
-                              member.team_roles_list.map((r) => (
-                                <span
-                                  key={r.id}
-                                  className="px-2 py-0.5 text-[11px] font-medium rounded-full bg-blue-950/60 text-blue-300 border border-blue-800/50"
-                                >
-                                  {r.name}
+                              {member.user_id === userId ? (
+                                <span className="text-[10px] font-mono text-zinc-500">you</span>
+                              ) : null}
+                              {member.user_id === selected.owner_id ? (
+                                <span className="text-[10px] font-mono text-emerald-500">
+                                  OWNER
                                 </span>
-                              ))
-                            ) : (
-                              <span className="text-[10px] font-mono text-zinc-600">
-                                {member.team_roles?.name ?? "No role"}
-                              </span>
-                            )}
-                          </div>
-                        </div>
+                              ) : null}
+                            </div>
 
-                        {/* Actions: Dynamic Dropdowns & Add Button */}
-                        <div className="flex items-center gap-4">
-                          {isAdmin ? (
-                            <div className="flex flex-col gap-2 border-l border-zinc-900 pl-4">
-                              {/* Stacked Dropdowns */}
-                              <div className="flex flex-col gap-2">
-                                {assignedRoleIds.length === 0 ? (
-                                  <FieldInput
-                                    as="select"
-                                    className="w-36 text-xs"
-                                    value=""
-                                    disabled={updatingMemberId === member.id}
-                                    onChange={(e) =>
-                                      handleDropdownRoleChange(
-                                        member.id,
-                                        [],
-                                        0,
-                                        e.target.value
-                                      )
-                                    }
+                            {/* Active Role Badges */}
+                            <div className="flex flex-wrap gap-1.5 pt-0.5">
+                              {member.team_roles_list && member.team_roles_list.length > 0 ? (
+                                member.team_roles_list.map((r) => (
+                                  <span
+                                    key={r.id}
+                                    className="px-2 py-0.5 text-[11px] font-medium rounded-full bg-blue-950/60 text-blue-300 border border-blue-800/50"
                                   >
-                                    <option value="">No role</option>
-                                    {selectedTeamRoles.map((role) => (
-                                      <option key={role.id} value={role.id}>
-                                        {role.name}
-                                      </option>
-                                    ))}
-                                  </FieldInput>
-                                ) : (
-                                  assignedRoleIds.map((currentRoleId, idx) => (
-                                    <div key={idx} className="flex items-center gap-1.5">
-                                      <FieldInput
-                                        as="select"
-                                        className="w-36 text-xs"
-                                        value={currentRoleId}
-                                        disabled={updatingMemberId === member.id}
-                                        onChange={(e) =>
-                                          handleDropdownRoleChange(
-                                            member.id,
-                                            assignedRoleIds,
-                                            idx,
-                                            e.target.value
-                                          )
-                                        }
-                                      >
-                                        <option value="">No role</option>
-                                        {selectedTeamRoles.map((role) => (
-                                          <option key={role.id} value={role.id}>
-                                            {role.name}
-                                          </option>
-                                        ))}
-                                      </FieldInput>
-
-                                      <button
-                                        type="button"
-                                        title="Remove role"
-                                        disabled={updatingMemberId === member.id}
-                                        onClick={() =>
-                                          handleRemoveRoleDropdown(
-                                            member.id,
-                                            assignedRoleIds,
-                                            idx
-                                          )
-                                        }
-                                        className="text-zinc-500 hover:text-red-400 p-1 text-xs transition-colors"
-                                      >
-                                        ✕
-                                      </button>
-                                    </div>
-                                  ))
-                                )}
-                              </div>
-
-                              {/* "+ Add role" button */}
-                              {hasAvailableRoles && assignedRoleIds.length > 0 && (
-                                <button
-                                  type="button"
-                                  disabled={updatingMemberId === member.id}
-                                  onClick={() =>
-                                    handleAddRoleDropdown(member.id, assignedRoleIds)
-                                  }
-                                  className="text-[11px] font-medium text-emerald-400 hover:text-emerald-300 text-left transition-colors"
-                                >
-                                  + Add another role
-                                </button>
+                                    {r.name}
+                                  </span>
+                                ))
+                              ) : (
+                                <span className="text-[10px] font-mono text-zinc-600">
+                                  {member.team_roles?.name ?? "No role"}
+                                </span>
                               )}
                             </div>
-                          ) : null}
+                          </div>
 
-                          {isAdmin && member.user_id !== selected.owner_id ? (
-                            <SecondaryButton
-                              onClick={async () => {
-                                if (
-                                  !window.confirm(
-                                    "Are you sure you want to remove this member from the team?"
+                          {/* Actions: Dynamic Dropdowns & Add Button */}
+                          <div className="flex items-center gap-4">
+                            {isAdmin ? (
+                              <div className="flex flex-col gap-2 border-l border-zinc-900 pl-4">
+                                {/* Stacked Dropdowns */}
+                                <div className="flex flex-col gap-2">
+                                  {assignedRoleIds.length === 0 ? (
+                                    <FieldInput
+                                      as="select"
+                                      className="w-36 text-xs"
+                                      value=""
+                                      disabled={updatingMemberId === member.id}
+                                      onChange={(e) =>
+                                        handleDropdownRoleChange(
+                                          member.id,
+                                          [],
+                                          0,
+                                          e.target.value
+                                        )
+                                      }
+                                    >
+                                      <option value="">No role</option>
+                                      {selectedTeamRoles.map((role) => (
+                                        <option key={role.id} value={role.id}>
+                                          {role.name}
+                                        </option>
+                                      ))}
+                                    </FieldInput>
+                                  ) : (
+                                    assignedRoleIds.map((currentRoleId, idx) => (
+                                      <div key={idx} className="flex items-center gap-1.5">
+                                        <FieldInput
+                                          as="select"
+                                          className="w-36 text-xs"
+                                          value={currentRoleId}
+                                          disabled={updatingMemberId === member.id}
+                                          onChange={(e) =>
+                                            handleDropdownRoleChange(
+                                              member.id,
+                                              assignedRoleIds,
+                                              idx,
+                                              e.target.value
+                                            )
+                                          }
+                                        >
+                                          <option value="">No role</option>
+                                          {selectedTeamRoles.map((role) => (
+                                            <option key={role.id} value={role.id}>
+                                              {role.name}
+                                            </option>
+                                          ))}
+                                        </FieldInput>
+
+                                        <button
+                                          type="button"
+                                          title="Remove role"
+                                          disabled={updatingMemberId === member.id}
+                                          onClick={() =>
+                                            handleRemoveRoleDropdown(
+                                              member.id,
+                                              assignedRoleIds,
+                                              idx
+                                            )
+                                          }
+                                          className="text-zinc-500 hover:text-red-400 p-1 text-xs transition-colors"
+                                        >
+                                          ✕
+                                        </button>
+                                      </div>
+                                    ))
+                                  )}
+                                </div>
+
+                                {/* "+ Add role" button */}
+                                {hasAvailableRoles && assignedRoleIds.length > 0 && (
+                                  <button
+                                    type="button"
+                                    disabled={updatingMemberId === member.id}
+                                    onClick={() =>
+                                      handleAddRoleDropdown(member.id, assignedRoleIds)
+                                    }
+                                    className="text-[11px] font-medium text-emerald-400 hover:text-emerald-300 text-left transition-colors"
+                                  >
+                                    + Add another role
+                                  </button>
+                                )}
+                              </div>
+                            ) : null}
+
+                            {isAdmin && member.user_id !== selected.owner_id ? (
+                              <SecondaryButton
+                                onClick={async () => {
+                                  if (
+                                    !window.confirm(
+                                      "Are you sure you want to remove this member from the team?"
+                                    )
                                   )
-                                )
-                                  return;
-                                try {
-                                  await removeMember(member.id);
-                                  await refreshSelected(selected.id);
-                                } catch (err) {
-                                  setError(
-                                    err instanceof Error ? err.message : "Remove failed"
-                                  );
-                                }
-                              }}
-                            >
-                              Remove
-                            </SecondaryButton>
-                          ) : null}
+                                    return;
+                                  try {
+                                    await removeMember(member.id);
+                                    await refreshSelected(selected.id);
+                                  } catch (err) {
+                                    setError(
+                                      err instanceof Error ? err.message : "Remove failed"
+                                    );
+                                  }
+                                }}
+                              >
+                                Remove
+                              </SecondaryButton>
+                            ) : null}
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })
+                  )}
                 </div>
               </div>
             </>
