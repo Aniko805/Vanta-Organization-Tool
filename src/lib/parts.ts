@@ -1,25 +1,65 @@
 import { supabase } from "./supabase";
 import type { Part, PartCatalog, StatusList } from "./types";
 
-export async function listPartCatalog(teamId: string): Promise<PartCatalog[]> {
-  const [officialResult, teamResult] = await Promise.all([
-    supabase
-      .from("part_catalog")
-      .select("*")
-      .is("team_id", null)
-      .eq("is_official", true)
-      .order("name", { ascending: true }),
-    supabase
-      .from("part_catalog")
-      .select("*")
-      .eq("team_id", teamId)
-      .order("name", { ascending: true }),
-  ]);
+export const CATALOG_PAGE_SIZE = 50;
 
-  if (officialResult.error) throw new Error(officialResult.error.message);
-  if (teamResult.error) throw new Error(teamResult.error.message);
+/**
+ * Escape the LIKE metacharacters so a user typing `%` or `_` searches for those
+ * literal characters instead of widening the match.
+ *
+ * Commas and parentheses are deliberately left alone: supabase-js percent-encodes
+ * filter values, so they cannot be mistaken for PostgREST `or` separators.
+ */
+export function escapeLikePattern(value: string): string {
+  return value.replace(/[\\%_]/g, "\\$&");
+}
 
-  return [...(officialResult.data ?? []), ...(teamResult.data ?? [])] as PartCatalog[];
+export type CatalogSearchResult = {
+  items: PartCatalog[];
+  total: number;
+};
+
+/**
+ * Paged, bounded catalog search for the part picker.
+ *
+ * Replaces the previous unbounded catalog load, which hit PostgREST's row cap
+ * (1000 by default) and shipped the entire catalog to every browser.
+ *
+ * Scope matches the `part_catalog_select_team_or_official` policy: team-scoped
+ * rows for this team, plus global official rows.
+ */
+export async function searchPartCatalog({
+  teamId,
+  query = "",
+  page = 0,
+  pageSize = CATALOG_PAGE_SIZE,
+}: {
+  teamId: string;
+  query?: string;
+  page?: number;
+  pageSize?: number;
+}): Promise<CatalogSearchResult> {
+  const from = page * pageSize;
+  const to = from + pageSize - 1;
+
+  let request = supabase
+    .from("part_catalog")
+    .select("*", { count: "exact" })
+    .or(`and(team_id.is.null,is_official.eq.true),team_id.eq.${teamId}`);
+
+  const trimmed = query.trim();
+  if (trimmed) {
+    request = request.ilike("name", `%${escapeLikePattern(trimmed)}%`);
+  }
+
+  const { data, error, count } = await request
+    .order("name", { ascending: true })
+    .order("id", { ascending: true })
+    .range(from, to);
+
+  if (error) throw new Error(error.message);
+
+  return { items: (data ?? []) as PartCatalog[], total: count ?? 0 };
 }
 
 export async function listPartStatuses(teamId: string): Promise<StatusList[]> {
