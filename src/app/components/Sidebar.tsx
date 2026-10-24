@@ -85,7 +85,7 @@ export default function Sidebar() {
         <div className="mb-10">
           <span className="text-sm font-semibold tracking-widest uppercase text-zinc-100">Vulcan</span>
           <img
-            src="/vulcan_logo.webp"
+            src="/src/app/components/51dc49c73.png"
             alt="Vulcan logo"
             className="mt-3 h-14 w-auto object-contain"
           />
