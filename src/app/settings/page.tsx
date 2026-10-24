@@ -6,6 +6,7 @@ import Sidebar from "@/app/components/Sidebar";
 import AvatarUpload from "@/app/components/AvatarUpload";
 import { getUserProfile, updateUserProfile } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
+import { BTN_PRIMARY, CARD, INPUT, PAGE_BG, SCROLLBAR } from "@/app/components/ui";
 
 type SettingsForm = {
   username: string;
@@ -124,15 +125,15 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-black text-white font-sans overflow-x-hidden flex select-none">
+    <div className={`min-h-screen ${PAGE_BG} font-sans overflow-x-hidden flex select-none`}>
       <Sidebar />
 
-      <main className="flex-1 p-10 max-w-5xl mx-auto space-y-8">
-        <header className="border-b border-zinc-900 pb-6">
+      <main className="flex-1 min-w-0 px-4 pt-16 pb-6 md:p-10 max-w-5xl mx-auto space-y-8">
+        <header className="border-b border-white/10 pb-6">
           <p className="text-xs font-mono text-zinc-500 uppercase tracking-widest mb-1">
             Settings
           </p>
-          <h1 className="text-3xl font-extrabold tracking-tight">
+          <h1 className="text-3xl font-extrabold tracking-tight text-zinc-100">
             Profile Settings
           </h1>
           <p className="text-sm text-zinc-500 mt-2">
@@ -142,8 +143,8 @@ export default function SettingsPage() {
 
         <section className="grid grid-cols-1 lg:grid-cols-[280px_minmax(0,1fr)] gap-6">
           {/* Left Preview Card */}
-          <div className="p-6 bg-zinc-950 border border-zinc-900 rounded-xl space-y-4 h-fit">
-            <div className="h-32 w-32 rounded-full border border-zinc-800 overflow-hidden bg-zinc-900 flex items-center justify-center text-3xl font-semibold text-zinc-400 mx-auto">
+          <div className={`p-6 ${CARD} space-y-4 h-fit`}>
+            <div className="h-32 w-32 rounded-full border border-white/10 overflow-hidden bg-zinc-800/60 flex items-center justify-center text-3xl font-semibold text-zinc-400 mx-auto">
               {form.avatarImage ? (
                 <img
                   src={form.avatarImage}
@@ -172,7 +173,7 @@ export default function SettingsPage() {
           {/* Settings Form */}
           <form
             onSubmit={handleSubmit}
-            className="p-6 bg-zinc-950 border border-zinc-900 rounded-xl space-y-5"
+            className={`p-6 ${CARD} space-y-5`}
           >
             <div>
               <label className="block text-[10px] font-mono text-zinc-500 uppercase tracking-widest mb-1.5">
@@ -184,7 +185,7 @@ export default function SettingsPage() {
                 value={form.username}
                 onChange={(e) => updateField("username", e.target.value)}
                 placeholder="stevenzhang"
-                className="w-full bg-zinc-900/50 border border-zinc-800 rounded-md px-4 py-2.5 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-zinc-600 transition-colors"
+                className={INPUT}
               />
             </div>
 
@@ -198,7 +199,7 @@ export default function SettingsPage() {
                   value={form.firstName}
                   onChange={(e) => updateField("firstName", e.target.value)}
                   placeholder="Steven"
-                  className="w-full bg-zinc-900/50 border border-zinc-800 rounded-md px-4 py-2.5 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-zinc-600 transition-colors"
+                  className={INPUT}
                 />
               </div>
 
@@ -211,7 +212,7 @@ export default function SettingsPage() {
                   value={form.lastName}
                   onChange={(e) => updateField("lastName", e.target.value)}
                   placeholder="Zhang"
-                  className="w-full bg-zinc-900/50 border border-zinc-800 rounded-md px-4 py-2.5 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-zinc-600 transition-colors"
+                  className={INPUT}
                 />
               </div>
             </div>
@@ -239,11 +240,11 @@ export default function SettingsPage() {
                 onChange={(e) => updateField("bio", e.target.value)}
                 placeholder="Tell your team a bit about yourself"
                 rows={4}
-                className="w-full resize-none bg-zinc-900/50 border border-zinc-800 rounded-md px-4 py-2.5 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-zinc-600 transition-colors"
+                className={`${INPUT} resize-none ${SCROLLBAR}`}
               />
             </div>
 
-            {error && <p className="text-sm text-rose-500">{error}</p>}
+            {error && <p className="text-sm text-rose-400">{error}</p>}
             {successMessage && (
               <p className="text-sm text-emerald-400">{successMessage}</p>
             )}
@@ -251,7 +252,7 @@ export default function SettingsPage() {
             <button
               type="submit"
               disabled={loadingProfile || saving}
-              className="w-full md:w-auto px-5 py-2.5 bg-white text-black text-sm font-semibold rounded hover:bg-zinc-200 transition-colors active:scale-95 disabled:opacity-50"
+              className={`${BTN_PRIMARY} w-full md:w-auto px-5 py-2.5 text-sm`}
             >
               {loadingProfile
                 ? "Loading profile..."

@@ -1,6 +1,15 @@
 "use client";
 
 import Sidebar from "@/app/components/Sidebar";
+import {
+  BTN_PRIMARY,
+  BTN_SECONDARY,
+  CARD,
+  CARD_INTERACTIVE,
+  INPUT,
+  PAGE_BG,
+  SCROLLBAR,
+} from "@/app/components/ui";
 
 type FieldBase = {
   className?: string;
@@ -9,14 +18,15 @@ type FieldBase = {
 export function Panel({
   children,
   className = "",
+  interactive = false,
 }: {
   children: React.ReactNode;
   className?: string;
+  /** Adds the hover/active glass treatment for clickable surfaces. */
+  interactive?: boolean;
 }) {
   return (
-    <div
-      className={`p-6 bg-zinc-950/40 border border-zinc-900 rounded-xl backdrop-blur-md ${className}`}
-    >
+    <div className={`p-6 ${interactive ? CARD_INTERACTIVE : CARD} ${className}`}>
       {children}
     </div>
   );
@@ -38,7 +48,7 @@ export function PrimaryButton({
   return (
     <button
       {...props}
-      className={`px-4 py-2 bg-white text-black text-xs font-semibold rounded hover:bg-zinc-200 transition-colors active:scale-95 disabled:opacity-50 ${className}`}
+      className={`${BTN_PRIMARY} ${className}`}
     >
       {children}
     </button>
@@ -53,15 +63,14 @@ export function SecondaryButton({
   return (
     <button
       {...props}
-      className={`px-4 py-2 border border-zinc-700 text-zinc-300 text-xs font-semibold rounded hover:border-zinc-500 hover:text-white transition-colors active:scale-95 disabled:opacity-50 ${className}`}
+      className={`${BTN_SECONDARY} ${className}`}
     >
       {children}
     </button>
   );
 }
 
-const fieldBase =
-  "w-full bg-black/50 border border-zinc-800 rounded px-3 py-2 text-sm text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-zinc-600";
+const fieldBase = INPUT;
 
 export function FieldInput(
   props:
@@ -77,7 +86,7 @@ export function FieldInput(
     return (
       <textarea
         {...(rest as React.TextareaHTMLAttributes<HTMLTextAreaElement>)}
-        className={`${fieldBase} min-h-24 ${className}`}
+        className={`${fieldBase} min-h-24 ${SCROLLBAR} ${className}`}
       />
     );
   }
@@ -125,7 +134,7 @@ export default function AppShell({
   workspace?: boolean;
 }) {
   return (
-    <div className={`min-h-screen bg-black text-white font-sans flex ${workspace ? "h-dvh overflow-hidden" : "overflow-x-hidden"}`}>
+    <div className={`min-h-screen ${PAGE_BG} font-sans flex ${workspace ? "h-dvh overflow-hidden" : "overflow-x-hidden"}`}>
       <Sidebar />
       <main
         className={
@@ -134,14 +143,14 @@ export default function AppShell({
             : "flex-1 min-w-0 px-4 pt-16 pb-4 md:p-10 max-w-7xl mx-auto space-y-8 w-full"
         }
       >
-        <header className="no-print flex flex-wrap justify-between items-end gap-4 border-b border-zinc-900 pb-4 md:pb-6">
+        <header className="no-print flex flex-wrap justify-between items-end gap-4 border-b border-white/10 pb-4 md:pb-6">
           <div>
             {eyebrow ? (
               <p className="text-xs font-mono text-zinc-500 uppercase tracking-widest mb-1">
                 {eyebrow}
               </p>
             ) : null}
-            <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight">{title}</h1>
+            <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-zinc-100">{title}</h1>
           </div>
           {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}
         </header>

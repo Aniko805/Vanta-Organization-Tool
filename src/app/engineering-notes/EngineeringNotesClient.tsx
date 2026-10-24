@@ -11,6 +11,7 @@ import AppShell, {
   PrimaryButton,
   SecondaryButton,
 } from "@/app/components/AppShell";
+import { H_SCROLL, MODAL_BACKDROP, MODAL_SHEET, SCROLLBAR } from "@/app/components/ui";
 import { curateNotebook } from "@/lib/ai";
 import type { CurateEvent } from "@/lib/ai/events";
 import { formatNotebookDate, formatNoteTime, localDateISO, shiftISODate, shortWeekday } from "@/lib/dates";
@@ -67,6 +68,9 @@ type DayPoint = {
 type ConfirmSection = { id: string; tabName: string; sectionName: string };
 
 const PAGE_SIZE = 8;
+
+const FILE_BTN =
+  "inline-flex min-h-11 cursor-pointer items-center justify-center rounded-xl border border-white/10 bg-zinc-800/60 px-4 text-[10px] font-mono uppercase tracking-widest text-zinc-200 transition-all hover:bg-zinc-700/60 active:scale-95";
 
 function asMode(value: string | null): Mode {
   return value === "timeline" || value === "document" ? value : "day";
@@ -594,7 +598,7 @@ export default function EngineeringNotesClient() {
       ) : (
         <div className="flex min-h-0 flex-1 flex-col gap-3">
           <div className="no-print flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <div className="flex min-w-0 gap-2 overflow-x-auto">
+            <div className={`flex min-w-0 gap-2 px-4 ${H_SCROLL}`}>
               {tabs.length === 0 ? (
                 <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">No tabs yet</span>
               ) : (
@@ -602,10 +606,10 @@ export default function EngineeringNotesClient() {
                   <button
                     key={tab.name}
                     type="button"
-                    className={`min-h-11 shrink-0 border-b-2 px-3 text-[10px] font-mono uppercase tracking-widest ${
+                    className={`min-h-11 shrink-0 rounded-xl border px-4 text-[10px] font-mono uppercase tracking-widest transition-all duration-300 ease-out ${
                       selectedTab?.name === tab.name
-                        ? "border-white text-white"
-                        : "border-transparent text-zinc-500"
+                        ? "border-emerald-400/40 bg-emerald-500/10 text-zinc-100"
+                        : "border-white/10 bg-zinc-900/40 text-zinc-500 hover:bg-zinc-800/50 hover:border-white/20 hover:text-zinc-300"
                     }`}
                     onClick={() => setTabChoice(tab.name)}
                   >
@@ -633,13 +637,15 @@ export default function EngineeringNotesClient() {
               <SecondaryButton type="button" className="min-h-11" onClick={() => writeQuery({ date: localDateISO() })}>
                 Today
               </SecondaryButton>
-              <div className="flex border border-zinc-800">
+              <div className="flex gap-1 rounded-2xl border border-white/10 bg-zinc-900/40 p-1">
                 {(["day", "timeline", "document"] as Mode[]).map((item) => (
                   <button
                     key={item}
                     type="button"
-                    className={`min-h-11 px-3 text-[10px] font-mono uppercase tracking-widest ${
-                      mode === item ? "bg-zinc-800 text-white" : "text-zinc-500"
+                    className={`min-h-11 rounded-xl border px-3 text-[10px] font-mono uppercase tracking-widest transition-all duration-300 ease-out ${
+                      mode === item
+                        ? "border-white/10 bg-zinc-800/60 text-zinc-100"
+                        : "border-transparent text-zinc-500 hover:text-zinc-300"
                     }`}
                     onClick={() => writeQuery({ mode: item })}
                   >
@@ -665,7 +671,7 @@ export default function EngineeringNotesClient() {
           {stale > 0 ? (
             <button
               type="button"
-              className="no-print border border-zinc-700 px-3 py-2 text-left text-xs font-mono text-zinc-300"
+              className="no-print min-h-11 rounded-xl border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/15 px-4 py-2 text-left text-xs font-mono text-amber-200 transition-all duration-300 ease-out"
               onClick={() => void runCurate(false)}
             >
               {stale} {stale === 1 ? "note" : "notes"} added since this notebook was generated
@@ -673,9 +679,9 @@ export default function EngineeringNotesClient() {
           ) : null}
 
           <div className={`grid min-h-0 flex-1 gap-3 ${mode === "document" ? "" : "lg:grid-cols-[minmax(0,1.6fr)_minmax(18rem,1fr)]"}`}>
-            <section className="print-sheet min-h-0 overflow-y-auto">
+            <section className={`print-sheet min-h-0 overflow-y-auto ${SCROLLBAR}`}>
               {mode === "timeline" ? (
-                <div ref={timelineRef} className="h-full space-y-4 overflow-y-auto border-l border-zinc-800 pl-4">
+                <div ref={timelineRef} className={`h-full space-y-4 overflow-y-auto border-l border-white/10 pl-4 ${SCROLLBAR}`}>
                   {days.length === 0 ? <EmptyState>No notes yet.</EmptyState> : null}
                   {days.map((day) => (
                     <button
@@ -693,7 +699,7 @@ export default function EngineeringNotesClient() {
                         <span
                           className={
                             day.status === "curated"
-                              ? "h-3 w-3 shrink-0 rounded-full bg-white"
+                              ? "h-3 w-3 shrink-0 rounded-full bg-emerald-400 shadow-lg shadow-emerald-500/30"
                               : "h-2.5 w-2.5 shrink-0 rounded-full border border-zinc-500"
                           }
                         />
@@ -718,7 +724,7 @@ export default function EngineeringNotesClient() {
               {mode === "document" ? (
                 <div className="mx-auto flex max-w-3xl gap-6">
                   <div className="min-w-0 flex-1 space-y-10">
-                    <div className="no-print sticky top-0 z-10 flex items-center justify-between gap-2 bg-black/80 py-2 lg:hidden">
+                    <div className="no-print sticky top-0 z-10 flex items-center justify-between gap-2 bg-zinc-950/80 backdrop-blur-xl py-2 lg:hidden">
                       <Label>Date</Label>
                       <FieldInput
                         as="select"
@@ -781,8 +787,10 @@ export default function EngineeringNotesClient() {
                       <button
                         key={item}
                         type="button"
-                        className={`block min-h-11 w-full border-l px-2 text-left text-[10px] font-mono uppercase tracking-widest ${
-                          item === date ? "border-white text-white" : "border-zinc-800 text-zinc-500"
+                        className={`block min-h-11 w-full rounded-r-xl border-l-2 px-3 text-left text-[10px] font-mono uppercase tracking-widest transition-all duration-300 ease-out ${
+                          item === date
+                            ? "border-emerald-400 bg-emerald-500/10 text-zinc-100"
+                            : "border-white/10 text-zinc-500 hover:bg-zinc-800/50 hover:text-zinc-300"
                         }`}
                         onClick={() => writeQuery({ mode: "document", date: item })}
                       >
@@ -810,7 +818,7 @@ export default function EngineeringNotesClient() {
                     ? selectedTab.sections.map((section) => {
                         const cited = (section.notebook_section_refs ?? []).some((ref) => ref.kind === "note");
                         return (
-                          <article key={section.id} id={`section-${section.id}`} className="border-t border-zinc-900 pt-3">
+                          <article key={section.id} id={`section-${section.id}`} className="border-t border-white/10 pt-3">
                             <div className="mb-2 flex items-center justify-between gap-2">
                               <h2 className="text-[10px] font-mono uppercase tracking-widest">{section.section_name}</h2>
                               <div className="no-print flex items-center gap-2">
@@ -900,28 +908,28 @@ export default function EngineeringNotesClient() {
 
             {mode === "document" ? null : (
               <aside
-                className={`${sheetOpen ? "flex" : "hidden"} no-print fixed inset-x-0 bottom-0 z-40 h-[72dvh] flex-col border border-zinc-800 bg-zinc-950 p-3 md:static md:z-auto md:flex md:h-auto md:min-h-0 md:bg-zinc-950/40`}
+                className={`${sheetOpen ? "flex" : "hidden"} vulcan-sheet no-print fixed inset-x-0 bottom-0 z-40 h-[72dvh] flex-col rounded-t-3xl border border-white/10 bg-zinc-900/90 backdrop-blur-xl shadow-2xl shadow-black/50 p-3 md:static md:z-auto md:flex md:h-auto md:min-h-0 md:rounded-2xl md:bg-zinc-900/40`}
               >
                 <div className="mb-2 flex items-center justify-between">
                   <Label>Raw notecards · {notes.length}</Label>
                   <div className="flex gap-2">
                     <button
                       type="button"
-                      className="min-h-11 text-[10px] font-mono uppercase tracking-widest text-zinc-400"
+                      className="min-h-11 rounded-xl px-3 text-[10px] font-mono uppercase tracking-widest text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-100 transition-all duration-300 ease-out"
                       onClick={() => setShowAllNotes((current) => !current)}
                     >
                       {showAllNotes ? "Highlight tab" : "Show all"}
                     </button>
                     <button
                       type="button"
-                      className="min-h-11 text-[10px] font-mono uppercase tracking-widest text-zinc-400 md:hidden"
+                      className="min-h-11 rounded-xl px-3 text-[10px] font-mono uppercase tracking-widest text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-100 transition-all duration-300 ease-out md:hidden"
                       onClick={() => setSheetOpen(false)}
                     >
                       Close
                     </button>
                   </div>
                 </div>
-                <div className="mb-3 space-y-2 border border-zinc-900 p-3">
+                <div className="mb-3 space-y-2 rounded-2xl border border-white/10 bg-zinc-900/40 p-3">
                   <FieldInput
                     type="date"
                     className="min-h-11"
@@ -965,7 +973,7 @@ export default function EngineeringNotesClient() {
                     />
                   )}
                   <div className="flex flex-wrap gap-2">
-                    <label className="inline-flex min-h-11 cursor-pointer items-center border border-zinc-700 px-3 text-[10px] font-mono uppercase tracking-widest">
+                    <label className={FILE_BTN}>
                       Take photo
                       <input
                         type="file"
@@ -979,7 +987,7 @@ export default function EngineeringNotesClient() {
                         }}
                       />
                     </label>
-                    <label className="inline-flex min-h-11 cursor-pointer items-center border border-zinc-700 px-3 text-[10px] font-mono uppercase tracking-widest">
+                    <label className={FILE_BTN}>
                       Upload
                       <input
                         type="file"
@@ -1001,7 +1009,7 @@ export default function EngineeringNotesClient() {
                     <p className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">{files.length} photos ready</p>
                   ) : null}
                 </div>
-                <div className="min-h-0 flex-1 space-y-3 overflow-y-auto">
+                <div className={`min-h-0 flex-1 space-y-3 overflow-y-auto pr-1 ${SCROLLBAR}`}>
                   {notes.length === 0 ? <EmptyState>No notes for this date.</EmptyState> : null}
                   {notes.map((note) => {
                     const matches =
@@ -1017,8 +1025,10 @@ export default function EngineeringNotesClient() {
                       <article
                         key={note.id}
                         id={`note-${note.id}`}
-                        className={`space-y-2 border p-3 ${
-                          highlightId === note.id ? "border-white bg-zinc-900" : "border-zinc-900"
+                        className={`space-y-2 rounded-2xl border p-3 transition-all duration-300 ease-out ${
+                          highlightId === note.id
+                            ? "border-emerald-400/50 bg-zinc-800/50"
+                            : "border-white/10 bg-zinc-900/40 hover:bg-zinc-800/50 hover:border-white/20"
                         } ${matches ? "" : "opacity-40"}`}
                       >
                         <p className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">
@@ -1055,7 +1065,7 @@ export default function EngineeringNotesClient() {
                                   <img
                                     src={image.signed_url}
                                     alt={image.caption || "Note photo"}
-                                    className="h-16 w-16 border border-zinc-800 object-cover"
+                                    className="h-16 w-16 rounded-xl border border-white/10 object-cover"
                                   />
                                 </span>
                               ) : null
@@ -1100,7 +1110,7 @@ export default function EngineeringNotesClient() {
           {mode === "document" ? null : (
             <button
               type="button"
-              className="no-print fixed bottom-4 right-4 z-30 inline-flex h-12 w-12 items-center justify-center bg-white text-2xl text-black md:hidden"
+              className="no-print fixed bottom-4 right-4 z-30 inline-flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-r from-emerald-500 to-cyan-500 text-2xl text-zinc-950 shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/30 hover:opacity-95 transition-all active:scale-95 md:hidden"
               aria-label="Add note"
               onClick={() => setSheetOpen(true)}
             >
@@ -1124,8 +1134,8 @@ export default function EngineeringNotesClient() {
       ) : null}
 
       {confirmSections ? (
-        <div className="no-print fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4 md:items-center">
-          <div className="w-full max-w-md space-y-3 border border-zinc-800 bg-zinc-950 p-4">
+        <div className={MODAL_BACKDROP}>
+          <div className={`${MODAL_SHEET} max-w-md space-y-3 p-5`}>
             <h2 className="text-lg font-bold">Replace edited sections?</h2>
             <p className="text-sm text-zinc-400">Update notebook will replace every section, including these hand edits.</p>
             <ul className="space-y-1 text-xs font-mono uppercase tracking-widest text-zinc-300">
@@ -1155,8 +1165,8 @@ export default function EngineeringNotesClient() {
       ) : null}
 
       {taskModal ? (
-        <div className="no-print fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-4 md:items-center">
-          <div className="w-full max-w-md space-y-2 border border-zinc-800 bg-zinc-950 p-4">
+        <div className={MODAL_BACKDROP}>
+          <div className={`${MODAL_SHEET} max-w-md space-y-2 p-5`}>
             <p className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">{taskModal.status}</p>
             <h2 className="text-lg font-bold">{taskModal.name}</h2>
             {taskModal.description ? <p className="text-sm text-zinc-300">{taskModal.description}</p> : null}

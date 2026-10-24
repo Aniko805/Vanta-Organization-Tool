@@ -21,6 +21,7 @@ import { downloadText } from "@/lib/notebook-export";
 import type { NotebookTemplate } from "@/lib/types";
 import { useState } from "react";
 import { ErrorText, FieldInput, Label, PrimaryButton, SecondaryButton } from "./AppShell";
+import { BTN_SECONDARY, MODAL_BACKDROP, MODAL_SHEET } from "./ui";
 
 type TemplateDialogProps = {
   teamId: string;
@@ -67,10 +68,10 @@ export default function TemplateDialog({
   };
 
   return (
-    <div className="no-print fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-3 md:items-center">
-      <div className="max-h-[90dvh] w-full max-w-3xl overflow-y-auto border border-zinc-800 bg-zinc-950 p-5">
+    <div className={MODAL_BACKDROP}>
+      <div className={`${MODAL_SHEET} max-w-3xl p-5`}>
         <div className="mb-4 flex items-center justify-between gap-3">
-          <h2 className="text-lg font-bold">Notebook template</h2>
+          <h2 className="text-lg font-bold text-zinc-100">Notebook template</h2>
           <SecondaryButton type="button" onClick={onClose}>
             Close
           </SecondaryButton>
@@ -105,7 +106,7 @@ export default function TemplateDialog({
           >
             Export JSON
           </SecondaryButton>
-          <label className="inline-flex min-h-11 cursor-pointer items-center border border-zinc-700 px-4 text-xs font-semibold text-zinc-300">
+          <label className={`${BTN_SECONDARY} cursor-pointer`}>
             Import JSON
             <input
               type="file"
@@ -173,8 +174,10 @@ export default function TemplateDialog({
                 <div key={item.id} className="flex flex-wrap items-center gap-2">
                   <button
                     type="button"
-                    className={`min-h-11 flex-1 border px-2 text-left text-xs font-mono uppercase ${
-                      item.id === tab.id ? "border-white text-white" : "border-zinc-800 text-zinc-400"
+                    className={`min-h-11 flex-1 rounded-xl border px-3 text-left text-xs font-mono uppercase transition-all duration-300 ease-out ${
+                      item.id === tab.id
+                        ? "border-emerald-400/40 bg-emerald-500/10 text-zinc-100"
+                        : "border-white/10 bg-zinc-800/60 text-zinc-400 hover:bg-zinc-700/60 hover:border-white/20"
                     }`}
                     onClick={() => setTabId(item.id)}
                   >
@@ -245,7 +248,7 @@ export default function TemplateDialog({
             <div className="space-y-2">
               <Label>Sections</Label>
               {(tab.notebook_template_sections ?? []).map((section, index, all) => (
-                <div key={section.id} className="space-y-2 border border-zinc-900 p-2">
+                <div key={section.id} className="space-y-2 rounded-2xl border border-white/10 bg-zinc-900/40 p-3">
                   <div className="flex gap-2">
                     <FieldInput
                       defaultValue={section.name}
@@ -315,7 +318,7 @@ export default function TemplateDialog({
           </div>
         ) : null}
 
-        <div className="mt-6 space-y-2 border-t border-zinc-900 pt-4">
+        <div className="mt-6 space-y-2 border-t border-white/10 pt-4">
           <Label>Curation provider</Label>
           <div className="grid gap-2 md:grid-cols-2">
             <FieldInput

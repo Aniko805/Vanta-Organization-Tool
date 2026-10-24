@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { BTN_PRIMARY, CARD, INPUT, PAGE_BG } from "@/app/components/ui";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -81,37 +82,37 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="relative min-h-screen bg-black text-white font-sans overflow-hidden flex items-center justify-center px-4 select-none">
+    <div className={`relative min-h-screen ${PAGE_BG} font-sans overflow-hidden flex items-center justify-center px-4 select-none`}>
       {/* Background Architectural Grid Lines */}
       <div className="absolute inset-0 bg-[linear-gradient(to_right,#1f1f2e_1px,transparent_1px),linear-gradient(to_bottom,#1f1f2e_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_50%,#000_70%,transparent_100%)] opacity-20 pointer-events-none" />
 
       {/* Floating Abstract Glow (Aesthetic alignment with home) */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] bg-purple-600/10 rounded-full blur-[140px] pointer-events-none" />
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] bg-emerald-500/10 rounded-full blur-[140px] pointer-events-none" />
 
       {/* Glass Card Wrapper */}
-      <div className="relative z-10 w-full max-w-md bg-zinc-950/40 border border-zinc-800/80 rounded-2xl p-8 backdrop-blur-xl shadow-2xl">
+      <div className={`relative z-10 w-full max-w-md ${CARD} p-6 md:p-8`}>
         {/* Brand Header */}
         <div className="flex flex-col items-center mb-8">
-          <Link href="/" className="flex items-center space-x-2 group">
-            <div className="w-5 h-5 bg-white rotate-45 transform origin-center transition-transform group-hover:rotate-90 duration-500" />
-            <span className="text-sm font-semibold tracking-widest uppercase text-zinc-400 group-hover:text-white transition-colors">Vulcan</span>
+          <Link href="/" className="flex min-h-11 items-center space-x-2 group">
+            <div className="w-5 h-5 rounded-lg bg-gradient-to-br from-emerald-400 to-cyan-400 rotate-45 transform origin-center transition-transform group-hover:rotate-90 duration-500" />
+            <span className="text-sm font-semibold tracking-widest uppercase text-zinc-400 group-hover:text-zinc-100 transition-colors">Vulcan</span>
           </Link>
-          <h2 className="text-2xl font-bold tracking-tight mt-4 bg-gradient-to-b from-white to-zinc-400 bg-clip-text text-transparent">
+          <h2 className="text-2xl font-bold tracking-tight mt-4 bg-gradient-to-b from-zinc-100 to-zinc-400 bg-clip-text text-transparent">
             {activeTab === "signin" ? "Welcome back" : "Start your journey"}
           </h2>
         </div>
 
         {/* Tab Switcher */}
-        <div className="grid grid-cols-2 gap-1 bg-zinc-900/60 p-1 rounded-lg border border-zinc-800 mb-6 text-xs font-medium">
+        <div className="grid grid-cols-2 gap-1 bg-zinc-900/50 p-1 rounded-2xl border border-white/10 mb-6 text-xs font-medium">
           <button
             onClick={() => setActiveTab("signin")}
-            className={`py-2 rounded-md transition-all duration-200 ${activeTab === "signin" ? "bg-zinc-800 text-white" : "text-zinc-500 hover:text-zinc-300"}`}
+            className={`min-h-11 py-2 rounded-xl transition-all duration-300 ease-out ${activeTab === "signin" ? "bg-zinc-800/60 border border-white/10 text-zinc-100" : "border border-transparent text-zinc-500 hover:text-zinc-300"}`}
           >
             Sign In
           </button>
           <button
             onClick={() => setActiveTab("signup")}
-            className={`py-2 rounded-md transition-all duration-200 ${activeTab === "signup" ? "bg-zinc-800 text-white" : "text-zinc-500 hover:text-zinc-300"}`}
+            className={`min-h-11 py-2 rounded-xl transition-all duration-300 ease-out ${activeTab === "signup" ? "bg-zinc-800/60 border border-white/10 text-zinc-100" : "border border-transparent text-zinc-500 hover:text-zinc-300"}`}
           >
             Sign Up
           </button>
@@ -128,7 +129,7 @@ export default function LoginPage() {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="stevenzhang"
-                className="w-full bg-zinc-900/50 border border-zinc-800 rounded-md px-4 py-2.5 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-zinc-600 transition-colors"
+                className={INPUT}
               />
             </div>
           )}
@@ -141,7 +142,7 @@ export default function LoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="name@company.com"
-              className="w-full bg-zinc-900/50 border border-zinc-800 rounded-md px-4 py-2.5 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-zinc-600 transition-colors"
+              className={INPUT}
             />
           </div>
 
@@ -153,7 +154,7 @@ export default function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
-              className="w-full bg-zinc-900/50 border border-zinc-800 rounded-md px-4 py-2.5 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-zinc-600 transition-colors"
+              className={INPUT}
             />
           </div>
 
@@ -166,7 +167,7 @@ export default function LoginPage() {
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full bg-zinc-900/50 border border-zinc-800 rounded-md px-4 py-2.5 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-zinc-600 transition-colors"
+                className={INPUT}
               />
             </div>
           )}
@@ -174,11 +175,11 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-white hover:bg-zinc-200 text-black py-2.5 rounded-md font-medium text-sm transition-all duration-200 active:scale-95 disabled:opacity-50 disabled:scale-100 flex items-center justify-center space-x-2"
+            className={`${BTN_PRIMARY} w-full py-2.5 text-sm`}
           >
             {loading ? (
               <>
-                <span className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                <span className="w-4 h-4 border-2 border-zinc-950 border-t-transparent rounded-full animate-spin" />
                 <span>Authenticating...</span>
               </>
             ) : (
@@ -188,11 +189,11 @@ export default function LoginPage() {
         </form>
 
         {/* Minimal Footer */}
-        <p className="text-center text-[10px] text-zinc-600 font-mono mt-8">
+        <p className="text-center text-[10px] text-zinc-500 font-mono mt-8">
           Secured by Supabase Cryptography Systems
           {error ? (
             <>
-              <span className="block text-rose-500 mt-2">{error}</span>
+              <span className="block text-rose-400 mt-2">{error}</span>
             </>
           ) : null}
         </p>

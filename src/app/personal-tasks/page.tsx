@@ -10,6 +10,7 @@ import AppShell, {
   SecondaryButton,
 } from "@/app/components/AppShell";
 import TaskCard from "@/app/components/TaskCard";
+import { CHIP, KANBAN_COL, KANBAN_ROW, PAGE_BG } from "@/app/components/ui";
 import { supabase } from "@/lib/supabase";
 import {
   createTask,
@@ -36,7 +37,7 @@ export default function PersonalTasksPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-black text-zinc-500 font-mono text-xs flex items-center justify-center">
+        <div className={`min-h-screen ${PAGE_BG} text-zinc-500 font-mono text-xs flex items-center justify-center`}>
           Loading personal tasks…
         </div>
       }
@@ -313,7 +314,7 @@ function PersonalTasksContent() {
             <EmptyState>Loading tasks...</EmptyState>
           </Panel>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 items-start">
+          <div className={KANBAN_ROW}>
             {TASK_COLUMNS.map((column) => {
               const columnTasks = tasks.filter(
                 (task) => task.status === column.id
@@ -324,17 +325,17 @@ function PersonalTasksContent() {
                   aria-label={`${column.label} tasks`}
                   onDragOver={(event) => event.preventDefault()}
                   onDrop={() => void handleDrop(column.id)}
-                  className="bg-zinc-950/60 border border-zinc-900 rounded-xl p-3 space-y-3 min-h-96 flex flex-col"
+                  className={`${KANBAN_COL} min-h-96`}
                 >
-                  <div className="flex items-center justify-between px-1 pb-2 border-b border-zinc-900">
+                  <div className="flex items-center justify-between px-1 pb-2 border-b border-white/10">
                     <Label>{column.label}</Label>
-                    <span className="text-[10px] font-mono text-zinc-500 bg-zinc-900 px-2 py-0.5 rounded">
+                    <span className={CHIP}>
                       {columnTasks.length}
                     </span>
                   </div>
                   <div className="flex-1 space-y-3">
                     {columnTasks.length === 0 ? (
-                      <div className="h-32 flex items-center justify-center border border-dashed border-zinc-900 rounded-lg">
+                      <div className="h-32 flex items-center justify-center border border-dashed border-white/10 rounded-xl">
                         <EmptyState>
                           {tasks.length === 0
                             ? "No tasks yet"

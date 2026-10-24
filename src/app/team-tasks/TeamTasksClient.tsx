@@ -11,6 +11,13 @@ import AppShell, {
   EmptyState,
 } from "@/app/components/AppShell";
 import TaskCard from "@/app/components/TaskCard";
+import {
+  CARD,
+  CHIP,
+  KANBAN_COL,
+  KANBAN_ROW,
+  SCROLLBAR,
+} from "@/app/components/ui";
 import { createTeamTask, deleteTask, updateTeamTaskStatus, listTeamTasks } from "@/lib/tasks";
 import { getInStockQuantity, listAssignableParts } from "@/lib/parts";
 import {
@@ -477,11 +484,11 @@ export default function TeamTasksClient({
     >
       <div className="space-y-6">
         {/* Active Team Info Header Badge */}
-        <div className="flex items-center justify-between bg-zinc-950 border border-zinc-900 rounded-lg px-4 py-2 text-xs">
+        <div className={`flex items-center justify-between ${CARD} px-4 py-3 text-xs`}>
           <div className="flex items-center gap-2">
             <span className="text-zinc-500 font-mono">ACTIVE TEAM:</span>
             {activeTeam ? (
-              <span className="font-semibold text-white font-mono">
+              <span className="font-semibold text-zinc-100 font-mono">
                 {activeTeam.team_number ? `#${activeTeam.team_number}` : ""} {activeTeam.name || "Unnamed Team"}
               </span>
             ) : activeTeamId ? (
@@ -493,13 +500,13 @@ export default function TeamTasksClient({
         </div>
 
         {loadError && (
-          <div className="p-3 bg-red-950/80 border border-red-800 rounded-lg text-xs text-red-200">
+          <div className="p-3 bg-rose-950/40 backdrop-blur-xl border border-rose-500/30 rounded-2xl text-xs text-rose-200">
             <strong>Loading Error:</strong> {loadError}
           </div>
         )}
 
         {errorMessage && (
-          <div className="p-3 bg-red-950/80 border border-red-800 rounded-lg text-xs text-red-200">
+          <div className="p-3 bg-rose-950/40 backdrop-blur-xl border border-rose-500/30 rounded-2xl text-xs text-rose-200">
             <strong>Supabase Error:</strong> {errorMessage}
           </div>
         )}
@@ -578,7 +585,7 @@ export default function TeamTasksClient({
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
                   {/* MEMBERS SECTION */}
-                  <div className="flex flex-col bg-zinc-950/30 p-3 rounded-lg border border-zinc-900/50">
+                  <div className="flex flex-col bg-zinc-900/40 p-3 rounded-2xl border border-white/10">
                     <div className="flex items-center justify-between mb-3">
                       <Label>Assign Team Members</Label>
                     </div>
@@ -587,10 +594,10 @@ export default function TeamTasksClient({
                       placeholder="Search members..."
                       value={memberSearch}
                       onChange={(e) => setMemberSearch(e.target.value)}
-                      className="mb-3 text-xs py-1.5"
+                      className="mb-3 text-xs"
                     />
                     {/* Dark Glass Scrollbar Customization */}
-                    <div className="space-y-1.5 max-h-40 overflow-y-auto pr-3 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-white/10 [&::-webkit-scrollbar-thumb]:backdrop-blur-md [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-white/20 transition-all">
+                    <div className={`space-y-1.5 max-h-40 overflow-y-auto pr-3 ${SCROLLBAR} transition-all`}>
                       {loadingOptions ? (
                         <EmptyState>Loading team members...</EmptyState>
                       ) : teamMembers.length === 0 ? (
@@ -603,13 +610,13 @@ export default function TeamTasksClient({
                         filteredMembers.map((m) => (
                           <label
                             key={m.user_id}
-                            className="flex items-center gap-2 text-xs text-zinc-400 cursor-pointer hover:text-white transition-colors py-0.5"
+                            className="flex min-h-11 items-center gap-3 text-xs text-zinc-400 cursor-pointer hover:text-zinc-100 transition-colors"
                           >
                             <input
                               type="checkbox"
                               checked={selectedAssignees.includes(m.user_id)}
                               onChange={() => toggleAssignee(m.user_id)}
-                              className="accent-white bg-zinc-900 border-zinc-700 rounded-sm"
+                              className="h-5 w-5 accent-emerald-400 bg-zinc-900 border-white/10 rounded-lg"
                             />
                             {displayNameFromProfile(m.profiles)}
                           </label>
@@ -619,7 +626,7 @@ export default function TeamTasksClient({
                   </div>
 
                   {/* PARTS SECTION */}
-                  <div className="flex flex-col bg-zinc-950/30 p-3 rounded-lg border border-zinc-900/50">
+                  <div className="flex flex-col bg-zinc-900/40 p-3 rounded-2xl border border-white/10">
                     <div className="flex items-center justify-between mb-3">
                       <Label>Attach Parts</Label>
                     </div>
@@ -628,11 +635,11 @@ export default function TeamTasksClient({
                       placeholder="Search parts..."
                       value={partSearch}
                       onChange={(e) => setPartSearch(e.target.value)}
-                      className="mb-3 text-xs py-1.5"
+                      className="mb-3 text-xs"
                       disabled={!canManageInventory}
                     />
                     {/* Dark Glass Scrollbar Customization */}
-                    <div className="space-y-1.5 max-h-40 overflow-y-auto pr-3 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-white/10 [&::-webkit-scrollbar-thumb]:backdrop-blur-md [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-white/20 transition-all">
+                    <div className={`space-y-1.5 max-h-40 overflow-y-auto pr-3 ${SCROLLBAR} transition-all`}>
                       {loadingOptions ? (
                         <EmptyState>Loading team parts...</EmptyState>
                       ) : !canManageInventory ? (
@@ -652,9 +659,9 @@ export default function TeamTasksClient({
                           return (
                             <div
                               key={part.id}
-                              className="flex items-center gap-3 text-xs text-zinc-400 py-0.5"
+                              className="flex min-h-11 items-center gap-3 text-xs text-zinc-400"
                             >
-                              <label className="flex min-w-0 flex-1 items-center gap-2 cursor-pointer hover:text-white transition-colors">
+                              <label className="flex min-h-11 min-w-0 flex-1 items-center gap-3 cursor-pointer hover:text-zinc-100 transition-colors">
                                 <input
                                   type="checkbox"
                                   checked={selectedQuantity > 0}
@@ -662,12 +669,12 @@ export default function TeamTasksClient({
                                   onChange={(event) =>
                                     setPartQuantity(part.id, event.target.checked ? 1 : null)
                                   }
-                                  className="accent-white bg-zinc-900 border-zinc-700 rounded-sm"
+                                  className="h-5 w-5 shrink-0 accent-emerald-400 bg-zinc-900 border-white/10 rounded-lg"
                                 />
                                 <span className="truncate">
                                   {part.part_catalog?.name ?? "Unnamed Part"}
                                 </span>
-                                <span className="shrink-0 text-[10px] text-zinc-600 bg-zinc-900 px-1.5 py-0.5 rounded-md border border-zinc-800">
+                                <span className={`shrink-0 ${CHIP}`}>
                                   In stock: {availableQuantity}
                                 </span>
                               </label>
@@ -678,7 +685,7 @@ export default function TeamTasksClient({
                                   max={availableQuantity}
                                   value={selectedQuantity}
                                   aria-label={`Quantity of ${part.part_catalog?.name ?? "part"}`}
-                                  className="w-16 h-6 px-1 py-0 text-center"
+                                  className="w-16 shrink-0 px-1 py-0 text-center"
                                   onChange={(event) => {
                                     const nextQuantity = Number.parseInt(event.target.value, 10);
                                     if (Number.isNaN(nextQuantity)) return;
@@ -722,7 +729,7 @@ export default function TeamTasksClient({
         )}
 
         {/* Kanban Board Columns */}
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 items-start">
+        <div className={KANBAN_ROW}>
           {KANBAN_COLUMNS.map((col) => {
             const columnTasks = tasks.filter((t) => t.status === col.id);
 
@@ -731,18 +738,18 @@ export default function TeamTasksClient({
                 key={col.id}
                 onDragOver={handleDragOver}
                 onDrop={() => handleDrop(col.id)}
-                className="bg-zinc-950/60 border border-zinc-900 rounded-xl p-3 space-y-3 min-h-125 flex flex-col"
+                className={`${KANBAN_COL} min-h-125`}
               >
-                <div className="flex items-center justify-between px-1 pb-2 border-b border-zinc-900">
+                <div className="flex items-center justify-between px-1 pb-2 border-b border-white/10">
                   <Label>{col.label}</Label>
-                  <span className="text-[10px] font-mono text-zinc-500 bg-zinc-900 px-2 py-0.5 rounded">
+                  <span className={CHIP}>
                     {columnTasks.length}
                   </span>
                 </div>
 
                 <div className="flex-1 space-y-3">
                   {columnTasks.length === 0 ? (
-                    <div className="h-32 flex items-center justify-center border border-dashed border-zinc-900 rounded-lg">
+                    <div className="h-32 flex items-center justify-center border border-dashed border-white/10 rounded-xl">
                       <EmptyState>Drop here</EmptyState>
                     </div>
                   ) : (

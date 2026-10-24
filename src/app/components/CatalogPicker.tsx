@@ -2,6 +2,7 @@
 
 import { searchPartCatalog } from "@/lib/parts";
 import type { PartCatalog } from "@/lib/types";
+import { CARD, INPUT, SCROLLBAR } from "@/app/components/ui";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 
 type CatalogPickerProps = {
@@ -173,19 +174,19 @@ export default function CatalogPicker({
           if (next) setLoading(true);
           setOpen(next);
         }}
-        className="w-full bg-black/50 border border-zinc-800 rounded px-3 py-2 text-sm text-left flex items-center justify-between gap-3 focus:outline-none focus:border-zinc-600 disabled:opacity-50"
+        className={`${INPUT} text-left flex items-center justify-between gap-3`}
       >
         <span className={value ? "text-zinc-200 truncate" : "text-zinc-500 truncate"}>
           {triggerLabel}
         </span>
-        <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-600 shrink-0">
+        <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 shrink-0">
           {open ? "Close" : "Select"}
         </span>
       </button>
 
       {open ? (
-        <div className="absolute z-20 mt-1 w-full bg-zinc-950/95 border border-zinc-800 rounded-lg backdrop-blur-md overflow-hidden">
-          <div className="flex items-center gap-2 border-b border-zinc-900 px-3 py-2">
+        <div className={`absolute z-20 mt-2 w-full ${CARD} overflow-hidden`}>
+          <div className="flex items-center gap-2 border-b border-white/10 px-3 py-1">
             <input
               ref={searchRef}
               value={query}
@@ -197,10 +198,10 @@ export default function CatalogPicker({
               aria-activedescendant={
                 rows.optionCount > 0 ? `${listboxId}-option-${highlighted}` : undefined
               }
-              className="w-full bg-transparent text-sm text-zinc-200 placeholder:text-zinc-600 focus:outline-none"
+              className="w-full min-h-11 bg-transparent text-sm text-zinc-100 placeholder:text-zinc-500 focus:outline-none"
             />
             {loading ? (
-              <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-600 shrink-0">
+              <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-500 shrink-0">
                 Loading
               </span>
             ) : null}
@@ -209,12 +210,12 @@ export default function CatalogPicker({
           <button
             type="button"
             onClick={() => choose(null)}
-            className="w-full text-left px-3 py-2 text-xs font-mono uppercase tracking-wider text-zinc-400 hover:bg-zinc-900 hover:text-white border-b border-zinc-900"
+            className="w-full min-h-11 text-left px-3 py-2 text-xs font-mono uppercase tracking-wider text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-100 border-b border-white/10 transition-all duration-300 ease-out"
           >
             + Create a new catalog item
           </button>
 
-          <div ref={listRef} id={listboxId} role="listbox" className="max-h-72 overflow-y-auto">
+          <div ref={listRef} id={listboxId} role="listbox" className={`max-h-72 overflow-y-auto ${SCROLLBAR}`}>
             {error ? (
               <p className="px-3 py-3 text-xs font-mono text-rose-400">{error}</p>
             ) : null}
@@ -244,12 +245,12 @@ export default function CatalogPicker({
                   data-option-index={row.index}
                   onMouseEnter={() => setHighlighted(row.index)}
                   onClick={() => choose(row.item)}
-                  className={`px-3 py-2 cursor-pointer ${
-                    highlighted === row.index ? "bg-zinc-900" : ""
+                  className={`min-h-11 px-3 py-2 cursor-pointer transition-colors duration-300 ease-out ${
+                    highlighted === row.index ? "bg-zinc-800/50" : ""
                   }`}
                 >
                   <p className="text-sm text-zinc-200 truncate">{row.item.name}</p>
-                  <p className="text-[10px] font-mono text-zinc-600 truncate mt-0.5">
+                  <p className="text-[10px] font-mono text-zinc-500 truncate mt-0.5">
                     {row.item.sku ? `SKU ${row.item.sku}` : "No SKU"}
                     {row.item.manufacturer ? ` · ${row.item.manufacturer}` : ""}
                   </p>
@@ -258,8 +259,8 @@ export default function CatalogPicker({
             )}
           </div>
 
-          <div className="flex items-center justify-between gap-3 border-t border-zinc-900 px-3 py-2">
-            <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-600">
+          <div className="flex items-center justify-between gap-3 border-t border-white/10 px-3 py-1">
+            <span className="text-[10px] font-mono uppercase tracking-widest text-zinc-500">
               Showing {items.length} of {total}
             </span>
             {hasMore ? (
@@ -267,7 +268,7 @@ export default function CatalogPicker({
                 type="button"
                 disabled={loading}
                 onClick={() => void load(query, page + 1, true)}
-                className="text-[10px] font-mono uppercase tracking-widest text-zinc-400 hover:text-white disabled:opacity-50"
+                className="min-h-11 px-2 text-[10px] font-mono uppercase tracking-widest text-zinc-400 hover:text-zinc-100 disabled:opacity-50"
               >
                 Load more
               </button>

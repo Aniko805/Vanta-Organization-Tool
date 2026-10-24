@@ -16,7 +16,7 @@ type NotebookMarkdownProps = {
 };
 
 function chipClass() {
-  return "mx-0.5 inline-flex min-h-6 items-center border border-zinc-700 px-1.5 align-baseline text-[10px] font-mono uppercase tracking-wider text-zinc-300 hover:border-zinc-400 hover:text-white";
+  return "mx-0.5 inline-flex min-h-6 items-center rounded-lg border border-white/10 bg-zinc-800/60 px-2 align-baseline text-[10px] font-mono uppercase tracking-wider text-zinc-300 hover:bg-zinc-700/60 hover:border-white/20 hover:text-zinc-100 transition-all duration-300 ease-out";
 }
 
 export default function NotebookMarkdown({
@@ -73,7 +73,7 @@ export default function NotebookMarkdown({
                   <img
                     src={image.url}
                     alt={image.caption || "Notebook photo"}
-                    className="max-w-full border border-zinc-800"
+                    className="max-w-full rounded-xl border border-white/10"
                   />
                   {image.caption ? (
                     <figcaption className="mt-1 text-[10px] font-mono uppercase tracking-widest text-zinc-500">

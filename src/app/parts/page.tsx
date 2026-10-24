@@ -10,6 +10,7 @@ import AppShell, {
   SecondaryButton,
 } from "@/app/components/AppShell";
 import CatalogPicker from "@/app/components/CatalogPicker";
+import { H_SCROLL, INPUT } from "@/app/components/ui";
 import {
   addPartToInventory,
   deletePart,
@@ -34,6 +35,9 @@ import {
   type TeamMember,
 } from "@/lib/types";
 import { useCallback, useEffect, useRef, useState } from "react";
+
+const QTY_STEP =
+  "inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl bg-zinc-800/60 hover:bg-zinc-700/60 border border-white/10 text-sm font-bold text-zinc-200 transition-all active:scale-95";
 
 export default function PartsPage() {
   const [userId, setUserId] = useState<string | null>(null);
@@ -297,7 +301,7 @@ export default function PartsPage() {
             </Panel>
           )}
 
-          <div className="flex flex-wrap gap-2">
+          <div className={`flex gap-2 px-4 ${H_SCROLL}`}>
             <FilterChip
               active={filter === "all"}
               onClick={() => setFilter("all")}
@@ -357,7 +361,7 @@ export default function PartsPage() {
                       <p className="text-sm font-semibold text-zinc-100">
                         {catalog?.name ?? "Unnamed Part"}
                       </p>
-                      <p className="text-[10px] font-mono text-zinc-600 mt-1">
+                      <p className="text-[10px] font-mono text-zinc-500 mt-1">
                         {catalog?.sku ? `SKU ${catalog.sku}` : "No SKU"}
                         {catalog?.description ? ` · ${catalog.description}` : ""}
                       </p>
@@ -386,7 +390,7 @@ export default function PartsPage() {
                               );
                               commitQuantity(statusRecord.id, String(newQty));
                             }}
-                            className="px-2 py-1 bg-zinc-900 border border-zinc-800 rounded hover:bg-zinc-800 text-sm font-bold text-zinc-300"
+                            className={QTY_STEP}
                           >
                             −
                           </button>
@@ -414,7 +418,7 @@ export default function PartsPage() {
                               );
                             }}
                             onBlur={(e) => commitQuantity(statusRecord.id, e.target.value)}
-                            className="w-14 text-center bg-black border border-zinc-800 rounded py-1 text-sm text-white font-mono"
+                            className={`${INPUT} !w-16 px-1 text-center font-mono`}
                           />
 
                           <button
@@ -437,7 +441,7 @@ export default function PartsPage() {
                               );
                               commitQuantity(statusRecord.id, String(newQty));
                             }}
-                            className="px-2 py-1 bg-zinc-900 border border-zinc-800 rounded hover:bg-zinc-800 text-sm font-bold text-zinc-300"
+                            className={QTY_STEP}
                           >
                             +
                           </button>
@@ -529,10 +533,10 @@ function FilterChip({
     <button
       type="button"
       onClick={onClick}
-      className={`px-3 py-1.5 rounded text-[10px] font-mono uppercase tracking-wider border transition-colors ${
+      className={`min-h-11 shrink-0 px-4 py-1.5 rounded-xl text-[10px] font-mono uppercase tracking-wider border transition-all duration-300 ease-out ${
         active
-          ? "border-zinc-500 bg-zinc-900 text-white"
-          : "border-zinc-900 text-zinc-500 hover:text-zinc-300"
+          ? "border-emerald-400/40 bg-emerald-500/10 text-zinc-100"
+          : "border-white/10 bg-zinc-900/40 text-zinc-500 hover:bg-zinc-800/50 hover:border-white/20 hover:text-zinc-300"
       }`}
     >
       {label}

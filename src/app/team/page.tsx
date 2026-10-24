@@ -9,6 +9,7 @@ import AppShell, {
   PrimaryButton,
   SecondaryButton,
 } from "@/app/components/AppShell";
+import { BTN_PRIMARY, SCROLLBAR } from "@/app/components/ui";
 import { supabase } from "@/lib/supabase";
 import {
   createTeam,
@@ -391,7 +392,7 @@ export default function TeamPage() {
         selected ? (
           <Link
             href={`/team-tasks?team=${selected.id}`}
-            className="px-4 py-2 bg-white text-black text-xs font-semibold rounded hover:bg-zinc-200 active:scale-95 transition-all"
+            className={BTN_PRIMARY}
           >
             Open Team Tasks
           </Link>
@@ -419,10 +420,10 @@ export default function TeamPage() {
                       closeRoleEditor();
                       setSelectedId(team.id);
                     }}
-                    className={`w-full text-left px-3 py-2 rounded border text-sm transition-colors ${
+                    className={`w-full min-h-11 text-left px-3 py-2 rounded-xl border text-sm transition-all duration-300 ease-out ${
                       selectedId === team.id
-                        ? "border-zinc-600 bg-zinc-900/60 text-white"
-                        : "border-zinc-900 text-zinc-400 hover:text-zinc-200"
+                        ? "border-emerald-400/40 bg-emerald-500/10 text-zinc-100"
+                        : "border-white/10 bg-zinc-900/40 text-zinc-400 hover:bg-zinc-800/50 hover:border-white/20 hover:text-zinc-200"
                     }`}
                   >
                     <span className="font-semibold">{team.name}</span>
@@ -437,7 +438,7 @@ export default function TeamPage() {
             </div>
           </div>
 
-          <div className="border-t border-zinc-900 pt-4 space-y-3">
+          <div className="border-t border-white/10 pt-4 space-y-3">
             <Label>Create team</Label>
             <FieldInput
               placeholder="Team name"
@@ -454,7 +455,7 @@ export default function TeamPage() {
             </PrimaryButton>
           </div>
 
-          <div className="border-t border-zinc-900 pt-4 space-y-3">
+          <div className="border-t border-white/10 pt-4 space-y-3">
             <Label>Join with invite code</Label>
             <FieldInput
               placeholder="Invite code"
@@ -475,7 +476,7 @@ export default function TeamPage() {
             <>
               <div className="flex flex-wrap justify-between gap-4">
                 <div>
-                  <h2 className="text-xl font-bold">{selected.name}</h2>
+                  <h2 className="text-xl font-bold text-zinc-100">{selected.name}</h2>
                   <p className="text-xs font-mono text-zinc-500 mt-1">
                     {selected.team_number ? `Team #${selected.team_number} · ` : null}
                     session {selected.owner_id === userId ? "(Admin)" : ""}
@@ -489,7 +490,7 @@ export default function TeamPage() {
               </div>
 
               {/* Invite Code Box */}
-              <div className="p-4 border border-zinc-900 rounded-lg bg-black/40 space-y-2">
+              <div className="p-4 border border-white/10 rounded-2xl bg-zinc-900/40 space-y-2">
                 <Label>Invite code</Label>
                 <div className="flex flex-wrap items-center gap-3">
                   <code className="text-sm font-mono text-emerald-400 tracking-wider">
@@ -513,7 +514,7 @@ export default function TeamPage() {
                     </SecondaryButton>
                   ) : null}
                 </div>
-                <p className="text-[10px] font-mono text-zinc-600">
+                <p className="text-[10px] font-mono text-zinc-500">
                   Share this code with teammates so they can join from this page.
                 </p>
               </div>
@@ -564,7 +565,7 @@ export default function TeamPage() {
                       return (
                         <div
                           key={role.id}
-                          className="border border-zinc-900 rounded bg-zinc-950/40 p-3"
+                          className="border border-white/10 rounded-2xl bg-zinc-900/40 hover:bg-zinc-800/50 hover:border-white/20 transition-all duration-300 ease-out p-3"
                         >
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0">
@@ -583,7 +584,7 @@ export default function TeamPage() {
                                   type="button"
                                   disabled={roleActionBusy}
                                   onClick={() => openEditRoleEditor(role)}
-                                  className="text-xs text-zinc-400 hover:text-white disabled:opacity-50"
+                                  className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl text-xs text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-100 transition-all disabled:opacity-50"
                                 >
                                   Edit
                                 </button>
@@ -591,7 +592,7 @@ export default function TeamPage() {
                                   type="button"
                                   disabled={roleActionBusy}
                                   onClick={() => handleDeleteRole(role)}
-                                  className="text-xs text-zinc-500 hover:text-red-400 disabled:opacity-50"
+                                  className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl text-xs text-zinc-500 hover:bg-zinc-800/50 hover:text-rose-400 transition-all disabled:opacity-50"
                                 >
                                   Delete
                                 </button>
@@ -605,7 +606,7 @@ export default function TeamPage() {
                 )}
 
                 {roleEditorOpen && canManageRoleDefinitions ? (
-                  <div className="mt-4 border border-zinc-800 rounded bg-black/40 p-4 space-y-4">
+                  <div className="mt-4 border border-white/10 rounded-2xl bg-zinc-900/40 p-4 space-y-4">
                     <div className="flex items-center justify-between gap-3">
                       <Label>{editingRoleId ? "Edit role" : "Create role"}</Label>
                       <SecondaryButton
@@ -634,7 +635,7 @@ export default function TeamPage() {
                       {TEAM_ROLE_PERMISSIONS.map((permission) => (
                         <label
                           key={permission.key}
-                          className="flex items-center gap-2 border border-zinc-900 rounded px-3 py-2 text-xs text-zinc-300"
+                          className="flex min-h-11 items-center gap-3 border border-white/10 rounded-xl bg-zinc-900/40 hover:bg-zinc-800/50 hover:border-white/20 transition-all duration-300 ease-out px-3 py-2 text-xs text-zinc-300 cursor-pointer"
                         >
                           <input
                             type="checkbox"
@@ -646,7 +647,7 @@ export default function TeamPage() {
                                 [permission.key]: e.target.checked,
                               }))
                             }
-                            className="h-4 w-4 accent-emerald-400"
+                            className="h-5 w-5 accent-emerald-400"
                           />
                           {permission.label}
                         </label>
@@ -673,10 +674,10 @@ export default function TeamPage() {
                   placeholder="Search members..."
                   value={memberSearch}
                   onChange={(e) => setMemberSearch(e.target.value)}
-                  className="mt-3 mb-3 text-sm py-2"
+                  className="mt-3 mb-3 text-sm"
                 />
 
-                <div className="divide-y divide-zinc-900 border border-zinc-900 rounded-lg overflow-y-auto max-h-[600px] pr-1 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-white/10 [&::-webkit-scrollbar-thumb]:backdrop-blur-md [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-white/20 transition-all">
+                <div className={`divide-y divide-white/10 border border-white/10 rounded-2xl overflow-y-auto max-h-[600px] pr-1 ${SCROLLBAR} transition-all`}>
                   {filteredMembers.length === 0 ? (
                      <div className="p-4">
                        <EmptyState>No members match "{memberSearch}"</EmptyState>
@@ -694,7 +695,7 @@ export default function TeamPage() {
                       return (
                         <div
                           key={member.id}
-                          className="flex flex-wrap items-center justify-between gap-4 px-4 py-3 bg-zinc-950/30"
+                          className="flex flex-wrap items-center justify-between gap-4 px-4 py-3 bg-zinc-900/40 hover:bg-zinc-800/50 transition-colors duration-300 ease-out"
                         >
                           {/* Member Identity & Role Badges */}
                           <div className="space-y-1">
@@ -718,13 +719,13 @@ export default function TeamPage() {
                                 member.team_roles_list.map((r) => (
                                   <span
                                     key={r.id}
-                                    className="px-2 py-0.5 text-[11px] font-medium rounded-full bg-blue-950/60 text-blue-300 border border-blue-800/50"
+                                    className="px-2 py-0.5 text-[11px] font-medium rounded-full bg-cyan-950/40 text-cyan-300 border border-cyan-500/30"
                                   >
                                     {r.name}
                                   </span>
                                 ))
                               ) : (
-                                <span className="text-[10px] font-mono text-zinc-600">
+                                <span className="text-[10px] font-mono text-zinc-500">
                                   {member.team_roles?.name ?? "No role"}
                                 </span>
                               )}
@@ -734,7 +735,7 @@ export default function TeamPage() {
                           {/* Actions: Dynamic Dropdowns & Add Button */}
                           <div className="flex items-center gap-4">
                             {isAdmin ? (
-                              <div className="flex flex-col gap-2 border-l border-zinc-900 pl-4">
+                              <div className="flex flex-col gap-2 border-l border-white/10 pl-4">
                                 {/* Stacked Dropdowns */}
                                 <div className="flex flex-col gap-2">
                                   {assignedRoleIds.length === 0 ? (
@@ -795,7 +796,7 @@ export default function TeamPage() {
                                               idx
                                             )
                                           }
-                                          className="text-zinc-500 hover:text-red-400 p-1 text-xs transition-colors"
+                                          className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-xl text-zinc-500 hover:bg-zinc-800/50 hover:text-rose-400 text-xs transition-all"
                                         >
                                           ✕
                                         </button>
@@ -812,7 +813,7 @@ export default function TeamPage() {
                                     onClick={() =>
                                       handleAddRoleDropdown(member.id, assignedRoleIds)
                                     }
-                                    className="text-[11px] font-medium text-emerald-400 hover:text-emerald-300 text-left transition-colors"
+                                    className="min-h-11 text-[11px] font-medium text-emerald-400 hover:text-emerald-300 text-left transition-colors"
                                   >
                                     + Add another role
                                   </button>

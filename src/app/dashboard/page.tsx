@@ -214,7 +214,7 @@ export default function DashboardPage() {
             <p className="text-sm leading-relaxed text-zinc-400">
               Identify a part from an image and add it to your inventory.
             </p>
-            <span className="w-fit border border-amber-500/40 px-2 py-1 text-[10px] font-mono uppercase text-amber-300">
+            <span className="w-fit rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-1 text-[10px] font-mono uppercase text-amber-300">
               Coming soon
             </span>
           </div>
@@ -236,9 +236,9 @@ function FeatureWidget({
   children: React.ReactNode;
 }) {
   return (
-    <Panel className="flex h-full flex-col !p-5">
+    <Panel interactive className="flex h-full flex-col !p-5">
       <div className="flex items-start justify-between gap-3">
-        <Link href={href} className="text-sm font-semibold text-zinc-100 hover:text-white">
+        <Link href={href} className="inline-flex min-h-11 items-center text-sm font-semibold text-zinc-100 hover:text-emerald-300 transition-colors">
           {title}
           <span aria-hidden="true" className="ml-2 text-zinc-600">↗</span>
         </Link>
@@ -247,7 +247,7 @@ function FeatureWidget({
       <div className="mt-4 flex-1">{children}</div>
       <Link
         href={href}
-        className="mt-5 inline-flex w-fit items-center gap-2 border-t border-zinc-900 pt-3 text-[10px] font-mono uppercase text-zinc-500 transition-colors hover:text-white"
+        className="mt-5 inline-flex min-h-11 w-fit items-center gap-2 border-t border-white/10 pt-3 text-[10px] font-mono uppercase text-zinc-500 transition-colors hover:text-zinc-100"
       >
         Open {title} <span aria-hidden="true">→</span>
       </Link>
@@ -262,7 +262,7 @@ function TaskPreview({ tasks }: { tasks: TaskWithRelations[] }) {
         <li key={task.id} className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="truncate text-sm text-zinc-200">{task.name}</p>
-            <p className="mt-1 text-[10px] font-mono uppercase text-zinc-600">
+            <p className="mt-1 text-[10px] font-mono uppercase text-zinc-500">
               {task.importance.replace("_", " ")}
             </p>
           </div>

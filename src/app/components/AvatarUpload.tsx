@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { BTN_SECONDARY } from "@/app/components/ui";
 
 interface AvatarUploadProps {
   userId: string;
@@ -55,7 +56,7 @@ export default function AvatarUpload({
 
   return (
     <div className="flex items-center gap-4">
-      <div className="h-16 w-16 rounded-full border border-zinc-800 overflow-hidden bg-zinc-900 flex items-center justify-center text-zinc-500 font-mono text-xs">
+      <div className="h-16 w-16 rounded-full border border-white/10 overflow-hidden bg-zinc-800/60 flex items-center justify-center text-zinc-500 font-mono text-xs">
         {previewUrl ? (
           <img
             src={previewUrl}
@@ -68,7 +69,7 @@ export default function AvatarUpload({
       </div>
 
       <div>
-        <label className="cursor-pointer bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border border-zinc-800 px-3 py-1.5 rounded-md text-xs font-medium transition-colors inline-block">
+        <label className={`${BTN_SECONDARY} cursor-pointer`}>
           {uploading ? "Uploading..." : "Upload Image"}
           <input
             type="file"

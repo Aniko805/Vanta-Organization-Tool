@@ -58,7 +58,7 @@ src/
     parts/                   # Inventory
     engineering-notes/       # Dated notes and curated notebook
     settings/
-    components/              # Shared UI (Sidebar, AppShell)
+    components/              # Shared UI (Sidebar, AppShell, ui.ts design tokens)
   lib/
     supabase.ts
     auth.ts
@@ -85,22 +85,26 @@ tools/catalog-ingest/        # Offline vendor catalog fetch; not imported by the
 
 ## Design system (Vulcan aesthetic)
 
-Vercel-inspired **premium developer dark mode**: high-contrast minimalism, geometric structure, dense data layouts.
+**Dark-mode glassmorphism** (superseded the earlier Vercel-style black/white/sharp-corner tokens on 2026-10-23). Curved geometry, translucent zinc glass, emerald-to-cyan accents. The tokens live as literal class strings in `src/app/components/ui.ts`; use those constants (or the `AppShell` primitives built from them) instead of re-typing classes.
 
 | Token | Guidance |
 |-------|----------|
-| Page background | Absolute black `#000000` |
-| Atmosphere | Procedural hairline gridlines (subtle, masked) |
-| Surfaces | Semi-translucent dark zinc cards, e.g. `bg-zinc-950/40`, heavy backdrop blur |
-| Borders | Dark glass / `border-zinc-900` family |
-| Primary headers | Bold compressed sans; white-to-zinc gradient text mask where appropriate |
+| Geometry | Never `rounded-none` / `rounded-sm` / `rounded-md`. Inputs and buttons `rounded-xl`; cards and panels `rounded-2xl`; modals and sheets `rounded-3xl` (`rounded-t-3xl` bottom sheet below `md`) |
+| Page background | `bg-zinc-950 text-zinc-100` plus a top radial glow (`PAGE_BG`) |
+| Glass surface | `bg-zinc-900/40 backdrop-blur-xl border border-white/10 shadow-2xl shadow-black/50` (`GLASS`, `CARD`) |
+| Hover / active | `hover:bg-zinc-800/50 hover:border-white/20 transition-all duration-300 ease-out` (`GLASS_HOVER`) |
+| Text | Primary `text-zinc-100`, secondary `text-zinc-400`, labels `text-zinc-500`. No stark white or black |
+| Primary buttons | Gradient `from-emerald-500 to-cyan-500`, `text-zinc-950`, emerald glow shadow (`BTN_PRIMARY`) |
+| Secondary buttons | `bg-zinc-800/60 hover:bg-zinc-700/60 text-zinc-200 border border-white/10` (`BTN_SECONDARY`) |
+| Scrollbars | Every scrollable container uses the glass scrollbar string (`SCROLLBAR`) |
+| Mobile | 44px minimum touch targets (`min-h-11`); desktop modals become bottom sheets below `md` (`MODAL_BACKDROP` + `MODAL_SHEET`); horizontal tab lists and Kanban columns scroll with edge fade masks (`H_SCROLL`, `KANBAN_ROW`) |
 | Metadata / status | Micro-scaled, wide-tracked, uppercase monospaced labels |
-| Primary actions | Solid white blocks; tactile `active:scale-95` |
-| Secondary | Dark glass borders, low-chroma chrome |
-| Accent color | Sharp neon points only—e.g. pulsing emerald for live/system status |
-| Avoid | Purple-on-white themes, warm cream newspaper looks, emoji clutter, multi-layer shadow stacks, rounded-full pill spam |
+| Accent color | Emerald and cyan. Pulsing emerald for live/system status |
+| Avoid | Purple accents, warm cream looks, emoji clutter, sharp corners, stark `#000` / `#fff` surfaces on screen |
 
-Preserve existing landing and dashboard visual language when extending UI.
+Print output (`@media print` in `globals.css`) stays black-on-white on purpose, since it targets paper.
+
+Preserve the existing landing and dashboard layouts when extending UI.
 
 ## Target data model (for schema phases)
 

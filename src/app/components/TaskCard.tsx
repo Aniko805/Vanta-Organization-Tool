@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { FieldInput, SecondaryButton } from "@/app/components/AppShell";
+import { BTN_SECONDARY } from "@/app/components/ui";
 import {
   displayNameFromProfile,
   TASK_COLUMNS,
@@ -32,7 +33,7 @@ export default function TaskCard({
     critical: "border-l-rose-500 bg-rose-950/25 text-rose-100",
     high: "border-l-orange-400 bg-orange-950/20 text-orange-100",
     medium: "border-l-sky-400 bg-sky-950/15 text-sky-100",
-    low: "border-l-zinc-500 bg-zinc-950 text-zinc-100",
+    low: "border-l-zinc-500 bg-zinc-900/40 text-zinc-100",
   }[task.importance];
   const importanceLabelClass = {
     critical: "text-rose-300",
@@ -52,7 +53,7 @@ export default function TaskCard({
       draggable={Boolean(onDragStart)}
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
-      className={`space-y-3 p-4 rounded-lg bg-black border border-zinc-800 border-l-4 ${importanceClass} hover:border-t-zinc-700 hover:border-r-zinc-700 hover:border-b-zinc-700 transition-colors ${
+      className={`space-y-3 p-4 rounded-2xl backdrop-blur-xl border border-white/10 border-l-4 shadow-2xl shadow-black/50 ${importanceClass} hover:border-t-white/20 hover:border-r-white/20 hover:border-b-white/20 transition-all duration-300 ease-out ${
         onDragStart ? "cursor-grab active:cursor-grabbing" : ""
       } ${
         isDragging ? "opacity-50" : ""
@@ -140,7 +141,7 @@ export default function TaskCard({
           {task.task_assignees.map((assignee) => (
             <span
               key={assignee.user_id}
-              className="text-[10px] font-mono text-zinc-400 bg-zinc-900 px-2 py-0.5 rounded border border-zinc-800"
+              className="text-[10px] font-mono text-zinc-400 bg-zinc-800/60 px-2 py-0.5 rounded-lg border border-white/10"
             >
               {displayNameFromProfile(assignee.profiles)}
             </span>
@@ -153,7 +154,7 @@ export default function TaskCard({
           {task.task_parts.map((taskPart) => (
             <span
               key={taskPart.part_id}
-              className="text-[10px] font-mono text-emerald-300/80 bg-zinc-900 px-2 py-0.5 rounded border border-zinc-800"
+              className="text-[10px] font-mono text-emerald-300/80 bg-zinc-800/60 px-2 py-0.5 rounded-lg border border-white/10"
             >
               {taskPart.parts?.part_catalog?.name ?? "Part"}
               {taskPart.quantity ? ` × ${taskPart.quantity}` : ""}
@@ -179,7 +180,7 @@ export default function TaskCard({
         {!task.id.startsWith("temp-") ? (
           <Link
             href={addChildHref(task)}
-            className="px-3 py-2 border border-zinc-700 text-zinc-300 text-xs font-semibold rounded hover:border-zinc-500 hover:text-white transition-colors"
+            className={BTN_SECONDARY}
           >
             Add child
           </Link>
@@ -198,7 +199,7 @@ function TaskLink({ task }: { task: TaskLink }) {
   return (
     <Link
       href={taskHref(task)}
-      className="text-zinc-300 underline decoration-zinc-700 underline-offset-2 hover:text-white"
+      className="text-zinc-300 underline decoration-zinc-700 underline-offset-2 hover:text-zinc-100"
     >
       {task.name}
     </Link>
