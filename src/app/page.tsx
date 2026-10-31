@@ -73,7 +73,7 @@ export default function Home() {
             >
               Repository
             </a>
-            <a href="#origin" className="inline-flex min-h-11 shrink-0 items-center hover:text-zinc-100 transition-colors">Origin</a>
+            <a href="https://github.com/Aniko805/Vulcan-Organization-Tool" className="inline-flex min-h-11 shrink-0 items-center hover:text-zinc-100 transition-colors">Origin</a>
             <span className="h-4 w-px shrink-0 bg-white/10" />
             <div className="flex shrink-0 items-center space-x-2">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
