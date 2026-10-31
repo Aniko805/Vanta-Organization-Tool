@@ -57,14 +57,12 @@ export default function Home() {
             <span className="text-lg font-semibold tracking-tight uppercase text-zinc-100">Vulcan</span>
           </div>
           <div className={`flex min-w-0 items-center gap-4 md:gap-6 text-sm text-zinc-400 overflow-x-auto [mask-image:linear-gradient(to_right,transparent,black_10%,black_90%,transparent)] ${SCROLLBAR}`}>
-            <a 
-              href="https://github.com/Aniko805/Vulcan-Organization-Tool/blob/main/specs/mission.md" 
-              target="_blank" 
-              rel="noopener noreferrer" 
+            <Link
+              href="/documentation"
               className="inline-flex min-h-11 shrink-0 items-center hover:text-zinc-100 transition-colors"
             >
               Documentation
-            </a>
+            </Link>
             <a 
               href="https://github.com/Aniko805/Vulcan-Organization-Tool" 
               target="_blank" 
